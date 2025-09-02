@@ -6,4 +6,8 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns uncomplicate.diamond.internal.onnxrt.protocols)
+(ns ^{:author "Dragan Djuric"}
+    uncomplicate.diamond.internal.ort.core-test
+  (:require [midje.sweet :refer [facts throws => roughly truthy just]]
+            [uncomplicate.commons.core :refer [with-release bytesize size release]])
+  (:import clojure.lang.ExceptionInfo))

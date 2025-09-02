@@ -6,14 +6,9 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns ^{:author "Dragan Djuric"}
-    uncomplicate.diamond.internal.onnxrt.constants-test
-  (:require [midje.sweet :refer [facts =>]]
-            [uncomplicate.diamond.internal.onnxrt.constants :refer :all]))
-
-(facts "ONNX Runtime format tests."
-       (remove identity (map #(= % (onnxrt-format (dec-format %))) (range 52))) => [])
-
-(facts "ONNX data-type tests."
-       (remove identity (map #(= % (onnxrt-data-type (dec-data-type %))) (range 7)))
-       => [])
+(ns uncomplicate.diamond.internal.ort.impl
+  (:require [uncomplicate.commons
+             [core :refer [Releaseable release let-release with-release Info
+                           info Viewable view Bytes bytesize Entries sizeof* bytesize*
+                           sizeof size]]
+             [utils :refer [dragan-says-ex]]]))

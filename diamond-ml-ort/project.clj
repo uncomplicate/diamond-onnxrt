@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject org.uncomplicate/diamond-ml-onnxrt "0.1.0"
+(defproject org.uncomplicate/diamond-ml-ort "0.1.0"
   :description "Fast Clojure Machine Learning Model Integration"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
@@ -20,7 +20,7 @@
              :dev/all {:plugins [[lein-midje "3.2.1"]]
                        :resource-paths ["data"]
                        :global-vars {*warn-on-reflection* true
-                                     *assert* falsel
+                                     *assert* false
                                      *unchecked-math* :warn-on-boxed
                                      *print-length* 128}
                        :dependencies [[midje "1.10.10"]

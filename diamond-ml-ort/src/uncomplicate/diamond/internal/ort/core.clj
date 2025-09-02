@@ -6,7 +6,8 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns uncomplicate.diamond.internal.onnxrt.core
+(ns uncomplicate.diamond.internal.ort.core
   (:require [uncomplicate.commons
              [core :refer [let-release with-release view Info bytesize size]]
-             [utils :refer [enc-keyword dragan-says-ex mask]]]))
+             [utils :refer [enc-keyword dragan-says-ex mask]]])
+  (:import org.bytedeco.onnxruntime.global.onnxruntime))
