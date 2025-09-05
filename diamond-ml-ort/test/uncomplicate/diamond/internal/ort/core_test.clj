@@ -9,9 +9,23 @@
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.diamond.internal.ort.core-test
   (:require [midje.sweet :refer [facts throws => =not=> roughly truthy just]]
-            [uncomplicate.commons.core :refer [with-release bytesize size release]]
+            [uncomplicate.commons.core :refer [with-release info bytesize size release]]
+            [uncomplicate.clojure-cpp :refer [null?]]
             [uncomplicate.diamond.internal.ort.core :refer :all])
   (:import clojure.lang.ExceptionInfo))
+
+(facts
+ "Tests release."
+ (let [opt (options)
+       env (environment)
+       sess (session env "data/logreg_iris.onnx" opt)]
+   (null? opt) => false
+   (null? env) => false
+   (null? sess) => false
+   (release opt) => true
+   opt => nil
+   (null? env) => false
+   (null? sess) => false))
 
 (facts
   "Hello world example test"
@@ -23,9 +37,10 @@
     (output-count sess) => 2
     (input-name sess) => ["float_input"]
     (output-name sess) => ["label" "probabilities"]
-    (input-type-info sess 0) => {:shape [3 2] :type 1}
+    (info (input-type-info sess 0)) => {:count 6 :shape [3 2] :data-type :float :type :tensor}
     (input-type-info sess 1) => (throws IndexOutOfBoundsException)
-    (input-type-info sess) => [{:shape [3 2] :type 1}]
-    (output-type-info sess 0) => {:shape [3] :type 7}
-    (.GetElementType (.GetTensorTypeAndShapeInfo (output-type-info sess 1))) => :a
+    (map info (input-type-info sess)) => [{:count 6 :shape [3 2] :data-type :float :type :tensor}]
+    (info (output-type-info sess 0)) => {:count 3 :shape [3] :data-type :long :type :tensor}
+    (scalar? (value-type (element-type (output-type-info sess 1)))) => true
+    (info (output-type-info sess 1)) => {:element [{:key :long :type :map :value :float}] :type :sequence}
     (output-type-info sess 2) => (throws IndexOutOfBoundsException)))

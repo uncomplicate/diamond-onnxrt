@@ -58,6 +58,30 @@
    :uint4 onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT4
    :int4 onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_INT4})
 
+(def ^:const dec-onnx-data-type
+  {onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED :undef
+   onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT :float
+   onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8 :uint8
+   onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8 :byte
+   onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT16 :uint16
+   onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_INT16 :short
+   onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32 :int
+   onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64 :long
+   onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING String
+   onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16 :float16
+   onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE :double
+   onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT32 :uint32
+   onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64 :uint64
+   onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64 :complex64
+   onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128 :complex128
+   onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_BFLOAT16 :bf16
+   onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT8E4M3FN :float8e4m3fn
+   onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT8E4M3FNUZ :float8e4m3fnuz
+   onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT8E5M2 :float8e5m2
+   onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT8E5M2FNUZ :float8e5m2fnuz
+   onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT4 :uint4
+   onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_INT4 :int4})
+
 (def ^:const onnx-type
   {:unknown onnxruntime/ONNX_TYPE_UNKNOWN
    :tensor onnxruntime/ONNX_TYPE_TENSOR
@@ -67,6 +91,17 @@
    :opaque onnxruntime/ONNX_TYPE_OPAQUE
    :sparse onnxruntime/ONNX_TYPE_SPARSETENSOR
    :optional onnxruntime/ONNX_TYPE_OPTIONAL})
+
+(defn dec-onnx-type [^long type]
+  (case type
+    0 :unknown
+    1 :tensor
+    2 :sequence
+    3 :map
+    4 :opaque
+    5 :sparse
+    6 :optional
+    :unknown))
 
 (def ^:const ort-type
   {:undefined onnxruntime/ORT_SPARSE_UNDEFINED

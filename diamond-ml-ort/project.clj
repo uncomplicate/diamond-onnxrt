@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject org.uncomplicate/diamond-ml-ort "0.1.0"
+(defproject org.uncomplicate/diamond-ml-ort "0.1.0-SNAPSHOT"
   :description "Fast Clojure Machine Learning Model Integration"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
@@ -15,6 +15,7 @@
   :dependencies [[org.clojure/clojure "1.12.2"]
                  [org.uncomplicate/deep-diamond-base "0.35.2"]
                  [org.bytedeco/onnxruntime-platform "1.20.0-1.5.11"]]
+
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {:plugins [[lein-midje "3.2.1"]]
@@ -28,12 +29,14 @@
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                             "--enable-native-access=ALL-UNNAMED"]}
              :linux {:dependencies [[org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
-                                    [org.bytedeco/dnnl-platform "3.8.1-1.5.12"]
                                     [org.uncomplicate/deep-diamond-dnnl "0.35.2"]]}
              :windows {:dependencies [[org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]
-                                      [org.uncomplicate/deep-diamond-dnnl "0.35.2"]
-                                      [org.bytedeco/dnnl-platform "3.8.1-1.5.12"]]}}
+                                      [org.uncomplicate/deep-diamond-dnnl "0.35.2"]]}
+             :macosx {:dependencies [[org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]
+                                     [org.uncomplicate/deep-diamond-bnns "0.35.2"]
+                                     [org.bytedeco/onnxruntime-platform "1.22.2-1.5.13-SNAPSHOT"]]}}
 
-  :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
+  :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]
+                 ["maven-snapshots" "https://central.sonatype.com/repository/maven-snapshots"]]
 
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"])

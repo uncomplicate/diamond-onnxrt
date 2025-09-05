@@ -9,13 +9,41 @@
 (ns uncomplicate.diamond.internal.ort.core
   (:require [clojure.string :as st :refer [lower-case split]]
             [uncomplicate.commons
-             [core :refer [let-release with-release view Info bytesize size]]
+             [core :refer [let-release with-release Releaseable view Info info bytesize size]]
              [utils :refer [enc-keyword dragan-says-ex mask]]]
-            [uncomplicate.clojure-cpp :refer [get-string byte-pointer]]
+            [uncomplicate.clojure-cpp :refer [get-string byte-pointer null?]]
             [uncomplicate.diamond.internal.ort.constants :refer :all])
   (:import org.bytedeco.onnxruntime.global.onnxruntime
            [org.bytedeco.onnxruntime Env StringVector LongVector OrtStatus SessionOptions Session
-            AllocatorWithDefaultOptions OrtAllocator TypeInfo]))
+            AllocatorWithDefaultOptions OrtAllocator TypeInfo TypeInfoImpl MapTypeInfoImpl ConstMapTypeInfo
+            ConstTensorTypeAndShapeInfo TensorTypeAndShapeInfoImpl BaseSequenceTypeInfoImpl
+            OptionalTypeInfoImpl]))
+
+(defmacro extend-ort [t]
+  `(extend-type ~t
+     Releaseable
+     (release [this#]
+       (locking this#
+         (when-not (null? this#)
+           (let [ort# (.release this#)]
+             (when-not (null? ort#)
+               (onnxruntime/OrtRelease ort#)
+               (.deallocate ort#)
+               (.setNull ort#)))
+           (.deallocate this#)
+           (.setNull this#))
+         true))))
+
+(extend-ort Env)
+(extend-ort SessionOptions)
+(extend-ort Session)
+(extend-ort TypeInfoImpl)
+(extend-ort TensorTypeAndShapeInfoImpl)
+(extend-ort ConstTensorTypeAndShapeInfo)
+(extend-ort ConstMapTypeInfo)
+(extend-ort MapTypeInfoImpl)
+(extend-ort BaseSequenceTypeInfoImpl)
+(extend-ort OptionalTypeInfoImpl)
 
 (defn version []
   (with-release [p (onnxruntime/GetVersionString)]
@@ -55,7 +83,6 @@
 (defn graph-optimization [^SessionOptions opt level]
   (.SetGraphOptimizationLevel opt (enc-keyword ort-graph-optimization level)))
 
-
 (defn environment
   ([logging-level name]
    (Env. (enc-keyword ort-logging-level logging-level) name))
@@ -70,10 +97,136 @@
 
 (def default-allocator (.asUnownedAllocator (AllocatorWithDefaultOptions.)))
 
-(defn tensor-type-info [^TypeInfo type-info]
-  (let [tensor-info (.GetTensorTypeAndShapeInfo type-info)]
-    {:type (.GetElementType tensor-info)
-     :shape (vec (.get (.GetShape tensor-info)))}))
+(declare type-info element-count shape)
+
+(defprotocol ElementInfo
+  (element-type* [this])
+  (element-type [this]))
+
+(defprotocol TensorInfo
+  (element-count* [this])
+  (dimensions-count* [this])
+  (shape* [this]))
+
+(defprotocol MapInfo
+  (key-type* [this])
+  (key-type [this])
+  (value-type [this]))
+
+(defn element-count ^long [info]
+  (element-count info))
+
+(defn scalar? [info]
+  (= 0 (dimensions-count* info)))
+
+(defn shape [info]
+  (vec (.get ^LongVector (shape* info))))
+
+(defmacro extend-tensor-info [t]
+  `(extend-type ~t
+     Info
+     (info
+       ([this#]
+        (if (scalar? this#)
+          (element-type this#)
+          {:data-type (element-type this#)
+           :shape (shape this#)
+           :count (.GetElementCount this#)
+           :type :tensor}))
+       ([this# info-type#]
+        (case info-type#
+          :data-type (element-type this#)
+          :shape (shape this#)
+          :count (.GetElementCount this#)
+          :type :tensor
+          nil)))
+     ElementInfo
+     (element-type* [this#]
+       (.GetElementType this#))
+     (element-type [this#]
+       (dec-onnx-data-type (.GetElementType this#)))
+     TensorInfo
+     (dimensions-count* [this#]
+       (.GetDimensionsCount this#))
+     (element-count* [this#]
+       (.GetElementCount this#))
+     (shape* [this#]
+       (.GetShape this#))))
+
+(extend-tensor-info TensorTypeAndShapeInfoImpl)
+(extend-tensor-info ConstTensorTypeAndShapeInfo)
+
+(defn type-info [^TypeInfo type-info]
+  (case (.GetONNXType type-info)
+    1 (.GetTensorTypeAndShapeInfo type-info)
+    2 (.GetSequenceTypeInfo type-info)
+    3 (.GetMapTypeInfo type-info)
+    6 (.GetOptionalTypeInfo type-info)
+    (dragan-says-ex "TODO")))
+
+(extend-type TypeInfoImpl
+  Info
+  (info [this]
+    (info (type-info this)))
+  (info [this info-type]
+    (info (type-info this) info-type)))
+
+(extend-type BaseSequenceTypeInfoImpl
+  Info
+  (info
+    ([this]
+     {:type :sequence
+      :element [(info (element-type this))]})
+    ([this type-info]
+     (case type-info
+       :type :sequence
+       :element (info (element-type this))
+       nil)))
+  ElementInfo
+  (element-type* [this#]
+    (.GetSequenceElementType this#))
+  (element-type [this#]
+    (type-info (.GetSequenceElementType this#))))
+
+(extend-type OptionalTypeInfoImpl
+  Info
+  (info
+    ([this]
+     {:type :optional})
+    ([this type-info]
+     (case type-info
+       :type :optional
+       nil))))
+
+(defmacro extend-map-info [t]
+  `(extend-type ~t
+     Info
+     (info
+       ([this#]
+        {:type :map
+         :key (key-type this#)
+         :value (info (value-type this#))})
+       ([this# info-type#]
+        (case info-type#
+          :tyte :map
+          :key (key-type this#)
+          :value (info (value-type this#))
+          nil)))
+     ElementInfo
+     (element-type* [this#]
+       [(key-type* this#) (value-type this#)])
+     (element-type [this#]
+       [(key-type this#) (value-type this#)])
+     MapInfo
+     (key-type* [this#]
+       (.GetMapKeyType this#))
+     (key-type [this#]
+       (dec-onnx-data-type (.GetMapKeyType this#)))
+     (value-type [this#]
+       (type-info (.GetMapValueType this#)))))
+
+(extend-map-info ConstMapTypeInfo)
+(extend-map-info MapTypeInfoImpl)
 
 (defn input-name
   ([^Session sess ^long i]
@@ -89,10 +242,10 @@
 (defn input-type-info
   ([^Session sess ^long i]
    (if (< -1 i (input-count sess))
-     (tensor-type-info (.GetInputTypeInfo sess i))
+     (type-info (.GetInputTypeInfo sess i))
      (throw (IndexOutOfBoundsException. "The requested input type info is out of bounds of this session inputs pointer."))))
   ([^Session sess]
-   (map #(tensor-type-info (.GetInputTypeInfo sess %)) (range (input-count sess)))))
+   (map #(type-info (.GetInputTypeInfo sess %)) (range (input-count sess)))))
 
 (defn output-count ^long [^Session sess]
   (.GetOutputCount sess))
@@ -111,7 +264,7 @@
 (defn output-type-info
   ([^Session sess ^long i]
    (if (< -1 i (output-count sess))
-     (tensor-type-info (.GetOutputTypeInfo sess i))
+     (type-info (.GetOutputTypeInfo sess i))
      (throw (IndexOutOfBoundsException. "The requested output type info is out of bounds of this session outputs pointer."))))
   ([^Session sess]
-   (map #(tensor-type-info (.GetOutputTypeInfo sess %)) (range (output-count sess)))))
+   (map #(type-info (.GetOutputTypeInfo sess %)) (range (output-count sess)))))
