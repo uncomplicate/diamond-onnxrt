@@ -101,7 +101,7 @@
     4 :opaque
     5 :sparse
     6 :optional
-    :unknown))
+    (dragan-says-ex "Unknown onnx type." {:type type})))
 
 (def ^:const ort-type
   {:undefined onnxruntime/ORT_SPARSE_UNDEFINED
@@ -171,6 +171,13 @@
    :device onnxruntime/OrtDeviceAllocator
    :arena onnxruntime/OrtArenaAllocator})
 
+(defn dec-ort-allocator-type [^long type]
+  (case type
+    -1 :invalid
+    0 :device
+    1 :arena
+    (dragan-says-ex "Unknown allocator type." {:type type})))
+
 (def ^:const ort-mem-type
   {:cpu onnxruntime/OrtMemTypeCPU
    :input onnxruntime/OrtMemTypeCPUInput
@@ -179,10 +186,24 @@
    :cpu-output onnxruntime/OrtMemTypeCPUOutput
    :default onnxruntime/OrtMemTypeDefault})
 
+(defn dec-ort-memory-type [^long type]
+  (case type
+    -2 :cpu-input
+    -1 :cpu-output
+    0 :default
+    (dragan-says-ex "Unknown memory type." {:type type})))
+
 (def ^:const ort-memory-info-device-type
   {:cpu onnxruntime/OrtMemoryInfoDeviceType_CPU
    :gpu onnxruntime/OrtMemoryInfoDeviceType_GPU
    :fpga onnxruntime/OrtMemoryInfoDeviceType_FPGA})
+
+(defn dec-ort-memory-info-device-type [^long type]
+  (case type
+    0 :cpu
+    1 :gpu
+    2 :fpga
+    (dragan-says-ex "Unknown device type." {:type type})))
 
 (def ^:const ort-cudnn-conv
   {:exaustive onnxruntime/OrtCudnnConvAlgoSearchExhaustive
@@ -193,3 +214,38 @@
   {:required onnxruntime/INPUT_OUTPUT_REQUIRED
    :optional onnxruntime/INPUT_OUTPUT_OPTIONAL
    :variadic onnxruntime/INPUT_OUTPUT_VARIADIC})
+
+(def ^:const ort-allocator-name
+  {:cpu "Cpu"
+   :cuda "Cuda"
+   :cuda-pinned "CudaPinned"
+   :cann "Cann"
+   :cann-pinned "CannPinned"
+   :dnm "DML"
+   :hip "Hip"
+   :hip-pinned "HipPinned"
+   :vino-cpu "OpenVINO_CPU"
+   :openvino-cpu "OpenVINO_CPU"
+   :openvino "OpenVINO_CPU"
+   :openvino-gpu "OpenVINO_GPU"
+   :openvino-rt "OpenVINO_RT"
+   :openvino-npu "OpenVINO_NPU"
+   :webgpu-buffer "WebGPU_Buffer"
+   :webgpu "WebGPU_Buffer"
+   :webnn "WebNN_Tensor"})
+
+(def ^:const ort-allocator-keyword
+  {"Cpu" :cpu
+   "Cuda" :cuda
+   "CudaPinned" :cuda-pinned
+   "Cann" :cann
+   "CannPinned" :cann-pinned
+   "DML" :dnm
+   "Hip" :hip
+   "HipPinned" :hip-pinned
+   "OpenVINO_CPU" :openvino-cpu
+   "OpenVINO_GPU" :openvino-gpu
+   "OpenVINO_RT" :openvino-rt
+   "OpenVINO_NPU" :openvino-npu
+   "WebGPU_Buffer" :webgpu-buffer
+   "WebNN_Tensor" :webnn})

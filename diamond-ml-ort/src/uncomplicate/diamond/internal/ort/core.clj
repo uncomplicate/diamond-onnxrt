@@ -11,13 +11,16 @@
             [uncomplicate.commons
              [core :refer [let-release with-release Releaseable view Info info bytesize size]]
              [utils :refer [enc-keyword dragan-says-ex mask]]]
-            [uncomplicate.clojure-cpp :refer [get-string byte-pointer null?]]
+            [uncomplicate.clojure-cpp :refer [get-string byte-pointer null? pointer pointer-type]]
             [uncomplicate.diamond.internal.ort.constants :refer :all])
-  (:import org.bytedeco.onnxruntime.global.onnxruntime
+  (:import org.bytedeco.javacpp.Pointer
+           org.bytedeco.onnxruntime.global.onnxruntime
            [org.bytedeco.onnxruntime Env StringVector LongVector OrtStatus SessionOptions Session
-            AllocatorWithDefaultOptions OrtAllocator TypeInfo TypeInfoImpl MapTypeInfoImpl ConstMapTypeInfo
+            AllocatorWithDefaultOptions OrtAllocator BaseAllocator Allocator
+            TypeInfo TypeInfoImpl MapTypeInfoImpl ConstMapTypeInfo
             ConstTensorTypeAndShapeInfo TensorTypeAndShapeInfoImpl BaseSequenceTypeInfoImpl
-            OptionalTypeInfoImpl]))
+            OptionalTypeInfoImpl MemoryInfoImpl MemoryInfo BaseMemoryInfo OrtMemoryInfo Value
+            ConstValueImpl]))
 
 (defmacro extend-ort [t]
   `(extend-type ~t
@@ -44,6 +47,8 @@
 (extend-ort MapTypeInfoImpl)
 (extend-ort BaseSequenceTypeInfoImpl)
 (extend-ort OptionalTypeInfoImpl)
+(extend-ort MemoryInfoImpl)
+;;TODO other types
 
 (defn version []
   (with-release [p (onnxruntime/GetVersionString)]
@@ -265,3 +270,68 @@
    (type-info (.GetOutputTypeInfo sess i)))
   ([^Session sess]
    (map #(type-info (.GetOutputTypeInfo sess %)) (range (output-count sess)))))
+
+(defn memory-info* [^String name ^long allocator ^long device-id ^long mem-type]
+  (MemoryInfo. name allocator device-id mem-type ))
+
+(defn memory-info
+  ([name allocator device-id mem-type]
+   (memory-info* (get ort-allocator-name name name)
+                 (enc-keyword ort-allocator-type allocator)
+                 device-id
+                 (enc-keyword ort-mem-type mem-type)))
+  ([name allocator mem-type]
+   (memory-info name allocator 0 mem-type))
+  ([name allocator]
+   (memory-info name allocator 0 :default))
+  ([name]
+   (memory-info* "Cpu" onnxruntime/OrtArenaAllocator
+                 0 onnxruntime/OrtMemTypeDefault))
+  ([]
+   (memory-info* "Cpu" onnxruntime/OrtArenaAllocator 0 onnxruntime/OrtMemTypeDefault)))
+
+(defn allocator-name [^MemoryInfoImpl mem-info]
+  (with-release [all-name (.GetAllocatorName mem-info)]
+    (let [name (get-string all-name)]
+      (get ort-allocator-keyword name name))))
+
+(defn allocator-type [^MemoryInfoImpl mem-info]
+  (dec-ort-allocator-type (.GetAllocatorType mem-info)))
+
+(defn device-id ^long [^MemoryInfoImpl mem-info]
+  (.GetDeviceId mem-info))
+
+(defn device-type [^MemoryInfoImpl mem-info]
+  (dec-ort-memory-info-device-type (.GetDeviceType mem-info)))
+
+(defn memory-type [^MemoryInfoImpl mem-info]
+  (dec-ort-memory-type (.GetMemoryType mem-info)))
+
+(defn create-tensor*
+  ([^OrtAllocator allocator ^longs shape ^long type]
+   (Value/CreateTensor allocator shape (alength shape) type))
+  ([^OrtMemoryInfo mem-info ^longs shape ^long type ^Pointer data]
+   (Value/CreateTensor mem-info data (bytesize data) shape (alength shape) type)))
+
+(defprotocol TensorCreator
+  (create-tensor [this shape source] [this shape type data]))
+
+(extend-type BaseMemoryInfo
+  TensorCreator
+  (create-tensor
+    ([this shape data]
+     (let [data (pointer data)]
+       (create-tensor this shape (enc-keyword pointer-type (type data)) data)))
+    ([this shape type data]
+     (create-tensor* (.asOrtMemoryInfo this) (long-array (seq shape)) (enc-keyword onnx-data-type type) (pointer data)))))
+
+(extend-type BaseAllocator
+  TensorCreator
+  (create-tensor
+    ([this shape type]
+     (create-tensor* (.asOrtAllocator this) (long-array (seq shape)) (enc-keyword onnx-data-type type)))
+    ([this shape type data]
+     (dragan-says-ex "Allocators can't accept data. They should be the ones creating the data pointer."))))
+
+(defn value-type-info [^ConstValueImpl value]
+  (type-info (.GetTypeInfo value)))

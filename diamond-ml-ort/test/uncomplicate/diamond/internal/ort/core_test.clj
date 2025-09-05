@@ -10,12 +10,12 @@
     uncomplicate.diamond.internal.ort.core-test
   (:require [midje.sweet :refer [facts throws => =not=> roughly truthy just]]
             [uncomplicate.commons.core :refer [with-release info bytesize size release]]
-            [uncomplicate.clojure-cpp :refer [null?]]
+            [uncomplicate.clojure-cpp :refer [null? float-pointer]]
             [uncomplicate.diamond.internal.ort.core :refer :all])
   (:import clojure.lang.ExceptionInfo))
 
 (facts
- "Tests release."
+  "Test release."
  (let [opt (options)
        env (environment)
        sess (session env "data/logreg_iris.onnx" opt)]
@@ -28,7 +28,34 @@
    (null? sess) => false))
 
 (facts
-  "Hello world example test"
+  "Test memory-info."
+  (with-release [opt (options)
+                 env (environment)
+                 sess (session env "data/logreg_iris.onnx" opt)
+                 mem-info (memory-info :cpu :arena 0 :default)
+                 ]
+    (allocator-name mem-info) => :cpu
+    (allocator-type mem-info) => :arena
+    (device-id mem-info) => 0
+    (device-type mem-info) => :cpu
+    (memory-type mem-info) => :default
+    ))
+
+(facts
+  "Test tensor values."
+  (with-release [opt (options)
+                 env (environment)
+                 sess (session env "data/logreg_iris.onnx" opt)
+                 mem-info (memory-info :cpu :arena 0 :default)
+                 data (float-array 5)
+                 val (create-tensor mem-info [2 2] data)]
+    (info (value-type-info val)) => {:count 4 :data-type :float :shape [2 2] :type :tensor}
+    (create-tensor mem-info [0 -1] data) => (throws RuntimeException)
+    (create-tensor mem-info [0 0] nil) => (throws RuntimeException)
+    (create-tensor mem-info 3 data) => (throws RuntimeException)))
+
+(facts
+  "Hello world example test."
   (with-release [opt (options)
                  env (environment)
                  sess (session env "data/logreg_iris.onnx" opt)]
