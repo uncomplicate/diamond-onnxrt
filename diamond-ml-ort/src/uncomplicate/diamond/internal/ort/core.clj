@@ -61,7 +61,6 @@
                  p (.get sv)]
     (map #(keyword (lower-case (st/replace (get-string %) "ExecutionProvider" ""))) p)))
 
-
 (defn options []
   (SessionOptions.))
 
@@ -88,14 +87,6 @@
    (Env. (enc-keyword ort-logging-level logging-level) name))
   ([]
    (Env. onnxruntime/ORT_LOGGING_LEVEL_WARNING "default")));
-
-(defn session [^Env env ^String model-path ^SessionOptions options]
-  (Session. env (byte-pointer model-path) options))
-
-(defn input-count ^long [^Session sess]
-  (.GetInputCount sess))
-
-(def default-allocator (.asUnownedAllocator (AllocatorWithDefaultOptions.)))
 
 (declare type-info element-count shape)
 
@@ -228,12 +219,22 @@
 (extend-map-info ConstMapTypeInfo)
 (extend-map-info MapTypeInfoImpl)
 
+(defn session [^Env env ^String model-path ^SessionOptions options]
+  (Session. env (byte-pointer model-path) options))
+
+(defn input-count ^long [^Session sess]
+  (.GetInputCount sess))
+
+(def default-allocator (.asUnownedAllocator (AllocatorWithDefaultOptions.)))
+
+(defn check-index [^long i ^long cnt object]
+  (when-not (< -1 i cnt)
+    (throw (IndexOutOfBoundsException. (format "The requested %s name is out of bounds of this session %s pointer." object object)))))
+
 (defn input-name
   ([^Session sess ^long i]
-   (let [cnt (input-count sess)]
-     (if (< -1 i cnt)
-       (get-string (.GetInputNameAllocated sess i (OrtAllocator. default-allocator)))
-       (throw (IndexOutOfBoundsException. "The requested input name is out of bounds of this session inputs pointer.")))))
+   (check-index i (input-count sess) "input")
+   (get-string (.GetInputNameAllocated sess i (OrtAllocator. default-allocator))))
   ([^Session sess]
     (let [cnt (input-count sess)
           alloc (OrtAllocator. default-allocator)]
@@ -241,9 +242,8 @@
 
 (defn input-type-info
   ([^Session sess ^long i]
-   (if (< -1 i (input-count sess))
-     (type-info (.GetInputTypeInfo sess i))
-     (throw (IndexOutOfBoundsException. "The requested input type info is out of bounds of this session inputs pointer."))))
+   (check-index i (input-count sess) "input")
+   (type-info (.GetInputTypeInfo sess i)))
   ([^Session sess]
    (map #(type-info (.GetInputTypeInfo sess %)) (range (input-count sess)))))
 
@@ -252,10 +252,8 @@
 
 (defn output-name
   ([^Session sess ^long i]
-   (let [cnt (output-count sess)]
-     (if (< -1 i cnt)
-       (get-string (.GetOutputNameAllocated sess i (OrtAllocator. default-allocator)))
-       (throw (IndexOutOfBoundsException. "The requested output name is out of bounds of this session outputs pointer.")))))
+   (check-index i (output-count sess) "output")
+   (get-string (.GetOutputNameAllocated sess i (OrtAllocator. default-allocator))))
   ([^Session sess]
     (let [cnt (output-count sess)
           alloc (OrtAllocator. default-allocator)]
@@ -263,8 +261,7 @@
 
 (defn output-type-info
   ([^Session sess ^long i]
-   (if (< -1 i (output-count sess))
-     (type-info (.GetOutputTypeInfo sess i))
-     (throw (IndexOutOfBoundsException. "The requested output type info is out of bounds of this session outputs pointer."))))
+   (check-index i (output-count sess) "output")
+   (type-info (.GetOutputTypeInfo sess i)))
   ([^Session sess]
    (map #(type-info (.GetOutputTypeInfo sess %)) (range (output-count sess)))))
