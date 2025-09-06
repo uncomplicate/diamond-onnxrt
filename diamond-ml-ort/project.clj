@@ -16,7 +16,6 @@
                  [org.uncomplicate/deep-diamond-base "0.35.2"]
                  [org.bytedeco/onnxruntime-platform "1.20.0-1.5.11"]]
 
-
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {:plugins [[lein-midje "3.2.1"]]
                        :resource-paths ["data"]
@@ -29,9 +28,9 @@
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                             "--enable-native-access=ALL-UNNAMED"]}
              :linux {:dependencies [[org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
-                                    [org.uncomplicate/deep-diamond-dnnl "0.35.2"]]}
+                                    [org.uncomplicate/deep-diamond-dnnl "0.36.0-SNAPSHOT"]]}
              :windows {:dependencies [[org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]
-                                      [org.uncomplicate/deep-diamond-dnnl "0.35.2"]]}
+                                      [org.uncomplicate/deep-diamond-dnnl "0.36.0-SNAPSHOT"]]}
              :macosx {:dependencies [[org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]
                                      [org.uncomplicate/deep-diamond-bnns "0.35.2"]
                                      [org.bytedeco/onnxruntime-platform "1.22.2-1.5.13-SNAPSHOT"]]}}
