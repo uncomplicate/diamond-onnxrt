@@ -12,5 +12,5 @@
             [uncomplicate.diamond.internal.ort.constants :refer :all]))
 
 (facts "ONNX data-type tests."
-       (remove identity (map #(= % (onnx-data-type (dec-data-type %))) (range 7)))
+       (remove identity (map #(= % (onnx-data-type (dec-onnx-data-type %))) (range 7)))
        => [])
