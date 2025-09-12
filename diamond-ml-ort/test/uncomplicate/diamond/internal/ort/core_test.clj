@@ -68,6 +68,7 @@
     (input-type-info sess 1) => (throws IndexOutOfBoundsException)
     (map info (input-type-info sess)) => [{:count 6 :shape [3 2] :data-type :float :type :tensor}]
     (info (output-type-info sess 0)) => {:count 3 :shape [3] :data-type :long :type :tensor}
-    (scalar? (value-type (element-type (output-type-info sess 1)))) => true
-    (info (output-type-info sess 1)) => {:element [{:key :long :type :map :value :float}] :type :sequence}
-    (output-type-info sess 2) => (throws IndexOutOfBoundsException)))
+    (scalar? (val-type (element-type (output-type-info sess 1)))) => true
+    (info (output-type-info sess 1)) => {:element [{:key :long :type :map :val :float}] :type :sequence}
+    (output-type-info sess 2) => (throws IndexOutOfBoundsException)
+    ))

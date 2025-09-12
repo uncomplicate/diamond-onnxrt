@@ -11,44 +11,14 @@
             [uncomplicate.commons
              [core :refer [let-release with-release Releaseable view Info info bytesize size]]
              [utils :refer [enc-keyword dragan-says-ex mask]]]
-            [uncomplicate.clojure-cpp :refer [get-string byte-pointer null? pointer pointer-type]]
-            [uncomplicate.diamond.internal.ort.constants :refer :all])
+            [uncomplicate.clojure-cpp :refer [get-string byte-pointer null? pointer pointer-type pointer-seq safe]]
+            [uncomplicate.diamond.internal.ort
+             [constants :refer :all]
+             [impl :refer :all]])
   (:import org.bytedeco.javacpp.Pointer
            org.bytedeco.onnxruntime.global.onnxruntime
-           [org.bytedeco.onnxruntime Env StringVector LongVector OrtStatus SessionOptions Session
-            AllocatorWithDefaultOptions OrtAllocator BaseAllocator Allocator
-            TypeInfo TypeInfoImpl MapTypeInfoImpl ConstMapTypeInfo
-            ConstTensorTypeAndShapeInfo TensorTypeAndShapeInfoImpl BaseSequenceTypeInfoImpl
-            OptionalTypeInfoImpl MemoryInfoImpl MemoryInfo BaseMemoryInfo OrtMemoryInfo Value
-            ConstValueImpl]))
-
-(defmacro extend-ort [t]
-  `(extend-type ~t
-     Releaseable
-     (release [this#]
-       (locking this#
-         (when-not (null? this#)
-           (let [ort# (.release this#)]
-             (when-not (null? ort#)
-               (onnxruntime/OrtRelease ort#)
-               (.deallocate ort#)
-               (.setNull ort#)))
-           (.deallocate this#)
-           (.setNull this#))
-         true))))
-
-(extend-ort Env)
-(extend-ort SessionOptions)
-(extend-ort Session)
-(extend-ort TypeInfoImpl)
-(extend-ort TensorTypeAndShapeInfoImpl)
-(extend-ort ConstTensorTypeAndShapeInfo)
-(extend-ort ConstMapTypeInfo)
-(extend-ort MapTypeInfoImpl)
-(extend-ort BaseSequenceTypeInfoImpl)
-(extend-ort OptionalTypeInfoImpl)
-(extend-ort MemoryInfoImpl)
-;;TODO other types
+           [org.bytedeco.onnxruntime
+            OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo]))
 
 (defn version []
   (with-release [p (onnxruntime/GetVersionString)]
@@ -67,107 +37,99 @@
     (map #(keyword (lower-case (st/replace (get-string %) "ExecutionProvider" ""))) p)))
 
 (defn options []
-  (SessionOptions.))
+  (session-options* *ort-api*))
 
 (defn execution-provider
-  ([^SessionOptions opt provider ^long use-arena]
-   (let [ort-opt (.asOrtSessionOptions opt)
-         status ^OrtStatus;;TODO check status
-                  (case provider
-                    :cpu (onnxruntime/OrtSessionOptionsAppendExecutionProvider_CPU ort-opt use-arena)
-                    :dnnl (onnxruntime/OrtSessionOptionsAppendExecutionProvider_Dnnl ort-opt use-arena)
-                    :cuda (onnxruntime/OrtSessionOptionsAppendExecutionProvider_CUDA ort-opt use-arena))]
-     opt))
-
+  ([opt provider ^long use-arena]
+   (execution-provider* *ort-api* opt provider use-arena)
+   opt)
   ([opt provider]
-   (execution-provider opt provider 0))
+   (execution-provider* *ort-api* opt provider 0))
   ([opt]
-   (execution-provider opt :cpu 0)))
+   (execution-provider* *ort-api* opt :cpu 0)))
 
-(defn graph-optimization [^SessionOptions opt level]
-  (.SetGraphOptimizationLevel opt (enc-keyword ort-graph-optimization level)))
+(defn graph-optimization [opt level]
+  (graph-optimization* *ort-api* opt (enc-keyword ort-graph-optimization level)))
 
 (defn environment
   ([logging-level name]
-   (Env. (enc-keyword ort-logging-level logging-level) name))
+   (with-release [name (platform-pointer name)]
+     (env* *ort-api* (enc-keyword ort-logging-level logging-level) name)))
   ([]
-   (Env. onnxruntime/ORT_LOGGING_LEVEL_WARNING "default")));
+   (environment :warning "default")))
 
-(declare type-info element-count shape)
+(defn session [env ^String model-path options]
+  (with-release [model-path (platform-pointer model-path)]
+    (session* *ort-api* env (platform-pointer model-path) options)))
 
-(defprotocol ElementInfo
-  (element-type* [this])
-  (element-type [this]))
+(defn input-count ^long [sess]
+  (input-count* *ort-api* sess))
 
-(defprotocol TensorInfo
-  (element-count* [this])
-  (dimensions-count* [this])
-  (shape* [this]))
+(defn check-index [^long i ^long cnt object]
+  (when-not (< -1 i cnt)
+    (throw (IndexOutOfBoundsException. (format "The requested %s name is out of bounds of this session %s pointer." object object)))))
 
-(defprotocol MapInfo
-  (key-type* [this])
-  (key-type [this])
-  (value-type [this]))
+(defn input-name
+  ([sess ^long i]
+   (check-index i (input-count sess) "input")
+   (input-name* *ort-api* sess i *default-allocator*))
+  ([sess]
+   (doall (map #(input-name* *ort-api* sess *default-allocator* %)
+               (range (input-count sess))))))
 
-(defn element-count ^long [info]
-  (element-count info))
+(defn output-count ^long [sess]
+  (output-count* *ort-api* sess))
+
+(defn output-name
+  ([sess ^long i]
+   (check-index i (output-count sess) "output")
+   (output-name* *ort-api* sess i *default-allocator*))
+  ([sess]
+   (doall (map #(output-name* *ort-api* sess *default-allocator* %)
+               (range (output-count sess))))))
 
 (defn scalar? [info]
-  (= 0 (dimensions-count* info)))
+  (= 0 (dimensions-count* *ort-api* info)))
 
 (defn shape [info]
-  (vec (.get ^LongVector (shape* info))))
+  (with-release [dims (safe (tensor-dimensions* *ort-api* info))]
+    (vec (doall (pointer-seq dims)))))
 
-(defmacro extend-tensor-info [t]
-  `(extend-type ~t
-     Info
-     (info
-       ([this#]
-        (if (scalar? this#)
-          (element-type this#)
-          {:data-type (element-type this#)
-           :shape (shape this#)
-           :count (.GetElementCount this#)
-           :type :tensor}))
-       ([this# info-type#]
-        (case info-type#
-          :data-type (element-type this#)
-          :shape (shape this#)
-          :count (.GetElementCount this#)
-          :type :tensor
-          nil)))
-     ElementInfo
-     (element-type* [this#]
-       (.GetElementType this#))
-     (element-type [this#]
-       (dec-onnx-data-type (.GetElementType this#)))
-     TensorInfo
-     (dimensions-count* [this#]
-       (.GetDimensionsCount this#))
-     (element-count* [this#]
-       (.GetElementCount this#))
-     (shape* [this#]
-       (.GetShape this#))))
+(defprotocol ElementInfo
+  (element-type [this]))
 
-(extend-tensor-info TensorTypeAndShapeInfoImpl)
-(extend-tensor-info ConstTensorTypeAndShapeInfo)
+(defn type-info [info]
+  (type-info* *ort-api* info))
 
-(defn type-info [^TypeInfo type-info]
-  (case (.GetONNXType type-info)
-    1 (.GetTensorTypeAndShapeInfo type-info)
-    2 (.GetSequenceTypeInfo type-info)
-    3 (.GetMapTypeInfo type-info)
-    6 (.GetOptionalTypeInfo type-info)
-    (dragan-says-ex "TODO")))
-
-(extend-type TypeInfoImpl
+(extend-type OrtTypeInfo
   Info
   (info [this]
     (info (type-info this)))
   (info [this info-type]
     (info (type-info this) info-type)))
 
-(extend-type BaseSequenceTypeInfoImpl
+(extend-type OrtTensorTypeAndShapeInfo
+  Info
+  (info
+    ([this]
+     (if (scalar? this)
+       (element-type this)
+       {:data-type (element-type this)
+        :shape (shape this)
+        :count (tensor-element-count* *ort-api* this)
+        :type :tensor}))
+    ([this info-type]
+     (case info-type
+       :data-type (element-type this)
+       :shape (shape this)
+       :count (tensor-element-count* *ort-api* this)
+       :type :tensor
+       nil)))
+  ElementInfo
+  (element-type [this]
+    (dec-onnx-data-type (tensor-type* *ort-api* this))))
+
+(extend-type OrtSequenceTypeInfo
   Info
   (info
     ([this]
@@ -179,12 +141,10 @@
        :element (info (element-type this))
        nil)))
   ElementInfo
-  (element-type* [this#]
-    (.GetSequenceElementType this#))
-  (element-type [this#]
-    (type-info (.GetSequenceElementType this#))))
+  (element-type [this]
+    (type-info (sequence-type* *ort-api* this))))
 
-(extend-type OptionalTypeInfoImpl
+(extend-type OrtOptionalTypeInfo
   Info
   (info
     ([this]
@@ -194,144 +154,111 @@
        :type :optional
        nil))))
 
-(defmacro extend-map-info [t]
-  `(extend-type ~t
-     Info
-     (info
-       ([this#]
-        {:type :map
-         :key (key-type this#)
-         :value (info (value-type this#))})
-       ([this# info-type#]
-        (case info-type#
-          :tyte :map
-          :key (key-type this#)
-          :value (info (value-type this#))
-          nil)))
-     ElementInfo
-     (element-type* [this#]
-       [(key-type* this#) (value-type this#)])
-     (element-type [this#]
-       [(key-type this#) (value-type this#)])
-     MapInfo
-     (key-type* [this#]
-       (.GetMapKeyType this#))
-     (key-type [this#]
-       (dec-onnx-data-type (.GetMapKeyType this#)))
-     (value-type [this#]
-       (type-info (.GetMapValueType this#)))))
+(defn key-type [info]
+  (dec-onnx-data-type (key-type* *ort-api* info)))
 
-(extend-map-info ConstMapTypeInfo)
-(extend-map-info MapTypeInfoImpl)
+(defn val-type [info]
+  (type-info* *ort-api* (value-type* *ort-api* info)))
 
-(defn session [^Env env ^String model-path ^SessionOptions options]
-  (Session. env (byte-pointer model-path) options))
-
-(defn input-count ^long [^Session sess]
-  (.GetInputCount sess))
-
-(def default-allocator (.asUnownedAllocator (AllocatorWithDefaultOptions.)))
-
-(defn check-index [^long i ^long cnt object]
-  (when-not (< -1 i cnt)
-    (throw (IndexOutOfBoundsException. (format "The requested %s name is out of bounds of this session %s pointer." object object)))))
-
-(defn input-name
-  ([^Session sess ^long i]
-   (check-index i (input-count sess) "input")
-   (get-string (.GetInputNameAllocated sess i (OrtAllocator. default-allocator))))
-  ([^Session sess]
-    (let [cnt (input-count sess)
-          alloc (OrtAllocator. default-allocator)]
-      (map #(get-string (.GetInputNameAllocated sess % alloc)) (range cnt)))))
+(extend-type OrtMapTypeInfo
+  Info
+  (info
+    ([this]
+     {:type :map
+      :key (key-type this)
+      :val (info (val-type this))})
+    ([this info-type]
+     (case info-type
+       :tyte :map
+       :key (key-type this)
+       :val (info (val-type this))
+       nil)))
+  ElementInfo
+  (element-type [this]
+    [(key-type this) (val-type this)]))
 
 (defn input-type-info
-  ([^Session sess ^long i]
-   (check-index i (input-count sess) "input")
-   (type-info (.GetInputTypeInfo sess i)))
-  ([^Session sess]
-   (map #(type-info (.GetInputTypeInfo sess %)) (range (input-count sess)))))
-
-(defn output-count ^long [^Session sess]
-  (.GetOutputCount sess))
-
-(defn output-name
-  ([^Session sess ^long i]
-   (check-index i (output-count sess) "output")
-   (get-string (.GetOutputNameAllocated sess i (OrtAllocator. default-allocator))))
-  ([^Session sess]
-    (let [cnt (output-count sess)
-          alloc (OrtAllocator. default-allocator)]
-      (map #(get-string (.GetOutputNameAllocated sess % alloc)) (range cnt)))))
+  ([sess ^long i]
+   (let [ort-api *ort-api*]
+     (check-index i (input-count* ort-api sess) "input")
+     (type-info* ort-api (input-type-info* ort-api sess i))))
+  ([sess]
+   (let [ort-api *ort-api*]
+     (map #(type-info* ort-api (input-type-info* ort-api sess %))
+          (range (input-count* ort-api sess))))))
 
 (defn output-type-info
-  ([^Session sess ^long i]
-   (check-index i (output-count sess) "output")
-   (type-info (.GetOutputTypeInfo sess i)))
-  ([^Session sess]
-   (map #(type-info (.GetOutputTypeInfo sess %)) (range (output-count sess)))))
+  ([sess ^long i]
+   (let [ort-api *ort-api*]
+     (check-index i (output-count* ort-api sess) "output")
+     (type-info* ort-api (output-type-info* ort-api sess i))))
+  ([sess]
+   (let [ort-api *ort-api*]
+     (map #(type-info* ort-api (output-type-info* ort-api sess %))
+          (range (output-count* ort-api sess))))))
 
-(defn memory-info* [^String name ^long allocator ^long device-id ^long mem-type]
-  (MemoryInfo. name allocator device-id mem-type ))
 
-(defn memory-info
-  ([name allocator device-id mem-type]
-   (memory-info* (get ort-allocator-name name name)
-                 (enc-keyword ort-allocator-type allocator)
-                 device-id
-                 (enc-keyword ort-mem-type mem-type)))
-  ([name allocator mem-type]
-   (memory-info name allocator 0 mem-type))
-  ([name allocator]
-   (memory-info name allocator 0 :default))
-  ([name]
-   (memory-info* "Cpu" onnxruntime/OrtArenaAllocator
-                 0 onnxruntime/OrtMemTypeDefault))
-  ([]
-   (memory-info* "Cpu" onnxruntime/OrtArenaAllocator 0 onnxruntime/OrtMemTypeDefault)))
+;; (defn memory-info* [^String name ^long allocator ^long device-id ^long mem-type]
+;;   (MemoryInfo. name allocator device-id mem-type ))
 
-(defn allocator-name [^MemoryInfoImpl mem-info]
-  (with-release [all-name (.GetAllocatorName mem-info)]
-    (let [name (get-string all-name)]
-      (get ort-allocator-keyword name name))))
+;; (defn memory-info
+;;   ([name allocator device-id mem-type]
+;;    (memory-info* (get ort-allocator-name name name)
+;;                  (enc-keyword ort-allocator-type allocator)
+;;                  device-id
+;;                  (enc-keyword ort-mem-type mem-type)))
+;;   ([name allocator mem-type]
+;;    (memory-info name allocator 0 mem-type))
+;;   ([name allocator]
+;;    (memory-info name allocator 0 :default))
+;;   ([name]
+;;    (memory-info* "Cpu" onnxruntime/OrtArenaAllocator
+;;                  0 onnxruntime/OrtMemTypeDefault))
+;;   ([]
+;;    (memory-info* "Cpu" onnxruntime/OrtArenaAllocator 0 onnxruntime/OrtMemTypeDefault)))
 
-(defn allocator-type [^MemoryInfoImpl mem-info]
-  (dec-ort-allocator-type (.GetAllocatorType mem-info)))
+;; (defn allocator-name [^MemoryInfoImpl mem-info]
+;;   (with-release [all-name (.GetAllocatorName mem-info)]
+;;     (let [name (get-string all-name)]
+;;       (get ort-allocator-keyword name name))))
 
-(defn device-id ^long [^MemoryInfoImpl mem-info]
-  (.GetDeviceId mem-info))
+;; (defn allocator-type [^MemoryInfoImpl mem-info]
+;;   (dec-ort-allocator-type (.GetAllocatorType mem-info)))
 
-(defn device-type [^MemoryInfoImpl mem-info]
-  (dec-ort-memory-info-device-type (.GetDeviceType mem-info)))
+;; (defn device-id ^long [^MemoryInfoImpl mem-info]
+;;   (.GetDeviceId mem-info))
 
-(defn memory-type [^MemoryInfoImpl mem-info]
-  (dec-ort-memory-type (.GetMemoryType mem-info)))
+;; (defn device-type [^MemoryInfoImpl mem-info]
+;;   (dec-ort-memory-info-device-type (.GetDeviceType mem-info)))
 
-(defn create-tensor*
-  ([^OrtAllocator allocator ^longs shape ^long type]
-   (Value/CreateTensor allocator shape (alength shape) type))
-  ([^OrtMemoryInfo mem-info ^longs shape ^long type ^Pointer data]
-   (Value/CreateTensor mem-info data (bytesize data) shape (alength shape) type)))
+;; (defn memory-type [^MemoryInfoImpl mem-info]
+;;   (dec-ort-memory-type (.GetMemoryType mem-info)))
 
-(defprotocol TensorCreator
-  (create-tensor [this shape source] [this shape type data]))
+;; (defn create-tensor*
+;;   ([^OrtAllocator allocator ^longs shape ^long type]
+;;    (Value/CreateTensor allocator shape (alength shape) type))
+;;   ([^OrtMemoryInfo mem-info ^longs shape ^long type ^Pointer data]
+;;    (Value/CreateTensor mem-info data (bytesize data) shape (alength shape) type)))
 
-(extend-type BaseMemoryInfo
-  TensorCreator
-  (create-tensor
-    ([this shape data]
-     (let [data (pointer data)]
-       (create-tensor this shape (enc-keyword pointer-type (type data)) data)))
-    ([this shape type data]
-     (create-tensor* (.asOrtMemoryInfo this) (long-array (seq shape)) (enc-keyword onnx-data-type type) (pointer data)))))
+;; (defprotocol TensorCreator
+;;   (create-tensor [this shape source] [this shape type data]))
 
-(extend-type BaseAllocator
-  TensorCreator
-  (create-tensor
-    ([this shape type]
-     (create-tensor* (.asOrtAllocator this) (long-array (seq shape)) (enc-keyword onnx-data-type type)))
-    ([this shape type data]
-     (dragan-says-ex "Allocators can't accept data. They should be the ones creating the data pointer."))))
+;; (extend-type BaseMemoryInfo
+;;   TensorCreator
+;;   (create-tensor
+;;     ([this shape data]
+;;      (let [data (pointer data)]
+;;        (create-tensor this shape (enc-keyword pointer-type (type data)) data)))
+;;     ([this shape type data]
+;;      (create-tensor* (.asOrtMemoryInfo this) (long-array (seq shape)) (enc-keyword onnx-data-type type) (pointer data)))))
 
-(defn value-type-info [^ConstValueImpl value]
-  (type-info (.GetTypeInfo value)))
+;; (extend-type BaseAllocator
+;;   TensorCreator
+;;   (create-tensor
+;;     ([this shape type]
+;;      (create-tensor* (.asOrtAllocator this) (long-array (seq shape)) (enc-keyword onnx-data-type type)))
+;;     ([this shape type data]
+;;      (dragan-says-ex "Allocators can't accept data. They should be the ones creating the data pointer."))))
+
+;; (defn value-type-info [^ConstValueImpl value]
+;;   (type-info (.GetTypeInfo value)))

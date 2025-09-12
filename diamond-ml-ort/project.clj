@@ -26,7 +26,8 @@
                                      *print-length* 128}
                        :dependencies [[midje "1.10.10"]]
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
-                                            "--enable-native-access=ALL-UNNAMED"]}
+                                            "--enable-native-access=ALL-UNNAMED"
+                                            #_"-Dorg.bytedeco.javacpp.noPointerGC"]};;TODO!
              :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.1"]
                                     [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]]}
              :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.1"]
