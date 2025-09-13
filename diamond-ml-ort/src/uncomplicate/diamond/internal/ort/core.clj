@@ -103,7 +103,7 @@
 
 (extend-type OrtTypeInfo
   Info
-  (info [this]
+  (info [this];; TODO don't forget to release type-info in all such cases, though!
     (info (type-info this)))
   (info [this info-type]
     (info (type-info this) info-type)))

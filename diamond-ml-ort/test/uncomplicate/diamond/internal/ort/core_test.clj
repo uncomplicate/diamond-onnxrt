@@ -16,24 +16,23 @@
 
 (facts
   "Test release."
- (let [opt (options)
-       env (environment)
-       sess (session env "data/logreg_iris.onnx" opt)]
-   (null? opt) => false
-   (null? env) => false
-   (null? sess) => false
-   (release opt) => true
-   opt => nil
-   (null? env) => false
-   (null? sess) => false))
+  (let [env (environment)
+        opt (options)
+        sess (session env "data/logreg_iris.onnx" opt)]
+    (null? opt) => false
+    (null? env) => false
+    (null? sess) => false
+    (release opt) => true
+    opt => nil
+    (null? env) => false
+    (null? sess) => false))
 
 (facts
   "Test memory-info."
-  (with-release [opt (options)
-                 env (environment)
+  (with-release [env (environment)
+                 opt (options)
                  sess (session env "data/logreg_iris.onnx" opt)
-                 mem-info (memory-info :cpu :arena 0 :default)
-                 ]
+                 mem-info (memory-info :cpu :arena 0 :default)]
     (allocator-name mem-info) => :cpu
     (allocator-type mem-info) => :arena
     (device-id mem-info) => 0
@@ -43,8 +42,8 @@
 
 (facts
   "Test tensor values."
-  (with-release [opt (options)
-                 env (environment)
+  (with-release [env (environment)
+                 opt (options)
                  sess (session env "data/logreg_iris.onnx" opt)
                  mem-info (memory-info :cpu :arena 0 :default)
                  data (float-array 5)
@@ -56,8 +55,8 @@
 
 (facts
   "Hello world example test."
-  (with-release [opt (options)
-                 env (environment)
+  (with-release [env (environment)
+                 opt (options)
                  sess (session env "data/logreg_iris.onnx" opt)]
     sess =not=> nil
     (input-count sess) => 1

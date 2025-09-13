@@ -19,26 +19,17 @@
   (:import [org.bytedeco.javacpp Pointer BytePointer Loader]
            org.bytedeco.onnxruntime.global.onnxruntime
            [org.bytedeco.onnxruntime OrtApi OrtEnv OrtSession OrtSessionOptions OrtDnnlProviderOptions
-            OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo
+            OrtAllocator OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo
+            OrtStatus OrtArenaCfg OrtCustomOpDomain OrtIoBinding OrtKernelInfo
+            OrtMemoryInfo OrtModelMetadata OrtOp OrtOpAttr OrtPrepackedWeightsContainer OrtRunOptions OrtValue]))
 
-            StringVector LongVector OrtStatus SessionOptions Session
-            AllocatorWithDefaultOptions OrtAllocator  Allocator
-            TypeInfo TypeInfoImpl MapTypeInfoImpl ConstMapTypeInfo
-            ConstTensorTypeAndShapeInfo TensorTypeAndShapeInfoImpl
+(def ^:dynamic *ort-api* (.. (onnxruntime/OrtGetApiBase)
+                             (GetApi)
+                             (call onnxruntime/ORT_API_VERSION)))
 
-            OptionalTypeInfoImpl MemoryInfoImpl MemoryInfo OrtMemoryInfo Value
-            ConstValueImpl
-            BaseAllocator BaseAllocatorWithDefaultOptions BaseArenaCfg BaseConstIoBinding
-            BaseConstMapTypeInfo BaseConstSession BaseConstSessionOptions BaseConstTensorTypeAndShapeInfo
-            BaseConstValue BaseCustomOpDomain BaseEnv BaseIoBinding BaseKernelInfo BaseMapTypeInfo
-            BaseMemoryInfo BaseModelMetadata BaseOpAttr BaseOrtLoraAdapter BaseOrtOp BaseRunOptions
-            BaseSequenceTypeInfo BaseSequenceTypeInfoImpl BaseSession BaseSessionOptions
-            BaseStatus BaseTensorTypeAndShapeInfo BaseThreadingOptions BaseTypeInfo
-            BaseValue]))
-
-(def ^:dynamic *ort-api* (.call (.GetApi (onnxruntime/OrtGetApiBase)) onnxruntime/ORT_API_VERSION))
-
-(def platform-pointer (if (.startsWith (Loader/getPlatform) "windows") char-pointer byte-pointer))
+(def platform-pointer (if (.. (Loader/getPlatform) (startsWith "windows"))
+                        char-pointer
+                        byte-pointer))
 
 (defn ort-error
   ([^OrtApi ort-api ^OrtStatus ort-status]
@@ -57,37 +48,66 @@
   ([ort-api status]
    `(with-check ~ort-api ~status ~ort-api)))
 
-(defmacro extend-ort [t]
+(defmacro extend-ort [t release-function]
   `(extend-type ~t
      Releaseable
      (release [this#]
        (locking this#
          (when-not (null? this#)
-           (onnxruntime/OrtRelease this#)
+           (. *ort-api* (~release-function this#))
            (.deallocate this#)
            (.setNull this#))
          true))))
 
-(extend-ort OrtEnv)
-(extend-ort OrtSession)
-(extend-ort OrtStatus)
-(extend-ort OrtSessionOptions)
-(extend-ort OrtSession)
-(extend-ort OrtAllocator)
-(extend-ort OrtTypeInfo)
-(extend-ort OrtTensorTypeAndShapeInfo)
+(extend-ort OrtEnv ReleaseEnv)
+(extend-ort OrtStatus ReleaseStatus)
+(extend-ort OrtSession ReleaseSession)
+(extend-ort OrtSessionOptions ReleaseSessionOptions)
+(extend-ort OrtAllocator ReleaseAllocator)
+(extend-ort OrtTypeInfo ReleaseTypeInfo)
+(extend-ort OrtTensorTypeAndShapeInfo ReleaseOrtTensorTypeAndShapeInfo)
+(extend-ort OrtSequenceTypeInfo ReleaseOrtSequenceTypeInfo)
+(extend-ort OrtMapTypeInfo ReleaseOrtMapTypeInfo)
+(extend-ort OrtOptionalTypeInfo ReleaseOrtOptionalTypeInfo)
+(extend-ort OrtStatus ReleaseOrtStatus)
+(extend-ort OrtArenaCfg ReleaseOrtArenaCfg)
+(extend-ort OrtCustomOpDomain ReleaseOrtCustomOpDomain)
+(extend-ort OrtIoBinding ReleaseOrtIoBinding)
+(extend-ort OrtKernelInfo ReleaseOrtKernelInfo)
+(extend-ort OrtMemoryInfo ReleaseOrtMemoryInfo)
+(extend-ort OrtModelMetadata ReleaseOrtModelMetadata)
+(extend-ort OrtOp ReleaseOrtOp)
+(extend-ort OrtOpAttr ReleaseOrtOpAttr)
+(extend-ort OrtPrepackedWeightsContainer ReleaseOrtPrepackedWeightsContainer)
+(extend-ort OrtRunOptions ReleaseOrtRunOptions)
+(extend-ort OrtValue ReleaseOrtValue)
+
+(defmacro call-pointer-pointer [ort-api type method & args]
+  `(let [ort-api# ~ort-api]
+     (with-release [res# (pointer-pointer 1)]
+       (with-check ort-api#
+         (. ort-api# (~method ~@args res#))
+         (.get res# ~type 0)))))
+
+(defmacro call-int [ort-api method & args]
+  `(let [ort-api# ~ort-api]
+     (with-release [res# (int-pointer 1)]
+       (with-check ort-api#
+         (. ort-api# (~method ~@args res#))
+         (get-entry res# 0)))))
+
+(defmacro call-size-t [ort-api method & args]
+  `(let [ort-api# ~ort-api]
+     (with-release [res# (size-t-pointer 1)]
+       (with-check ort-api#
+         (. ort-api# (~method ~@args res#))
+         (get-entry res# 0)))))
 
 (defn env* [^OrtApi ort-api ^long logging-level ^Pointer name]
-  (with-release [res (pointer-pointer 1)]
-    (with-check ort-api
-      (.CreateEnv ort-api logging-level name res)
-      (.get res OrtEnv 0))))
+  (call-pointer-pointer ort-api OrtEnv CreateEnv logging-level name))
 
 (defn session-options* [^OrtApi ort-api]
-  (with-release [res (pointer-pointer 1)]
-    (with-check ort-api
-      (.CreateSessionOptions ort-api res)
-      (.get res OrtSessionOptions 0))))
+  (call-pointer-pointer ort-api OrtSessionOptions CreateSessionOptions))
 
 (defn graph-optimization* [^OrtApi ort-api ^OrtSessionOptions opt ^long level]
   (with-check ort-api
@@ -101,78 +121,42 @@
       :cpu (onnxruntime/OrtSessionOptionsAppendExecutionProvider_CPU opt use-arena))))
 
 (defn session* [^OrtApi ort-api ^OrtEnv env ^Pointer model-path opt]
-  (with-release [res (pointer-pointer 1)]
-    (with-check ort-api
-      (.CreateSession ort-api env model-path opt res)
-      (.get res OrtSession 0))))
+  (call-pointer-pointer ort-api OrtSession CreateSession env model-path opt))
 
 (defn allocator* [^OrtApi ort-api]
-  (with-release [res (pointer-pointer 1)]
-    (with-check ort-api
-      (.GetAllocatorWithDefaultOptions ort-api res)
-      (.get res OrtAllocator 0))))
+  (call-pointer-pointer ort-api OrtAllocator GetAllocatorWithDefaultOptions))
 
 (def ^:dynamic *default-allocator* (allocator* *ort-api*))
 
 (defn input-count* ^long [^OrtApi ort-api ^OrtSession sess]
-  (with-release [res (size-t-pointer 1)]
-    (with-check ort-api
-      (.SessionGetInputCount ort-api sess res)
-      (get-entry res 0))))
+  (call-size-t ort-api SessionGetInputCount sess))
 
 (defn input-name* [^OrtApi ort-api ^OrtSession sess ^OrtAllocator allo ^long i]
-  (with-release [res (pointer-pointer 1)]
-    (with-check ort-api
-      (.SessionGetInputName ort-api sess i allo res)
-      (get-string (.get res BytePointer 0)))))
+  (get-string (call-pointer-pointer ort-api BytePointer SessionGetInputName sess i allo)))
 
 (defn output-count* ^long [^OrtApi ort-api ^OrtSession sess]
-  (with-release [res (size-t-pointer 1)]
-    (with-check ort-api
-      (.SessionGetOutputCount ort-api sess res)
-      (get-entry res 0))))
+  (call-size-t ort-api SessionGetOutputCount sess))
 
 (defn output-name* [^OrtApi ort-api ^OrtSession sess ^OrtAllocator allo ^long i]
-  (with-release [res (pointer-pointer 1)]
-    (with-check ort-api
-      (.SessionGetOutputName ort-api sess i allo res)
-      (get-string (.get res BytePointer 0)))))
+  (get-string (call-pointer-pointer ort-api BytePointer SessionGetOutputName sess i allo)))
 
 (defn input-type-info* [^OrtApi ort-api ^OrtSession sess ^long i]
-  (with-release [res (pointer-pointer 1)]
-    (with-check ort-api
-      (.SessionGetInputTypeInfo ort-api sess i res)
-      (.get res OrtTypeInfo 0))))
+  (call-pointer-pointer ort-api OrtTypeInfo SessionGetInputTypeInfo sess i))
 
 (defn output-type-info* [^OrtApi ort-api ^OrtSession sess ^long i]
-  (with-release [res (pointer-pointer 1)]
-    (with-check ort-api
-      (.SessionGetOutputTypeInfo ort-api sess i res)
-      (.get res OrtTypeInfo 0))))
+  (call-pointer-pointer ort-api OrtTypeInfo SessionGetOutputTypeInfo sess i))
 
 (defn tensor-info* [^OrtApi ort-api ^OrtTypeInfo info]
-  (with-release [res (pointer-pointer 1)]
-    (with-check ort-api
-      (.CastTypeInfoToTensorInfo ort-api info res)
-      (.get res OrtTensorTypeAndShapeInfo 0))))
+  (call-pointer-pointer ort-api OrtTensorTypeAndShapeInfo CastTypeInfoToTensorInfo info))
 
 (defn sequence-info* [^OrtApi ort-api ^OrtTypeInfo info]
-  (with-release [res (pointer-pointer 1)]
-    (with-check ort-api
-      (.CastTypeInfoToSequenceTypeInfo ort-api info res)
-      (.get res OrtSequenceTypeInfo 0))))
+  (call-pointer-pointer ort-api OrtSequenceTypeInfo CastTypeInfoToSequenceTypeInfo info))
 
 (defn map-info* [^OrtApi ort-api ^OrtTypeInfo info]
-  (with-release [res (pointer-pointer 1)]
-    (with-check ort-api
-      (.CastTypeInfoToMapTypeInfo ort-api info res)
-      (.get res OrtMapTypeInfo 0))))
+  (call-pointer-pointer ort-api OrtMapTypeInfo CastTypeInfoToMapTypeInfo info))
 
 (defn optional-info* [^OrtApi ort-api ^OrtTypeInfo info]
-  (with-release [res (pointer-pointer 1)]
-    (with-check ort-api
-      (.CastTypeInfoToOptionalTypeInfo ort-api info res)
-      (.get res OrtOptionalTypeInfo 0))))
+  (call-pointer-pointer ort-api OrtOptionalTypeInfo CastTypeInfoToOptionalTypeInfo info))
 
 (defn type-info* [^OrtApi ort-api ^OrtTypeInfo info]
   (with-release [t (int-pointer 1)]
@@ -186,40 +170,22 @@
         info))))
 
 (defn tensor-type* ^long [^OrtApi ort-api ^OrtTensorTypeAndShapeInfo info]
-  (with-release [res (int-pointer 1)]
-    (with-check ort-api
-      (.GetTensorElementType ort-api info res)
-      (get-entry res 0))))
+  (call-int ort-api GetTensorElementType info))
 
 (defn sequence-type* [^OrtApi ort-api ^OrtSequenceTypeInfo info]
-  (with-release [res (pointer-pointer 1)]
-    (with-check ort-api
-      (.GetSequenceElementType ort-api info res)
-      (.get res OrtTypeInfo 0))))
+  (call-pointer-pointer ort-api OrtTypeInfo GetSequenceElementType info))
 
 (defn key-type* ^long [^OrtApi ort-api ^OrtMapTypeInfo info]
-  (with-release [res (int-pointer 1)]
-    (with-check ort-api
-      (.GetMapKeyType ort-api info res)
-      (get-entry res 0))))
+  (call-int ort-api GetMapKeyType info))
 
 (defn value-type* [^OrtApi ort-api ^OrtMapTypeInfo info]
-  (with-release [res (pointer-pointer 1)]
-    (with-check ort-api
-      (.GetMapValueType ort-api info res)
-      (.get res OrtTypeInfo 0))))
+  (call-pointer-pointer ort-api OrtTypeInfo GetMapValueType info))
 
 (defn dimensions-count* ^long [^OrtApi ort-api ^OrtTensorTypeAndShapeInfo info]
-  (with-release [res (size-t-pointer 1)]
-    (with-check ort-api
-      (.GetDimensionsCount ort-api info res)
-      (get-entry res 0))))
+  (call-size-t ort-api GetDimensionsCount info))
 
 (defn tensor-element-count* ^long [^OrtApi ort-api ^OrtTensorTypeAndShapeInfo info]
-  (with-release [res (size-t-pointer 1)]
-    (with-check ort-api
-      (.GetTensorShapeElementCount ort-api info res)
-      (get-entry res 0))))
+  (call-size-t ort-api GetTensorShapeElementCount info))
 
 (defn tensor-dimensions* [^OrtApi ort-api ^OrtTensorTypeAndShapeInfo info]
   (with-release [cnt (dimensions-count* ort-api info)]
