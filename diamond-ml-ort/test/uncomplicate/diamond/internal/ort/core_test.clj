@@ -43,18 +43,22 @@
    (null? env) => false
    (null? sess) => false))
 
-;; (facts
-;;   "Test memory-info."
-;;   (with-release [env (environment)
-;;                  opt (options)
-;;                  sess (session env "data/logreg_iris.onnx" opt)
-;;                  mem-info (memory-info :cpu :arena 0 :default)]
-;;     (allocator-name mem-info) => :cpu
-;;     (allocator-type mem-info) => :arena
-;;     (device-id mem-info) => 0
-;;     (device-type mem-info) => :cpu
-;;     (memory-type mem-info) => :default
-;;     ))
+(facts
+  "Test memory-info."
+  (with-release [env (environment)
+                 opt (options)
+                 sess (session env "data/logreg_iris.onnx" opt)
+                 mem-info (memory-info :cpu :arena 0 :default)]
+    (allocator-key mem-info) => :cpu
+    (allocator-type mem-info) => :arena
+    (device-id mem-info) => 0
+    (device-type mem-info) => :cpu
+    (memory-type mem-info) => :default
+    (info mem-info) => {:allocator-key :cpu
+                        :allocator-type :arena
+                        :device-id 0
+                        :device-type :cpu
+                        :memory-type :default}))
 
 ;; (facts
 ;;   "Test tensor values."

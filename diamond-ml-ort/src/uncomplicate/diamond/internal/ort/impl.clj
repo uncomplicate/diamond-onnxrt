@@ -265,3 +265,26 @@
       (with-check ort-api
         (.GetDimensions ort-api info res cnt)
         res))))
+
+(defn memory-info* [^OrtApi ort-api ^BytePointer name type id mem-type]
+  (call-pointer-pointer ort-api OrtMemoryInfo CreateMemoryInfo name type id mem-type))
+
+(defn device-type*
+  ([^OrtApi ort-api]
+   (.MemoryInfoGetDeviceType ort-api))
+  (^long [call ^OrtMemoryInfo mem-info]
+   (with-release [res (int-pointer 1)]
+     (.call call mem-info res)
+     (get-entry res 0))))
+
+(defn device-id* ^long [^OrtApi ort-api ^OrtMemoryInfo mem-info]
+  (call-int ort-api MemoryInfoGetId mem-info))
+
+(defn memory-type* ^long [^OrtApi ort-api ^OrtMemoryInfo mem-info]
+  (call-int ort-api MemoryInfoGetMemType mem-info))
+
+(defn device-name* [^OrtApi ort-api ^OrtMemoryInfo mem-info]
+  (call-pointer-pointer ort-api BytePointer MemoryInfoGetName mem-info))
+
+(defn allocator-type* ^long [^OrtApi ort-api ^OrtMemoryInfo mem-info]
+  (call-int ort-api MemoryInfoGetType mem-info))

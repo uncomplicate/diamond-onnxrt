@@ -18,7 +18,8 @@
   (:import org.bytedeco.javacpp.Pointer
            org.bytedeco.onnxruntime.global.onnxruntime
            [org.bytedeco.onnxruntime OrtDnnlProviderOptions
-            OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo]))
+            OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo
+            OrtMemoryInfo]))
 
 (defn init-ort-api!
   ([^long ort-api-version]
@@ -228,41 +229,59 @@
      (map #(output-type-info* ort-api sess %)
           (range (output-count* ort-api sess))))))
 
-;; (defn memory-info* [^String name ^long allocator ^long device-id ^long mem-type]
-;;   (MemoryInfo. name allocator device-id mem-type ))
+(defn memory-info
+  ([alloc-key alloc-type device-id mem-type]
+   (with-release [name (byte-pointer (get ort-allocator-name alloc-key alloc-key))]
+     (memory-info* *ort-api* name
+                   (enc-keyword ort-allocator-type alloc-type)
+                   device-id
+                   (enc-keyword ort-mem-type mem-type))))
+  ([alloc-key alloc-type mem-type]
+   (memory-info alloc-key alloc-type 0 mem-type))
+  ([alloc-key alloc-type]
+   (memory-info alloc-key alloc-type 0 :default))
+  ([alloc-key]
+   (memory-info alloc-key :arena 0 :default))
+  ([]
+   (memory-info :cpu)))
 
-;; (defn memory-info
-;;   ([name allocator device-id mem-type]
-;;    (memory-info* (get ort-allocator-name name name)
-;;                  (enc-keyword ort-allocator-type allocator)
-;;                  device-id
-;;                  (enc-keyword ort-mem-type mem-type)))
-;;   ([name allocator mem-type]
-;;    (memory-info name allocator 0 mem-type))
-;;   ([name allocator]
-;;    (memory-info name allocator 0 :default))
-;;   ([name]
-;;    (memory-info* "Cpu" onnxruntime/OrtArenaAllocator
-;;                  0 onnxruntime/OrtMemTypeDefault))
-;;   ([]
-;;    (memory-info* "Cpu" onnxruntime/OrtArenaAllocator 0 onnxruntime/OrtMemTypeDefault)))
+(defn device-type
+  ([]
+   (device-type* *ort-api*))
+  ([mem-info]
+   (device-type (device-type* *ort-api*) mem-info))
+  ([call mem-info]
+   (dec-ort-memory-info-device-type (device-type* call mem-info))))
 
-;; (defn allocator-name [^MemoryInfoImpl mem-info]
-;;   (with-release [all-name (.GetAllocatorName mem-info)]
-;;     (let [name (get-string all-name)]
-;;       (get ort-allocator-keyword name name))))
+(defn device-id [mem-info]
+  (device-id* *ort-api* mem-info))
 
-;; (defn allocator-type [^MemoryInfoImpl mem-info]
-;;   (dec-ort-allocator-type (.GetAllocatorType mem-info)))
+(defn memory-type [mem-info]
+  (dec-ort-memory-type (memory-type* *ort-api* mem-info)))
 
-;; (defn device-id ^long [^MemoryInfoImpl mem-info]
-;;   (.GetDeviceId mem-info))
+(defn allocator-key [mem-info]
+  (ort-allocator-keyword (get-string (device-name* *ort-api* mem-info))))
 
-;; (defn device-type [^MemoryInfoImpl mem-info]
-;;   (dec-ort-memory-info-device-type (.GetDeviceType mem-info)))
+(defn allocator-type [mem-info]
+  (dec-ort-allocator-type (allocator-type* *ort-api* mem-info)))
 
-;; (defn memory-type [^MemoryInfoImpl mem-info]
-;;   (dec-ort-memory-type (.GetMemoryType mem-info)))
+(extend-type OrtMemoryInfo
+  Info
+  (info
+    ([this]
+     {:device-id (device-id this)
+      :device-type (device-type this)
+      :memory-type (memory-type this)
+      :allocator-key (allocator-key this)
+      :allocator-type (allocator-type this)})
+    ([this type-info]
+     (case type-info
+       :device-id (device-id this)
+       :device-type (device-type this)
+       :memory-type (memory-type this)
+       :allocator-key (allocator-key this)
+       :allocator-type (allocator-type this)
+       nil))))
 
 ;; (defn create-tensor*
 ;;   ([^OrtAllocator allocator ^longs shape ^long type]
