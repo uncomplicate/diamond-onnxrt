@@ -179,7 +179,7 @@
 (defn session* [^OrtApi ort-api ^OrtEnv env ^Pointer model-path opt]
   (call-pointer-pointer ort-api OrtSession CreateSession env model-path opt))
 
-(defn allocator* [^OrtApi ort-api]
+(defn default-allocator* [^OrtApi ort-api]
   (call-pointer-pointer ort-api OrtAllocator GetAllocatorWithDefaultOptions))
 
 (defn free*

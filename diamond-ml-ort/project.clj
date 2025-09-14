@@ -30,7 +30,8 @@
              :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.1"]
                                     [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]]}
              :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.1"]
-                                      [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]]}
+                                      [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
+                                      [org.bytedeco/onnxruntime-platform "1.22.2-1.5.13-SNAPSHOT"]]}
              :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.57.0"]
                                      [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]
                                      [org.bytedeco/onnxruntime-platform "1.22.2-1.5.13-SNAPSHOT"]]}}

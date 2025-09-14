@@ -14,34 +14,34 @@
             [uncomplicate.diamond.internal.ort.core :refer :all])
   (:import clojure.lang.ExceptionInfo))
 
-(init-ort-api!)
+(init-ort-api! 20)
 
 (facts
- "Test system."
- (version) => {:major 1 :minor 20 :update 0}
- (filter #{:dnnl :cpu} (available-providers) => [:dnnl :cpu])
- (type (build-info)) => String)
+  "Test system."
+  (version) => {:major 1 :minor 20 :update 0}
+  (filter #{:dnnl :cpu} (available-providers) => [:dnnl :cpu])
+  (type (build-info)) => String)
 
 (facts
- "Test execution provider."
- (with-release [env (environment)
-                opt (options)]
-   (info opt) => truthy
-   (append-provider! opt :random nil) => (throws ExceptionInfo)
-   (append-provider! opt :dnnl) => opt))
+  "Test DNNL execution provider."
+  (with-release [env (environment)
+                 opt (options)]
+    (info opt) => truthy
+    (append-provider! opt :random nil) => (throws ExceptionInfo)
+    (append-provider! opt :dnnl) => opt))
 
 (facts
- "Test release."
- (let [env (environment)
-       opt (options)
-       sess (session env "data/logreg_iris.onnx" opt)]
-   (null? opt) => false
-   (null? env) => false
-   (null? sess) => false
-   (release opt) => true
-   opt => nil
-   (null? env) => false
-   (null? sess) => false))
+  "Test session releasing."
+  (let [env (environment)
+        opt (options)
+        sess (session env "data/logreg_iris.onnx" opt)]
+    (null? opt) => false
+    (null? env) => false
+    (null? sess) => false
+    (release opt) => true
+    opt => nil
+    (null? env) => false
+    (null? sess) => false))
 
 (facts
   "Test memory-info."
@@ -77,25 +77,25 @@
     (create-tensor mem-info 3 data) => (throws RuntimeException)))
 
 (facts
- "Hello world example test."
- (with-release [env (environment)
-                opt (options)
-                sess (session env "data/logreg_iris.onnx" opt)
-                input-info (input-type-info sess 0)
-                output-info-0 (output-type-info sess 0)
-                output-info-1 (output-type-info sess 1)
-                inputs-info (input-type-info sess)
-                output-1-element (sequence-type (cast-type output-info-1))
-                output-1-val (val-type (cast-type output-1-element))]
-   sess =not=> nil
-   (input-count sess) => 1
-   (output-count sess) => 2
-   (input-name sess) => ["float_input"]
-   (output-name sess) => ["label" "probabilities"]
-   (info (input-type-info sess 0)) => {:count 6 :shape [3 2] :data-type :float :type :tensor}
-   (input-type-info sess 1) => (throws IndexOutOfBoundsException)
-   (map info inputs-info) => [{:count 6 :shape [3 2] :data-type :float :type :tensor}]
-   (info output-info-0) => {:count 3 :shape [3] :data-type :long :type :tensor}
-   (scalar? (cast-type output-1-val)) => true
-   (info output-info-1) => {:element {:key :long :type :map :val :float} :type :sequence}
-   (output-type-info sess 2) => (throws IndexOutOfBoundsException)))
+  "Hello world example test."
+  (with-release [env (environment)
+                 opt (options)
+                 sess (session env "data/logreg_iris.onnx" opt)
+                 input-info (input-type-info sess 0)
+                 output-info-0 (output-type-info sess 0)
+                 output-info-1 (output-type-info sess 1)
+                 inputs-info (input-type-info sess)
+                 output-1-element (sequence-type (cast-type output-info-1))
+                 output-1-val (val-type (cast-type output-1-element))]
+    sess =not=> nil
+    (input-count sess) => 1
+    (output-count sess) => 2
+    (input-name sess) => ["float_input"]
+    (output-name sess) => ["label" "probabilities"]
+    (info (input-type-info sess 0)) => {:count 6 :shape [3 2] :data-type :float :type :tensor}
+    (input-type-info sess 1) => (throws IndexOutOfBoundsException)
+    (map info inputs-info) => [{:count 6 :shape [3 2] :data-type :float :type :tensor}]
+    (info output-info-0) => {:count 3 :shape [3] :data-type :long :type :tensor}
+    (scalar? (cast-type output-1-val)) => true
+    (info output-info-1) => {:element {:key :long :type :map :val :float} :type :sequence}
+    (output-type-info sess 2) => (throws IndexOutOfBoundsException)))

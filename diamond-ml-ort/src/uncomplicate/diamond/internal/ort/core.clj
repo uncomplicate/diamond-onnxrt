@@ -9,7 +9,7 @@
 (ns uncomplicate.diamond.internal.ort.core
   (:require [clojure.string :as st :refer [lower-case split]]
             [uncomplicate.commons
-             [core :refer [let-release with-release Releaseable view Info info bytesize size]]
+             [core :refer [let-release with-release Releaseable release Info info bytesize size]]
              [utils :refer [enc-keyword dragan-says-ex mask]]]
             [uncomplicate.clojure-cpp :refer [get-string byte-pointer long-pointer null? pointer pointer-type pointer-seq safe]]
             [uncomplicate.diamond.internal.ort
@@ -26,7 +26,7 @@
    (alter-var-root (var *ort-api*)
                    (constantly (api* (onnxruntime/OrtGetApiBase) ort-api-version)))
    (alter-var-root (var *default-allocator*)
-                   (constantly (allocator* *ort-api*))))
+                   (constantly (default-allocator* *ort-api*))))
   ([]
    (init-ort-api! onnxruntime/ORT_API_VERSION)))
 
@@ -303,32 +303,3 @@
 
 (defn value-type-info [value]
   (value-type-info* *ort-api* (safe value)))
-
-;; (defn create-tensor*
-;;   ([^OrtAllocator allocator ^longs shape ^long type]
-;;    (Value/CreateTensor allocator shape (alength shape) type))
-;;   ([^OrtMemoryInfo mem-info ^longs shape ^long type ^Pointer data]
-;;    (Value/CreateTensor mem-info data (bytesize data) shape (alength shape) type)))
-
-;; (defprotocol TensorCreator
-;;   (create-tensor [this shape source] [this shape type data]))
-
-;; (extend-type BaseMemoryInfo
-;;   TensorCreator
-;;   (create-tensor
-;;     ([this shape data]
-;;      (let [data (pointer data)]
-;;        (create-tensor this shape (enc-keyword pointer-type (type data)) data)))
-;;     ([this shape type data]
-;;      (create-tensor* (.asOrtMemoryInfo this) (long-array (seq shape)) (enc-keyword onnx-data-type type) (pointer data)))))
-
-;; (extend-type BaseAllocator
-;;   TensorCreator
-;;   (create-tensor
-;;     ([this shape type]
-;;      (create-tensor* (.asOrtAllocator this) (long-array (seq shape)) (enc-keyword onnx-data-type type)))
-;;     ([this shape type data]
-;;      (dragan-says-ex "Allocators can't accept data. They should be the ones creating the data pointer."))))
-
-;; (defn value-type-info [^ConstValueImpl value]
-;;   (type-info (.GetTypeInfo value)))
