@@ -8,7 +8,7 @@
 
 (ns uncomplicate.diamond.internal.ort.impl
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release with-release let-release release
+             [core :refer [Releaseable release with-release let-release size bytesize
                            ;;Info
                            ;; info Viewable view Bytes bytesize Entries sizeof* bytesize*
                            ;; sizeof size
@@ -267,7 +267,7 @@
         res))))
 
 (defn memory-info* [^OrtApi ort-api ^BytePointer name type id mem-type]
-  (call-pointer-pointer ort-api OrtMemoryInfo CreateMemoryInfo name type id mem-type))
+  (call-pointer-pointer ort-api OrtMemoryInfo CreateMemoryInfo name (int type) (int id) (int mem-type)))
 
 (defn device-type*
   ([^OrtApi ort-api]
@@ -288,3 +288,16 @@
 
 (defn allocator-type* ^long [^OrtApi ort-api ^OrtMemoryInfo mem-info]
   (call-int ort-api MemoryInfoGetType mem-info))
+
+(defn create-tensor* [^OrtApi ort-api ^OrtMemoryInfo mem-info ^Pointer data shape type]
+  (call-pointer-pointer ort-api OrtValue CreateTensorWithDataAsOrtValue mem-info
+                        data (bytesize data)
+                        shape (size shape)
+                        (int type)))
+
+(defn allocate-tensor* [^OrtApi ort-api ^OrtAllocator alloc shape type]
+  (call-pointer-pointer ort-api OrtValue CreateTensorWithOrtValue alloc
+                        shape (size shape) (int type)))
+
+(defn value-type-info* [^OrtApi ort-api ^OrtValue value]
+  (call-pointer-pointer ort-api OrtTypeInfo GetTypeInfo value))

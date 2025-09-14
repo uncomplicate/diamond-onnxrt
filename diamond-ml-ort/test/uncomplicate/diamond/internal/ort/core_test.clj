@@ -60,18 +60,21 @@
                         :device-type :cpu
                         :memory-type :default}))
 
-;; (facts
-;;   "Test tensor values."
-;;   (with-release [env (environment)
-;;                  opt (options)
-;;                  sess (session env "data/logreg_iris.onnx" opt)
-;;                  mem-info (memory-info :cpu :arena 0 :default)
-;;                  data (float-array 5)
-;;                  val (create-tensor mem-info [2 2] data)]
-;;     (info (value-type-info val)) => {:count 4 :data-type :float :shape [2 2] :type :tensor}
-;;     (create-tensor mem-info [0 -1] data) => (throws RuntimeException)
-;;     (create-tensor mem-info [0 0] nil) => (throws RuntimeException)
-;;     (create-tensor mem-info 3 data) => (throws RuntimeException)))
+(facts
+  "Test tensor values."
+  (with-release [env (environment)
+                 opt (options)
+                 sess (session env "data/logreg_iris.onnx" opt)
+                 mem-info (memory-info :cpu :arena 0 :default)
+                 data (float-array 5)
+                 val (create-tensor mem-info [2 2] data)
+                 val-type-info (value-type-info val)]
+    (info val-type-info) => {:count 4 :data-type :float :shape [2 2] :type :tensor}
+    (release val-type-info) => true
+    (info val-type-info) => (throws RuntimeException)
+    (create-tensor mem-info [0 -1] data) => (throws RuntimeException)
+    (create-tensor mem-info [0 0] nil) => (throws RuntimeException)
+    (create-tensor mem-info 3 data) => (throws RuntimeException)))
 
 (facts
  "Hello world example test."

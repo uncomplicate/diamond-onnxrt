@@ -11,7 +11,7 @@
             [uncomplicate.commons
              [core :refer [let-release with-release Releaseable view Info info bytesize size]]
              [utils :refer [enc-keyword dragan-says-ex mask]]]
-            [uncomplicate.clojure-cpp :refer [get-string byte-pointer null? pointer pointer-type pointer-seq safe]]
+            [uncomplicate.clojure-cpp :refer [get-string byte-pointer long-pointer null? pointer pointer-type pointer-seq safe]]
             [uncomplicate.diamond.internal.ort
              [constants :refer :all]
              [impl :refer :all]])
@@ -59,7 +59,7 @@
 (defn append-dnnl! [opt! opt-map]
   (with-release [dnnl (dnnl-options* *ort-api*)]
     (.use_arena dnnl (get :arena opt-map 0))
-    (append-dnnl* *ort-api* opt! dnnl)
+    (append-dnnl* *ort-api* (safe opt!) dnnl)
     opt!))
 
 (defn append-cuda! [opt! opt-map]
@@ -85,18 +85,18 @@
   (graph-optimization* *ort-api* opt! (enc-keyword ort-graph-optimization level)))
 
 (defn environment
-  ([logging-level name]
-   (with-release [name (platform-pointer name)]
-     (env* *ort-api* (enc-keyword ort-logging-level logging-level) name)))
+  ([logging-level log-name]
+   (with-release [log-name (byte-pointer (if (seq log-name) log-name "default"))]
+     (env* *ort-api* (enc-keyword ort-logging-level logging-level) log-name)))
   ([]
    (environment :warning "default")))
 
 (defn session [env ^String model-path options]
   (with-release [model-path (platform-pointer model-path)]
-    (session* *ort-api* env (platform-pointer model-path) options)))
+    (session* *ort-api* (safe env) (safe (platform-pointer model-path)) (safe options))))
 
 (defn input-count ^long [sess]
-  (input-count* *ort-api* sess))
+  (input-count* *ort-api* (safe sess)))
 
 (defn check-index [^long i ^long cnt object]
   (when-not (< -1 i cnt)
@@ -105,35 +105,35 @@
 (defn input-name
   ([sess ^long i]
    (check-index i (input-count sess) "input")
-   (get-string* (input-name* *ort-api* sess i *default-allocator*)))
+   (get-string* (input-name* *ort-api* (safe sess) i (safe *default-allocator*))))
   ([sess]
-   (let [allo *default-allocator*
+   (let [allo (safe *default-allocator*)
          free (free* allo)]
-     (doall (map #(get-string* allo free (input-name* *ort-api* sess allo %))
+     (doall (map #(get-string* allo free (input-name* *ort-api* (safe sess) allo %))
                  (range (input-count sess)))))))
 
 (defn output-count ^long [sess]
-  (output-count* *ort-api* sess))
+  (output-count* *ort-api* (safe sess)))
 
 (defn output-name
   ([sess ^long i]
    (check-index i (output-count sess) "output")
-   (get-string* (output-name* *ort-api* sess i *default-allocator*)))
+   (get-string* (output-name* *ort-api* (sess sess) i (safe *default-allocator*))))
   ([sess]
-   (let [allo *default-allocator*
+   (let [allo (safe *default-allocator*)
          free (free* allo)]
-     (doall (map #(get-string* allo free (output-name* *ort-api* sess allo %))
+     (doall (map #(get-string* allo free (output-name* *ort-api* (safe sess) allo %))
                  (range (output-count sess)))))))
 
 (defn scalar? [info]
-  (= 0 (dimensions-count* *ort-api* info)))
+  (= 0 (dimensions-count* *ort-api* (safe info))))
 
 (defn shape [info]
-  (with-release [dims (safe (tensor-dimensions* *ort-api* info))]
+  (with-release [dims (safe (tensor-dimensions* *ort-api* (safe info)))]
     (vec (doall (pointer-seq dims)))))
 
 (defn cast-type [info]
-  (cast-type* *ort-api* info))
+  (cast-type* *ort-api* (safe info)))
 
 (extend-type OrtTypeInfo
   Info
@@ -144,7 +144,7 @@
      (info (cast-type this) info-type))))
 
 (defn tensor-type [info]
-  (dec-onnx-data-type (tensor-type* *ort-api* info)))
+  (dec-onnx-data-type (tensor-type* *ort-api* (safe info))))
 
 (extend-type OrtTensorTypeAndShapeInfo
   Info
@@ -154,18 +154,18 @@
        (tensor-type this)
        {:data-type (tensor-type this)
         :shape (shape this)
-        :count (tensor-element-count* *ort-api* this)
+        :count (tensor-element-count* *ort-api* (safe this))
         :type :tensor}))
     ([this info-type]
      (case info-type
        :data-type (tensor-type this)
        :shape (shape this)
-       :count (tensor-element-count* *ort-api* this)
+       :count (tensor-element-count* *ort-api* (safe this))
        :type :tensor
        nil))))
 
 (defn sequence-type [info]
-  (sequence-type* *ort-api* info))
+  (sequence-type* *ort-api* (safe info)))
 
 (extend-type OrtSequenceTypeInfo
   Info
@@ -190,10 +190,10 @@
        nil))))
 
 (defn key-type [info]
-  (dec-onnx-data-type (key-type* *ort-api* info)))
+  (dec-onnx-data-type (key-type* *ort-api* (safe info))))
 
 (defn val-type [info]
-  (value-type* *ort-api* info))
+  (value-type* *ort-api* (safe info)))
 
 (extend-type OrtMapTypeInfo
   Info
@@ -211,27 +211,31 @@
 
 (defn input-type-info
   ([sess ^long i]
-   (let [ort-api *ort-api*]
+   (let [ort-api *ort-api*
+         sess (safe sess)]
      (check-index i (input-count* ort-api sess) "input")
      (input-type-info* ort-api sess i)))
   ([sess]
-   (let [ort-api *ort-api*]
+   (let [ort-api *ort-api*
+         sess (safe sess)]
      (map #(input-type-info* ort-api sess %)
           (range (input-count* ort-api sess))))))
 
 (defn output-type-info
   ([sess ^long i]
-   (let [ort-api *ort-api*]
+   (let [ort-api *ort-api*
+         sess (safe sess)]
      (check-index i (output-count* ort-api sess) "output")
      (output-type-info* ort-api sess i)))
   ([sess]
-   (let [ort-api *ort-api*]
+   (let [ort-api *ort-api*
+         sess (safe sess)]
      (map #(output-type-info* ort-api sess %)
           (range (output-count* ort-api sess))))))
 
 (defn memory-info
   ([alloc-key alloc-type device-id mem-type]
-   (with-release [name (byte-pointer (get ort-allocator-name alloc-key alloc-key))]
+   (with-release [name (safe (byte-pointer (get ort-allocator-name alloc-key alloc-key)))]
      (memory-info* *ort-api* name
                    (enc-keyword ort-allocator-type alloc-type)
                    device-id
@@ -251,19 +255,19 @@
   ([mem-info]
    (device-type (device-type* *ort-api*) mem-info))
   ([call mem-info]
-   (dec-ort-memory-info-device-type (device-type* call mem-info))))
+   (dec-ort-memory-info-device-type (device-type* (safe call) (safe mem-info)))))
 
 (defn device-id [mem-info]
-  (device-id* *ort-api* mem-info))
+  (device-id* *ort-api* (safe mem-info)))
 
 (defn memory-type [mem-info]
-  (dec-ort-memory-type (memory-type* *ort-api* mem-info)))
+  (dec-ort-memory-type (memory-type* *ort-api* (safe mem-info))))
 
 (defn allocator-key [mem-info]
-  (ort-allocator-keyword (get-string (device-name* *ort-api* mem-info))))
+  (ort-allocator-keyword (get-string (device-name* *ort-api* (safe mem-info)))))
 
 (defn allocator-type [mem-info]
-  (dec-ort-allocator-type (allocator-type* *ort-api* mem-info)))
+  (dec-ort-allocator-type (allocator-type* *ort-api* (safe mem-info))))
 
 (extend-type OrtMemoryInfo
   Info
@@ -282,6 +286,23 @@
        :allocator-key (allocator-key this)
        :allocator-type (allocator-type this)
        nil))))
+
+(defn create-tensor
+  ([mem-info shape data data-type]
+   (let [data (pointer data)]
+     (create-tensor* *ort-api* (safe mem-info) (safe data) (safe (long-pointer (seq shape)))
+                     (enc-keyword onnx-data-type data-type))))
+  ([mem-info-or-alloc shape data-or-type]
+   (if (or (keyword data-or-type) (number? data-or-type))
+     (allocate-tensor* *ort-api* (safe mem-info-or-alloc) (safe (long-pointer (seq shape)))
+                       (enc-keyword pointer-type data-or-type))
+     (create-tensor mem-info-or-alloc shape data-or-type
+                    (enc-keyword pointer-type (type (pointer data-or-type))))))
+  ([shape data-type]
+   (create-tensor *default-allocator* shape data-type)))
+
+(defn value-type-info [value]
+  (value-type-info* *ort-api* (safe value)))
 
 ;; (defn create-tensor*
 ;;   ([^OrtAllocator allocator ^longs shape ^long type]
