@@ -15,6 +15,21 @@
   (:import clojure.lang.ExceptionInfo))
 
 (facts
+  "Test system."
+  (version) => {:major 1 :minor 20 :update 0}
+  (filter #{:dnnl :cpu} (available-providers) => [:dnnl :cpu])
+  (type (build-info)) => String)
+
+(facts
+  "Test execution provider."
+  (with-release [env (environment)
+                 opt (options)]
+    (info opt) => truthy
+    (append-provider! opt :random nil) => (throws ExceptionInfo)
+    (append-provider! opt :dnnl) => opt
+    ))
+
+(facts
   "Test release."
   (let [env (environment)
         opt (options)

@@ -15,29 +15,30 @@
                            ]]
              [utils :as utils :refer [dragan-says-ex]]]
             [uncomplicate.clojure-cpp
-             :refer [null? pointer-pointer int-pointer long-pointer byte-pointer char-pointer size-t-pointer get-entry get-pointer get-string]])
-  (:import [org.bytedeco.javacpp Pointer BytePointer Loader]
+             :refer [null? pointer-pointer int-pointer long-pointer byte-pointer char-pointer
+                     size-t-pointer get-entry get-pointer get-string capacity! capacity]])
+  (:import [org.bytedeco.javacpp Pointer BytePointer PointerPointer Loader]
            org.bytedeco.onnxruntime.global.onnxruntime
-           [org.bytedeco.onnxruntime OrtApi OrtEnv OrtSession OrtSessionOptions OrtDnnlProviderOptions
+           [org.bytedeco.onnxruntime OrtApiBase OrtApi OrtEnv OrtSession OrtSessionOptions
             OrtAllocator OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo
             OrtStatus OrtArenaCfg OrtCustomOpDomain OrtIoBinding OrtKernelInfo
-            OrtMemoryInfo OrtModelMetadata OrtOp OrtOpAttr OrtPrepackedWeightsContainer OrtRunOptions OrtValue]))
+            OrtMemoryInfo OrtModelMetadata OrtOp OrtOpAttr OrtPrepackedWeightsContainer OrtRunOptions OrtValue
+            OrtDnnlProviderOptions OrtCUDAProviderOptionsV2]))
 
-(def ^:dynamic *ort-api* (.. (onnxruntime/OrtGetApiBase)
-                             (GetApi)
-                             (call onnxruntime/ORT_API_VERSION)))
+(defn api* [^OrtApiBase ort-api-base ^long version]
+  (.call (.GetApi ort-api-base) version))
+
+(def ^:dynamic *ort-api*)
 
 (def platform-pointer (if (.. (Loader/getPlatform) (startsWith "windows"))
                         char-pointer
                         byte-pointer))
 
 (defn ort-error
-  ([^OrtApi ort-api ^OrtStatus ort-status]
-   (let [err (.getString (.call (.GetErrorMessage ort-api) ort-status))]
-     (ex-info (format "ONNX runtime error: %s." err)
-              {:error err :type :ort-error})))
-  ([ort-status]
-   (ort-error *ort-api* ort-status)))
+  [^OrtApi ort-api ^OrtStatus ort-status]
+  (let [err (.getString (.call (.GetErrorMessage ort-api) ort-status))]
+    (ex-info (format "ONNX runtime error: %s." err)
+             {:error err :type :ort-error})))
 
 (defmacro with-check
   ([ort-api status form]
@@ -82,6 +83,21 @@
 (extend-ort OrtRunOptions ReleaseOrtRunOptions)
 (extend-ort OrtValue ReleaseOrtValue)
 
+(defmacro extend-ort-call [t call]
+  `(extend-type ~t
+     Releaseable
+     (release [this#]
+       (locking this#
+         (when-not (null? this#)
+           (with-check *ort-api*
+             (.call (. *ort-api* (~call)) this#))
+           (.deallocate this#)
+           (.setNull this#))
+         true))))
+
+(extend-ort-call OrtDnnlProviderOptions ReleaseDnnlProviderOptions)
+(extend-ort-call OrtCUDAProviderOptionsV2 ReleaseCUDAProviderOptions)
+
 (defmacro call-pointer-pointer [ort-api type method & args]
   `(let [ort-api# ~ort-api]
      (with-release [res# (pointer-pointer 1)]
@@ -106,19 +122,46 @@
 (defn env* [^OrtApi ort-api ^long logging-level ^Pointer name]
   (call-pointer-pointer ort-api OrtEnv CreateEnv logging-level name))
 
+(defn version* [^OrtApiBase ort-api-base]
+  (.call (.GetVersionString ort-api-base)))
+
+(defn build-info* [^OrtApi ort-api]
+  (.call (.GetBuildInfoString *ort-api*)))
+
 (defn session-options* [^OrtApi ort-api]
   (call-pointer-pointer ort-api OrtSessionOptions CreateSessionOptions))
 
 (defn graph-optimization* [^OrtApi ort-api ^OrtSessionOptions opt ^long level]
   (with-check ort-api
-    (.SetGraphOptimizationLevel ort-api opt level)))
+    (.SetGraphOptimizationLevel ort-api opt level)
+    opt))
 
-(defn execution-provider* [^OrtApi ort-api ^OrtSessionOptions opt provider ^long use-arena]
+(defn available-providers* [^OrtApi ort-api]
+  (with-release [cnt (int-pointer 1)]
+    (let [res (pointer-pointer nil)]
+      (with-check ort-api
+        (.GetAvailableProviders ort-api res cnt)
+        (capacity! res (get-entry cnt 0))))))
+
+(defn release-available-providers* [^OrtApi ort-api ^PointerPointer providers]
   (with-check ort-api
-    (case provider
-      :dnnl (onnxruntime/OrtSessionOptionsAppendExecutionProvider_Dnnl opt use-arena)
-      :cuda (onnxruntime/OrtSessionOptionsAppendExecutionProvider_CUDA opt use-arena)
-      :cpu (onnxruntime/OrtSessionOptionsAppendExecutionProvider_CPU opt use-arena))))
+    (.ReleaseAvailableProviders ort-api providers (capacity providers))))
+
+(defn dnnl-options* [^OrtApi ort-api]
+  (call-pointer-pointer ort-api OrtDnnlProviderOptions CreateDnnlProviderOptions))
+
+(defn append-dnnl* [^OrtApi ort-api ^OrtSessionOptions opt ^OrtDnnlProviderOptions dnnl-opt]
+  (with-check ort-api
+    (.SessionOptionsAppendExecutionProvider_Dnnl ort-api opt dnnl-opt)
+    opt))
+
+(defn cuda-options* [^OrtApi ort-api]
+  (call-pointer-pointer ort-api OrtCUDAProviderOptionsV2 CreateCUDAProviderOptions))
+
+(defn append-cuda* [^OrtApi ort-api ^OrtSessionOptions opt ^OrtCUDAProviderOptionsV2 cuda-opt]
+  (with-check ort-api
+    (.SessionOptionsAppendExecutionProvider_CUDA_V2 ort-api opt cuda-opt)
+    opt))
 
 (defn session* [^OrtApi ort-api ^OrtEnv env ^Pointer model-path opt]
   (call-pointer-pointer ort-api OrtSession CreateSession env model-path opt))
@@ -126,19 +169,28 @@
 (defn allocator* [^OrtApi ort-api]
   (call-pointer-pointer ort-api OrtAllocator GetAllocatorWithDefaultOptions))
 
+(defn free* [^OrtAllocator allo ^Pointer ptr]
+  (.call (.Free allo) allo ptr))
+
 (def ^:dynamic *default-allocator* (allocator* *ort-api*))
 
 (defn input-count* ^long [^OrtApi ort-api ^OrtSession sess]
   (call-size-t ort-api SessionGetInputCount sess))
 
 (defn input-name* [^OrtApi ort-api ^OrtSession sess ^OrtAllocator allo ^long i]
-  (get-string (call-pointer-pointer ort-api BytePointer SessionGetInputName sess i allo)))
+  (let [name (call-pointer-pointer ort-api BytePointer SessionGetInputName sess i allo)]
+    (try
+      (get-string name)
+      (finally (free* allo name)))))
 
 (defn output-count* ^long [^OrtApi ort-api ^OrtSession sess]
   (call-size-t ort-api SessionGetOutputCount sess))
 
 (defn output-name* [^OrtApi ort-api ^OrtSession sess ^OrtAllocator allo ^long i]
-  (get-string (call-pointer-pointer ort-api BytePointer SessionGetOutputName sess i allo)))
+  (let [name (call-pointer-pointer ort-api BytePointer SessionGetOutputName sess i allo)]
+    (try
+      (get-string name)
+      (finally (free* allo name)))))
 
 (defn input-type-info* [^OrtApi ort-api ^OrtSession sess ^long i]
   (call-pointer-pointer ort-api OrtTypeInfo SessionGetInputTypeInfo sess i))

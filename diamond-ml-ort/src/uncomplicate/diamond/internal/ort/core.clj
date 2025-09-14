@@ -17,39 +17,65 @@
              [impl :refer :all]])
   (:import org.bytedeco.javacpp.Pointer
            org.bytedeco.onnxruntime.global.onnxruntime
-           [org.bytedeco.onnxruntime
+           [org.bytedeco.onnxruntime OrtDnnlProviderOptions
             OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo]))
 
+(alter-var-root (var *ort-api*)
+                (constantly (api* (onnxruntime/OrtGetApiBase) onnxruntime/ORT_API_VERSION)))
+
 (defn version []
-  (with-release [p (onnxruntime/GetVersionString)]
+  (with-release [p (version* (onnxruntime/OrtGetApiBase))]
     (let [v (mapv parse-long (split (get-string p) #"\."))]
       {:major (v 0)
        :minor (v 1)
        :update (v 2)})))
 
 (defn build-info []
-  (with-release [p (onnxruntime/GetBuildInfoString)]
+  (with-release [p (build-info* *ort-api*)]
     (get-string p)))
 
 (defn available-providers []
-  (with-release [sv (onnxruntime/GetAvailableProviders)
-                 p (.get sv)]
-    (map #(keyword (lower-case (st/replace (get-string %) "ExecutionProvider" ""))) p)))
+  (let [pprov (available-providers* *ort-api*)]
+    (try
+      (vec (doall (mapv #(-> (byte-pointer %)
+                             (get-string)
+                             (st/replace "ExecutionProvider" "")
+                             (lower-case)
+                             (keyword))
+                        (pointer-seq pprov))))
+      (finally
+        (release-available-providers* *ort-api* pprov)))))
 
 (defn options []
   (session-options* *ort-api*))
 
-(defn execution-provider
-  ([opt provider ^long use-arena]
-   (execution-provider* *ort-api* opt provider use-arena)
-   opt)
-  ([opt provider]
-   (execution-provider* *ort-api* opt provider 0))
-  ([opt]
-   (execution-provider* *ort-api* opt :cpu 0)))
+(defn append-dnnl! [opt! opt-map]
+  (with-release [dnnl (dnnl-options* *ort-api*)]
+    (.use_arena dnnl (get :arena opt-map 0))
+    (append-dnnl* *ort-api* opt! dnnl)
+    opt!))
 
-(defn graph-optimization [opt level]
-  (graph-optimization* *ort-api* opt (enc-keyword ort-graph-optimization level)))
+(defn append-cuda! [opt! opt-map]
+  (with-release [cuda (cuda-options* *ort-api*)]
+    (.use_arena cuda (get :arena opt-map 0))
+    (append-cuda* *ort-api* opt! cuda)
+    opt!))
+
+(defn append-provider!
+  ([opt! provider opt-map]
+   (case provider
+     :dnnl (append-dnnl! opt! opt-map)
+     :cuda (append-cuda! opt! opt-map)
+     (dragan-says-ex "Unknown provider. Please use DNNL, CUDA, or one of supported execution providers."
+                     {:requested provider :available [:dnnl :cuda]}))
+   opt!)
+  ([opt! provider]
+   (append-provider! opt! provider nil))
+  ([opt!]
+   (append-provider! opt! :dnnl nil)))
+
+(defn graph-optimization [opt! level]
+  (graph-optimization* *ort-api* opt! (enc-keyword ort-graph-optimization level)))
 
 (defn environment
   ([logging-level name]
