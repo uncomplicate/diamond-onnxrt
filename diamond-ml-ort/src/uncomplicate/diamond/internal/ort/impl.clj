@@ -18,17 +18,19 @@
              :refer [null? pointer-pointer int-pointer long-pointer byte-pointer char-pointer
                      size-t-pointer get-entry get-pointer get-string capacity! capacity]])
   (:import [org.bytedeco.javacpp Pointer BytePointer PointerPointer Loader]
-           org.bytedeco.onnxruntime.global.onnxruntime
            [org.bytedeco.onnxruntime OrtApiBase OrtApi OrtEnv OrtSession OrtSessionOptions
             OrtAllocator OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo
             OrtStatus OrtArenaCfg OrtCustomOpDomain OrtIoBinding OrtKernelInfo
             OrtMemoryInfo OrtModelMetadata OrtOp OrtOpAttr OrtPrepackedWeightsContainer OrtRunOptions OrtValue
-            OrtDnnlProviderOptions OrtCUDAProviderOptionsV2]))
+            OrtDnnlProviderOptions OrtCUDAProviderOptionsV2
+
+            OrtAllocator$Free_OrtAllocator_Pointer]))
+
+(def ^:dynamic *ort-api*)
+(def ^:dynamic *default-allocator*)
 
 (defn api* [^OrtApiBase ort-api-base ^long version]
   (.call (.GetApi ort-api-base) version))
-
-(def ^:dynamic *ort-api*)
 
 (def platform-pointer (if (.. (Loader/getPlatform) (startsWith "windows"))
                         char-pointer
@@ -66,22 +68,33 @@
 (extend-ort OrtSessionOptions ReleaseSessionOptions)
 (extend-ort OrtAllocator ReleaseAllocator)
 (extend-ort OrtTypeInfo ReleaseTypeInfo)
-(extend-ort OrtTensorTypeAndShapeInfo ReleaseOrtTensorTypeAndShapeInfo)
-(extend-ort OrtSequenceTypeInfo ReleaseOrtSequenceTypeInfo)
-(extend-ort OrtMapTypeInfo ReleaseOrtMapTypeInfo)
-(extend-ort OrtOptionalTypeInfo ReleaseOrtOptionalTypeInfo)
-(extend-ort OrtStatus ReleaseOrtStatus)
-(extend-ort OrtArenaCfg ReleaseOrtArenaCfg)
-(extend-ort OrtCustomOpDomain ReleaseOrtCustomOpDomain)
-(extend-ort OrtIoBinding ReleaseOrtIoBinding)
-(extend-ort OrtKernelInfo ReleaseOrtKernelInfo)
-(extend-ort OrtMemoryInfo ReleaseOrtMemoryInfo)
-(extend-ort OrtModelMetadata ReleaseOrtModelMetadata)
-(extend-ort OrtOp ReleaseOrtOp)
-(extend-ort OrtOpAttr ReleaseOrtOpAttr)
-(extend-ort OrtPrepackedWeightsContainer ReleaseOrtPrepackedWeightsContainer)
-(extend-ort OrtRunOptions ReleaseOrtRunOptions)
-(extend-ort OrtValue ReleaseOrtValue)
+(extend-ort OrtTensorTypeAndShapeInfo ReleaseTensorTypeAndShapeInfo)
+(extend-ort OrtSequenceTypeInfo ReleaseSequenceTypeInfo)
+(extend-ort OrtMapTypeInfo ReleaseMapTypeInfo)
+(extend-ort OrtOptionalTypeInfo ReleaseOptionalTypeInfo)
+(extend-ort OrtArenaCfg ReleaseArenaCfg)
+(extend-ort OrtCustomOpDomain ReleaseCustomOpDomain)
+(extend-ort OrtIoBinding ReleaseIoBinding)
+(extend-ort OrtKernelInfo ReleaseKernelInfo)
+(extend-ort OrtMemoryInfo ReleaseMemoryInfo)
+(extend-ort OrtModelMetadata ReleaseModelMetadata)
+(extend-ort OrtOp ReleaseOp)
+(extend-ort OrtOpAttr ReleaseOpAttr)
+(extend-ort OrtPrepackedWeightsContainer ReleasePrepackedWeightsContainer)
+(extend-ort OrtRunOptions ReleaseRunOptions)
+(extend-ort OrtValue ReleaseValue)
+
+(declare cast-type*)
+
+(extend-type OrtTypeInfo
+  Releaseable
+  (release [this]
+    (locking this
+      (when-not (null? this)
+        (.ReleaseTypeInfo *ort-api* this)
+        (.deallocate this)
+        (.setNull this))
+      true)))
 
 (defmacro extend-ort-call [t call]
   `(extend-type ~t
@@ -169,28 +182,35 @@
 (defn allocator* [^OrtApi ort-api]
   (call-pointer-pointer ort-api OrtAllocator GetAllocatorWithDefaultOptions))
 
-(defn free* [^OrtAllocator allo ^Pointer ptr]
-  (.call (.Free allo) allo ptr))
+(defn free*
+  ([^OrtAllocator allo ^OrtAllocator$Free_OrtAllocator_Pointer free ^Pointer ptr]
+   (.call (.Free allo) allo ptr))
+  ([^OrtAllocator allo ^Pointer ptr]
+   (.call (.Free allo) allo ptr))
+  ([^OrtAllocator allo]
+   (.Free allo)))
 
-(def ^:dynamic *default-allocator* (allocator* *ort-api*))
+(defn get-string*
+  ([allo ptr]
+   (try
+     (get-string ptr)
+     (finally (free* allo ptr))))
+  ([allo free ptr]
+   (try
+     (get-string ptr)
+     (finally (free* allo free ptr)))))
 
 (defn input-count* ^long [^OrtApi ort-api ^OrtSession sess]
   (call-size-t ort-api SessionGetInputCount sess))
 
 (defn input-name* [^OrtApi ort-api ^OrtSession sess ^OrtAllocator allo ^long i]
-  (let [name (call-pointer-pointer ort-api BytePointer SessionGetInputName sess i allo)]
-    (try
-      (get-string name)
-      (finally (free* allo name)))))
+  (call-pointer-pointer ort-api BytePointer SessionGetInputName sess i allo))
 
 (defn output-count* ^long [^OrtApi ort-api ^OrtSession sess]
   (call-size-t ort-api SessionGetOutputCount sess))
 
 (defn output-name* [^OrtApi ort-api ^OrtSession sess ^OrtAllocator allo ^long i]
-  (let [name (call-pointer-pointer ort-api BytePointer SessionGetOutputName sess i allo)]
-    (try
-      (get-string name)
-      (finally (free* allo name)))))
+  (call-pointer-pointer ort-api BytePointer SessionGetOutputName sess i allo))
 
 (defn input-type-info* [^OrtApi ort-api ^OrtSession sess ^long i]
   (call-pointer-pointer ort-api OrtTypeInfo SessionGetInputTypeInfo sess i))
@@ -210,7 +230,7 @@
 (defn optional-info* [^OrtApi ort-api ^OrtTypeInfo info]
   (call-pointer-pointer ort-api OrtOptionalTypeInfo CastTypeInfoToOptionalTypeInfo info))
 
-(defn type-info* [^OrtApi ort-api ^OrtTypeInfo info]
+(defn cast-type* [^OrtApi ort-api ^OrtTypeInfo info]
   (with-release [t (int-pointer 1)]
     (with-check ort-api
       (.GetOnnxTypeFromTypeInfo ort-api info t)

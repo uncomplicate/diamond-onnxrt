@@ -20,8 +20,14 @@
            [org.bytedeco.onnxruntime OrtDnnlProviderOptions
             OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo]))
 
-(alter-var-root (var *ort-api*)
-                (constantly (api* (onnxruntime/OrtGetApiBase) onnxruntime/ORT_API_VERSION)))
+(defn init-ort-api!
+  ([^long ort-api-version]
+   (alter-var-root (var *ort-api*)
+                   (constantly (api* (onnxruntime/OrtGetApiBase) ort-api-version)))
+   (alter-var-root (var *default-allocator*)
+                   (constantly (allocator* *ort-api*))))
+  ([]
+   (init-ort-api! onnxruntime/ORT_API_VERSION)))
 
 (defn version []
   (with-release [p (version* (onnxruntime/OrtGetApiBase))]
@@ -98,10 +104,12 @@
 (defn input-name
   ([sess ^long i]
    (check-index i (input-count sess) "input")
-   (input-name* *ort-api* sess i *default-allocator*))
+   (get-string* (input-name* *ort-api* sess i *default-allocator*)))
   ([sess]
-   (doall (map #(input-name* *ort-api* sess *default-allocator* %)
-               (range (input-count sess))))))
+   (let [allo *default-allocator*
+         free (free* allo)]
+     (doall (map #(get-string* allo free (input-name* *ort-api* sess allo %))
+                 (range (input-count sess)))))))
 
 (defn output-count ^long [sess]
   (output-count* *ort-api* sess))
@@ -109,10 +117,12 @@
 (defn output-name
   ([sess ^long i]
    (check-index i (output-count sess) "output")
-   (output-name* *ort-api* sess i *default-allocator*))
+   (get-string* (output-name* *ort-api* sess i *default-allocator*)))
   ([sess]
-   (doall (map #(output-name* *ort-api* sess *default-allocator* %)
-               (range (output-count sess))))))
+   (let [allo *default-allocator*
+         free (free* allo)]
+     (doall (map #(get-string* allo free (output-name* *ort-api* sess allo %))
+                 (range (output-count sess)))))))
 
 (defn scalar? [info]
   (= 0 (dimensions-count* *ort-api* info)))
@@ -121,54 +131,52 @@
   (with-release [dims (safe (tensor-dimensions* *ort-api* info))]
     (vec (doall (pointer-seq dims)))))
 
-(defprotocol ElementInfo
-  (element-type [this]))
-
-(defn type-info [info]
-  (type-info* *ort-api* info))
+(defn cast-type [info]
+  (cast-type* *ort-api* info))
 
 (extend-type OrtTypeInfo
   Info
-  (info [this];; TODO don't forget to release type-info in all such cases, though!
-    (info (type-info this)))
-  (info [this info-type]
-    (info (type-info this) info-type)))
+  (info
+    ([this]
+     (info (cast-type this)))
+    ([this info-type]
+     (info (cast-type this) info-type))))
+
+(defn tensor-type [info]
+  (dec-onnx-data-type (tensor-type* *ort-api* info)))
 
 (extend-type OrtTensorTypeAndShapeInfo
   Info
   (info
     ([this]
      (if (scalar? this)
-       (element-type this)
-       {:data-type (element-type this)
+       (tensor-type this)
+       {:data-type (tensor-type this)
         :shape (shape this)
         :count (tensor-element-count* *ort-api* this)
         :type :tensor}))
     ([this info-type]
      (case info-type
-       :data-type (element-type this)
+       :data-type (tensor-type this)
        :shape (shape this)
        :count (tensor-element-count* *ort-api* this)
        :type :tensor
-       nil)))
-  ElementInfo
-  (element-type [this]
-    (dec-onnx-data-type (tensor-type* *ort-api* this))))
+       nil))))
+
+(defn sequence-type [info]
+  (sequence-type* *ort-api* info))
 
 (extend-type OrtSequenceTypeInfo
   Info
   (info
     ([this]
      {:type :sequence
-      :element [(info (element-type this))]})
+      :element (with-release [sti (sequence-type this)] (info sti))})
     ([this type-info]
      (case type-info
        :type :sequence
-       :element (info (element-type this))
-       nil)))
-  ElementInfo
-  (element-type [this]
-    (type-info (sequence-type* *ort-api* this))))
+       :element (with-release [sti (sequence-type this)] (info sti))
+       nil))))
 
 (extend-type OrtOptionalTypeInfo
   Info
@@ -184,7 +192,7 @@
   (dec-onnx-data-type (key-type* *ort-api* info)))
 
 (defn val-type [info]
-  (type-info* *ort-api* (value-type* *ort-api* info)))
+  (value-type* *ort-api* info))
 
 (extend-type OrtMapTypeInfo
   Info
@@ -192,37 +200,33 @@
     ([this]
      {:type :map
       :key (key-type this)
-      :val (info (val-type this))})
+      :val (with-release [vi (val-type this)] (info vi))})
     ([this info-type]
      (case info-type
-       :tyte :map
+       :type :map
        :key (key-type this)
-       :val (info (val-type this))
-       nil)))
-  ElementInfo
-  (element-type [this]
-    [(key-type this) (val-type this)]))
+       :val (with-release [vi (val-type this)] (info vi))
+       nil))))
 
 (defn input-type-info
   ([sess ^long i]
    (let [ort-api *ort-api*]
      (check-index i (input-count* ort-api sess) "input")
-     (type-info* ort-api (input-type-info* ort-api sess i))))
+     (input-type-info* ort-api sess i)))
   ([sess]
    (let [ort-api *ort-api*]
-     (map #(type-info* ort-api (input-type-info* ort-api sess %))
+     (map #(input-type-info* ort-api sess %)
           (range (input-count* ort-api sess))))))
 
 (defn output-type-info
   ([sess ^long i]
    (let [ort-api *ort-api*]
      (check-index i (output-count* ort-api sess) "output")
-     (type-info* ort-api (output-type-info* ort-api sess i))))
+     (output-type-info* ort-api sess i)))
   ([sess]
    (let [ort-api *ort-api*]
-     (map #(type-info* ort-api (output-type-info* ort-api sess %))
+     (map #(output-type-info* ort-api sess %)
           (range (output-count* ort-api sess))))))
-
 
 ;; (defn memory-info* [^String name ^long allocator ^long device-id ^long mem-type]
 ;;   (MemoryInfo. name allocator device-id mem-type ))
