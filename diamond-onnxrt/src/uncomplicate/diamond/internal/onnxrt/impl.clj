@@ -21,7 +21,7 @@
            [org.bytedeco.onnxruntime OrtApiBase OrtApi OrtEnv OrtSession OrtSessionOptions
             OrtAllocator OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo
             OrtStatus OrtArenaCfg OrtCustomOpDomain OrtIoBinding OrtKernelInfo
-            OrtMemoryInfo OrtModelMetadata OrtOp OrtOpAttr OrtPrepackedWeightsContainer OrtRunOptions OrtValue OrtValueInfo
+            OrtMemoryInfo OrtModelMetadata OrtOp OrtOpAttr OrtPrepackedWeightsContainer OrtRunOptions OrtValue
             OrtDnnlProviderOptions OrtCUDAProviderOptionsV2
 
             OrtAllocator$Free_OrtAllocator_Pointer]))
@@ -83,7 +83,6 @@
 (extend-ort OrtPrepackedWeightsContainer ReleasePrepackedWeightsContainer)
 (extend-ort OrtRunOptions ReleaseRunOptions)
 (extend-ort OrtValue ReleaseValue)
-(extend-ort OrtValueInfo ReleaseValueInfo)
 
 (declare cast-type*)
 

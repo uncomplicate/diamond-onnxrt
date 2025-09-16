@@ -19,7 +19,7 @@
            org.bytedeco.onnxruntime.global.onnxruntime
            [org.bytedeco.onnxruntime OrtDnnlProviderOptions
             OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo
-            OrtMemoryInfo OrtValue OrtValueInfo]))
+            OrtMemoryInfo OrtValue]))
 
 (defprotocol OnnxType
   (onnx-type [this]))
