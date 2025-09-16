@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns uncomplicate.diamond.internal.ort.impl
+(ns uncomplicate.diamond.internal.onnxrt.impl
   (:require [uncomplicate.commons
              [core :refer [Releaseable release with-release let-release size bytesize
                            ;;Info
@@ -250,7 +250,7 @@
 (defn key-type* ^long [^OrtApi ort-api ^OrtMapTypeInfo info]
   (call-int ort-api GetMapKeyType info))
 
-(defn value-type* [^OrtApi ort-api ^OrtMapTypeInfo info]
+(defn val-type* [^OrtApi ort-api ^OrtMapTypeInfo info]
   (call-pointer-pointer ort-api OrtTypeInfo GetMapValueType info))
 
 (defn dimensions-count* ^long [^OrtApi ort-api ^OrtTensorTypeAndShapeInfo info]
@@ -299,5 +299,5 @@
   (call-pointer-pointer ort-api OrtValue CreateTensorWithOrtValue alloc
                         shape (size shape) (int type)))
 
-(defn value-type-info* [^OrtApi ort-api ^OrtValue value]
+(defn value-type* [^OrtApi ort-api ^OrtValue value]
   (call-pointer-pointer ort-api OrtTypeInfo GetTypeInfo value))

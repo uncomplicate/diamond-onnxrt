@@ -6,20 +6,20 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns uncomplicate.diamond.internal.ort.core
+(ns uncomplicate.diamond.internal.onnxrt.core
   (:require [clojure.string :as st :refer [lower-case split]]
             [uncomplicate.commons
              [core :refer [let-release with-release Releaseable release Info info bytesize size]]
              [utils :refer [enc-keyword dragan-says-ex mask]]]
             [uncomplicate.clojure-cpp :refer [get-string byte-pointer long-pointer null? pointer pointer-type pointer-seq safe]]
-            [uncomplicate.diamond.internal.ort
+            [uncomplicate.diamond.internal.onnxrt
              [constants :refer :all]
              [impl :refer :all]])
   (:import org.bytedeco.javacpp.Pointer
            org.bytedeco.onnxruntime.global.onnxruntime
            [org.bytedeco.onnxruntime OrtDnnlProviderOptions
             OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo
-            OrtMemoryInfo]))
+            OrtMemoryInfo OrtValue]))
 
 (defn init-ort-api!
   ([^long ort-api-version]
@@ -42,7 +42,7 @@
     (get-string p)))
 
 (defn available-providers []
-  (let [pprov (available-providers* *ort-api*)]
+  (with-release [pprov (available-providers* *ort-api*)]
     (try
       (vec (doall (mapv #(-> (byte-pointer %)
                              (get-string)
@@ -193,7 +193,7 @@
   (dec-onnx-data-type (key-type* *ort-api* (safe info))))
 
 (defn val-type [info]
-  (value-type* *ort-api* (safe info)))
+  (val-type* *ort-api* (safe info)))
 
 (extend-type OrtMapTypeInfo
   Info
@@ -301,5 +301,5 @@
   ([shape data-type]
    (create-tensor *default-allocator* shape data-type)))
 
-(defn value-type-info [value]
-  (value-type-info* *ort-api* (safe value)))
+(defn value-type [value]
+  (value-type* *ort-api* (safe value)))

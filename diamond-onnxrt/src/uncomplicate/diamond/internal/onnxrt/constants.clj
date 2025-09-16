@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns uncomplicate.diamond.internal.ort.constants
+(ns uncomplicate.diamond.internal.onnxrt.constants
   (:require [uncomplicate.commons.utils :refer [dragan-says-ex]])
   (:import org.bytedeco.onnxruntime.global.onnxruntime))
 

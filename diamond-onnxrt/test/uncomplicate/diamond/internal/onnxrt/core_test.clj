@@ -7,11 +7,11 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns ^{:author "Dragan Djuric"}
-    uncomplicate.diamond.internal.ort.core-test
+    uncomplicate.diamond.internal.onnxrt.core-test
   (:require [midje.sweet :refer [facts throws => =not=> roughly truthy just]]
             [uncomplicate.commons.core :refer [with-release info bytesize size release]]
             [uncomplicate.clojure-cpp :refer [null? float-pointer]]
-            [uncomplicate.diamond.internal.ort.core :refer :all])
+            [uncomplicate.diamond.internal.onnxrt.core :refer :all])
   (:import clojure.lang.ExceptionInfo))
 
 (init-ort-api! 20)
@@ -68,7 +68,7 @@
                  mem-info (memory-info :cpu :arena 0 :default)
                  data (float-array 5)
                  val (create-tensor mem-info [2 2] data)
-                 val-type-info (value-type-info val)]
+                 val-type-info (value-type val)]
     (info val-type-info) => {:count 4 :data-type :float :shape [2 2] :type :tensor}
     (release val-type-info) => true
     (info val-type-info) => (throws RuntimeException)
