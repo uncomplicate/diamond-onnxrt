@@ -36,7 +36,6 @@
                                      [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]
                                      [org.bytedeco/onnxruntime-platform "1.22.2-1.5.13-SNAPSHOT"]]}}
 
-  :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]
-                 ["maven-snapshots" "https://central.sonatype.com/repository/maven-snapshots"]]
+  :repositories [["maven-snapshots" "https://central.sonatype.com/repository/maven-snapshots"]]
 
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"])

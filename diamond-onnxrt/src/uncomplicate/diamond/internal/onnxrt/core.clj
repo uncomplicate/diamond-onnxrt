@@ -19,7 +19,10 @@
            org.bytedeco.onnxruntime.global.onnxruntime
            [org.bytedeco.onnxruntime OrtDnnlProviderOptions
             OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo
-            OrtMemoryInfo OrtValue]))
+            OrtMemoryInfo OrtValue OrtValueInfo]))
+
+(defprotocol OnnxType
+  (onnx-type [this]))
 
 (defn init-ort-api!
   ([^long ort-api-version]
@@ -132,8 +135,15 @@
   (with-release [dims (safe (tensor-dimensions* *ort-api* (safe info)))]
     (vec (doall (pointer-seq dims)))))
 
-(defn cast-type [info]
-  (cast-type* *ort-api* (safe info)))
+(defn cast-type [^OrtTypeInfo info]
+  (let [ort-api *ort-api*
+        info (safe info)]
+    (case (type-info-type* ort-api info)
+      1 (tensor-info* ort-api info)
+      2 (sequence-info* ort-api info)
+      3 (map-info* ort-api info)
+      6 (optional-info* ort-api info)
+      info)))
 
 (extend-type OrtTypeInfo
   Info
@@ -141,7 +151,10 @@
     ([this]
      (info (cast-type this)))
     ([this info-type]
-     (info (cast-type this) info-type))))
+     (info (cast-type this) info-type)))
+  OnnxType
+  (onnx-type [this]
+    (dec-onnx-type (type-info-type* *ort-api* (safe this)))))
 
 (defn tensor-type [info]
   (dec-onnx-data-type (tensor-type* *ort-api* (safe info))))
@@ -301,5 +314,31 @@
   ([shape data-type]
    (create-tensor *default-allocator* shape data-type)))
 
-(defn value-type [value]
-  (value-type* *ort-api* (safe value)))
+
+(defn value-info [value]
+  (value-info* *ort-api* (safe value)))
+
+(extend-type OrtValue
+  OnnxType
+  (onnx-type [this]
+    (dec-onnx-type (value-type* *ort-api* (safe this)))))
+
+(defn value-count ^long [value]
+  (let [ort-api *ort-api*]
+    (if (<= 2 (value-type* ort-api (safe value)) 3)
+      (value-count* ort-api value)
+      1)))
+
+(extend-type OrtValue
+  Info
+  (info
+    ([this]
+     {:count (value-count this)
+      :type :value
+      :val (with-release [vti (value-info this)] (info vti))})
+    ([this type-info]
+     (case type-info
+       :count (value-count this)
+       :type :value
+       :val (with-release [vti (value-info this)] (info vti))
+       nil))))

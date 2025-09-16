@@ -68,8 +68,13 @@
                  mem-info (memory-info :cpu :arena 0 :default)
                  data (float-array 5)
                  val (create-tensor mem-info [2 2] data)
-                 val-type-info (value-type val)]
-    (info val-type-info) => {:count 4 :data-type :float :shape [2 2] :type :tensor}
+                 val-type-info (value-info val)]
+    (info val) => {:count 1
+                   :type :value
+                   :val {:count 4 :data-type :float :shape [2 2] :type :tensor}}
+    (info val-type-info) => (:val (info val))
+    (onnx-type val) => :tensor
+    (value-count val) => 1
     (release val-type-info) => true
     (info val-type-info) => (throws RuntimeException)
     (create-tensor mem-info [0 -1] data) => (throws RuntimeException)
@@ -92,7 +97,8 @@
     (output-count sess) => 2
     (input-name sess) => ["float_input"]
     (output-name sess) => ["label" "probabilities"]
-    (info (input-type-info sess 0)) => {:count 6 :shape [3 2] :data-type :float :type :tensor}
+    (onnx-type input-info) => :tensor
+    (info input-info) => {:count 6 :shape [3 2] :data-type :float :type :tensor}
     (input-type-info sess 1) => (throws IndexOutOfBoundsException)
     (map info inputs-info) => [{:count 6 :shape [3 2] :data-type :float :type :tensor}]
     (info output-info-0) => {:count 3 :shape [3] :data-type :long :type :tensor}

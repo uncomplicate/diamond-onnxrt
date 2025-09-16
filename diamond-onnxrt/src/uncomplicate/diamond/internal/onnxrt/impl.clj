@@ -21,7 +21,7 @@
            [org.bytedeco.onnxruntime OrtApiBase OrtApi OrtEnv OrtSession OrtSessionOptions
             OrtAllocator OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo
             OrtStatus OrtArenaCfg OrtCustomOpDomain OrtIoBinding OrtKernelInfo
-            OrtMemoryInfo OrtModelMetadata OrtOp OrtOpAttr OrtPrepackedWeightsContainer OrtRunOptions OrtValue
+            OrtMemoryInfo OrtModelMetadata OrtOp OrtOpAttr OrtPrepackedWeightsContainer OrtRunOptions OrtValue OrtValueInfo
             OrtDnnlProviderOptions OrtCUDAProviderOptionsV2
 
             OrtAllocator$Free_OrtAllocator_Pointer]))
@@ -83,6 +83,7 @@
 (extend-ort OrtPrepackedWeightsContainer ReleasePrepackedWeightsContainer)
 (extend-ort OrtRunOptions ReleaseRunOptions)
 (extend-ort OrtValue ReleaseValue)
+(extend-ort OrtValueInfo ReleaseValueInfo)
 
 (declare cast-type*)
 
@@ -230,16 +231,8 @@
 (defn optional-info* [^OrtApi ort-api ^OrtTypeInfo info]
   (call-pointer-pointer ort-api OrtOptionalTypeInfo CastTypeInfoToOptionalTypeInfo info))
 
-(defn cast-type* [^OrtApi ort-api ^OrtTypeInfo info]
-  (with-release [t (int-pointer 1)]
-    (with-check ort-api
-      (.GetOnnxTypeFromTypeInfo ort-api info t)
-      (case (get-entry t 0)
-        1 (tensor-info* ort-api info)
-        2 (sequence-info* ort-api info)
-        3 (map-info* ort-api info)
-        6 (optional-info* ort-api info)
-        info))))
+(defn type-info-type* ^long [^OrtApi ort-api ^OrtTypeInfo info]
+  (call-int ort-api GetOnnxTypeFromTypeInfo info))
 
 (defn tensor-type* ^long [^OrtApi ort-api ^OrtTensorTypeAndShapeInfo info]
   (call-int ort-api GetTensorElementType info))
@@ -299,5 +292,11 @@
   (call-pointer-pointer ort-api OrtValue CreateTensorWithOrtValue alloc
                         shape (size shape) (int type)))
 
-(defn value-type* [^OrtApi ort-api ^OrtValue value]
+(defn value-info* [^OrtApi ort-api ^OrtValue value]
   (call-pointer-pointer ort-api OrtTypeInfo GetTypeInfo value))
+
+(defn value-type* ^long [^OrtApi ort-api ^OrtValue value]
+  (call-int ort-api GetValueType value))
+
+(defn value-count* [^OrtApi ort-api ^OrtValue value]
+  (call-size-t ort-api GetValueCount value))
