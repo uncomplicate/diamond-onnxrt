@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject org.uncomplicate/diamond-onnxrt "0.3.0-SNAPSHOT"
+(defproject org.uncomplicate/diamond-onnxrt "0.4.0-SNAPSHOT"
   :description "Fast Clojure Machine Learning Model Integration"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
@@ -15,7 +15,7 @@
   :dependencies [[org.clojure/clojure "1.12.2"]
                  [org.uncomplicate/deep-diamond-base "0.36.1"]
                  [org.uncomplicate/deep-diamond-dnnl "0.36.1"]
-                 [org.bytedeco/onnxruntime-platform "1.20.0-1.5.11"]]
+                 [org.bytedeco/onnxruntime-platform "1.22.2-1.5.13-SNAPSHOT"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {:plugins [[lein-midje "3.2.1"]]
@@ -30,11 +30,9 @@
              :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.1"]
                                     [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]]}
              :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.1"]
-                                      [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
-                                      [org.bytedeco/onnxruntime-platform "1.22.2-1.5.13-SNAPSHOT"]]}
+                                      [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]]}
              :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.57.0"]
-                                     [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]
-                                     [org.bytedeco/onnxruntime-platform "1.22.2-1.5.13-SNAPSHOT"]]}}
+                                     [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]}}
 
   :repositories [["maven-snapshots" "https://central.sonatype.com/repository/maven-snapshots"]]
 

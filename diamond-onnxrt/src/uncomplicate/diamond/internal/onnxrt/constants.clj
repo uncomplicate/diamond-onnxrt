@@ -82,7 +82,7 @@
    onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT4 :uint4
    onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_INT4 :int4})
 
-(def ^:const onnx-type
+(def ^:const enc-onnx-type
   {:unknown onnxruntime/ONNX_TYPE_UNKNOWN
    :tensor onnxruntime/ONNX_TYPE_TENSOR
    :sequence onnxruntime/ONNX_TYPE_SEQUENCE

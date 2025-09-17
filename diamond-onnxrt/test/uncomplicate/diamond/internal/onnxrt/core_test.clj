@@ -14,11 +14,11 @@
             [uncomplicate.diamond.internal.onnxrt.core :refer :all])
   (:import clojure.lang.ExceptionInfo))
 
-(init-ort-api! 20)
+(init-ort-api!)
 
 (facts
   "Test system."
-  (version) => {:major 1 :minor 20 :update 0}
+  (version) => {:major 1 :minor 22 :update 2}
   (filter #{:dnnl :cpu} (available-providers) => [:dnnl :cpu])
   (type (build-info)) => String)
 
