@@ -11,7 +11,9 @@
             [uncomplicate.commons
              [core :refer [let-release with-release Releaseable release Info info bytesize size]]
              [utils :refer [enc-keyword dragan-says-ex mask]]]
-            [uncomplicate.clojure-cpp :refer [get-string byte-pointer long-pointer null? pointer pointer-type pointer-seq safe]]
+            [uncomplicate.clojure-cpp
+             :refer [get-string byte-pointer long-pointer null? pointer pointer-pointer pointer-type
+                     pointer-vec safe safe2 get-pointer put-entry! fill! capacity!]]
             [uncomplicate.diamond.internal.onnxrt
              [constants :refer :all]
              [impl :refer :all]])
@@ -47,12 +49,12 @@
 (defn available-providers []
   (with-release [pprov (available-providers* *ort-api*)]
     (try
-      (vec (doall (mapv #(-> (byte-pointer %)
-                             (get-string)
-                             (st/replace "ExecutionProvider" "")
-                             (lower-case)
-                             (keyword))
-                        (pointer-seq pprov))))
+      (doall (mapv #(-> (byte-pointer %)
+                        (get-string)
+                        (st/replace "ExecutionProvider" "")
+                        (lower-case)
+                        (keyword))
+                   (pointer-vec pprov)))
       (finally
         (release-available-providers* *ort-api* pprov)))))
 
@@ -103,7 +105,7 @@
 
 (defn check-index [^long i ^long cnt object]
   (when-not (< -1 i cnt)
-    (throw (IndexOutOfBoundsException. (format "The requested %s name is out of bounds of this session %s pointer." object object)))))
+    (throw (IndexOutOfBoundsException. (format "The requested %s name is out of bounds of this %s pointer." object object)))))
 
 (defn input-name
   ([sess ^long i]
@@ -112,8 +114,8 @@
   ([sess]
    (let [allo (safe *default-allocator*)
          free (free* allo)]
-     (doall (map #(get-string* allo free (input-name* *ort-api* (safe sess) allo %))
-                 (range (input-count sess)))))))
+     (doall (mapv #(get-string* allo free (input-name* *ort-api* (safe sess) allo %))
+                  (range (input-count sess)))))))
 
 (defn output-count ^long [sess]
   (output-count* *ort-api* (safe sess)))
@@ -125,15 +127,15 @@
   ([sess]
    (let [allo (safe *default-allocator*)
          free (free* allo)]
-     (doall (map #(get-string* allo free (output-name* *ort-api* (safe sess) allo %))
-                 (range (output-count sess)))))))
+     (doall (mapv #(get-string* allo free (output-name* *ort-api* (safe sess) allo %))
+                  (range (output-count sess)))))))
 
 (defn scalar? [info]
   (= 0 (dimensions-count* *ort-api* (safe info))))
 
 (defn shape [info]
   (with-release [dims (safe (tensor-dimensions* *ort-api* (safe info)))]
-    (vec (doall (pointer-seq dims)))))
+    (doall (pointer-vec dims))))
 
 (defn cast-type [^OrtTypeInfo info]
   (let [ort-api *ort-api*
@@ -159,6 +161,9 @@
 (defn tensor-type [info]
   (dec-onnx-data-type (tensor-type* *ort-api* (safe info))))
 
+(defn tensor-count [info]
+  (tensor-element-count* *ort-api* (safe info)))
+
 (extend-type OrtTensorTypeAndShapeInfo
   Info
   (info
@@ -167,13 +172,13 @@
        (tensor-type this)
        {:data-type (tensor-type this)
         :shape (shape this)
-        :count (tensor-element-count* *ort-api* (safe this))
+        :count (tensor-count this)
         :type :tensor}))
     ([this info-type]
      (case info-type
        :data-type (tensor-type this)
        :shape (shape this)
-       :count (tensor-element-count* *ort-api* (safe this))
+       :count (tensor-count this)
        :type :tensor
        nil))))
 
@@ -329,6 +334,42 @@
       (value-count* ort-api value)
       1)))
 
+(defn tensor? [value]
+  (is-tensor* *ort-api* (safe value)))
+
+;;TODO new in 1.23
+#_(defn mutable-data [value]
+  (capacity! (tensor-mutable-data* *ort-api* value)
+             (tensor-size-in-bytes* *ort-api* value)))
+
+(defn tensor-mutable-data [value]
+  (tensor-mutable-data* *ort-api* (safe value)))
+
+(defn value-value
+  ([value ^long i]
+   (let [ort-api *ort-api*]
+     (check-index i (value-count* ort-api value) "value")
+     (value-value* ort-api *default-allocator* value i)))
+  ([value]
+   (let [ort-api *ort-api*
+         allo *default-allocator*]
+     (doall (mapv #(value-value* ort-api allo value %)
+                  (range (value-count* ort-api (safe value))))))))
+
+(defn map-keys [value]
+  (value-value value 0))
+
+(defn map-vals [value]
+  (value-value value 1))
+
+(defn create-sequence [values]
+  (with-release [values (pointer-pointer (seq values))]
+    (create-value* *ort-api* onnxruntime/ONNX_TYPE_SEQUENCE (safe values))))
+
+(defn create-map [keys values]
+  (with-release [kvs (pointer-pointer [keys values])]
+    (create-value* *ort-api* onnxruntime/ONNX_TYPE_MAP (safe kvs))))
+
 (extend-type OrtValue
   Info
   (info
@@ -342,3 +383,45 @@
        :type :value
        :val (with-release [vti (value-info this)] (info vti))
        nil))))
+
+(defn ^:private append-names
+  ([names ^long n default-name]
+   (let [cnt (count names)]
+     (if (<= (count names) n)
+       (into names (repeat (- n cnt) ""))
+       names)))
+  ([names ^long n]
+   (append-names names n "")))
+
+(defn ^:private check-size [^long n pt type]
+  (when-not (<= 0 (size pt) n) (dragan-says-ex (format "Provided %s has incorrect size." type)
+                                               {:required n :provided (size pt)})))
+
+(defn runner
+  ([sess opt input-names output-names inputs outputs!]
+   (partial (runner sess opt input-names output-names) inputs outputs!))
+  ([sess opt input-names output-names]
+   (let [input-cnt (input-count sess)
+         output-cnt (output-count sess)
+         input-names (pointer-pointer (append-names (mapv str input-names) input-cnt))
+         output-names (pointer-pointer (append-names (mapv str output-names) output-cnt))]
+     (fn run!
+       ([inputs outputs!]
+        (check-size input-cnt inputs "input object")
+        (check-size output-cnt outputs! "output! object")
+        (with-release [in-pp (pointer-pointer inputs)
+                       out-pp (pointer-pointer outputs!)]
+          (run* *ort-api* (safe sess) (safe2 opt) input-names (safe in-pp) output-names (safe out-pp)))
+        outputs!)
+       ([inputs]
+        (check-size input-cnt inputs "input object")
+        (let-release [in-pp (pointer-pointer inputs)
+                      out-pp (fill! (pointer-pointer output-cnt) nil)]
+          (run* *ort-api* (safe sess) (safe2 opt) input-names (safe in-pp) output-names (safe out-pp))
+          (mapv #(get-pointer % OrtValue 0) (pointer-vec out-pp)))))))
+  ([sess input-names output-names]
+   (runner sess nil input-names output-names))
+  ([sess opt]
+   (runner sess opt (input-name sess) (output-name sess)))
+  ([sess]
+   (runner sess nil)))

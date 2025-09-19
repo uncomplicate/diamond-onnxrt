@@ -15,7 +15,7 @@
                            ]]
              [utils :as utils :refer [dragan-says-ex]]]
             [uncomplicate.clojure-cpp
-             :refer [null? pointer-pointer int-pointer long-pointer byte-pointer char-pointer
+             :refer [null? pointer pointer-pointer int-pointer long-pointer byte-pointer char-pointer
                      size-t-pointer get-entry get-pointer get-string capacity! capacity]])
   (:import [org.bytedeco.javacpp Pointer BytePointer PointerPointer Loader]
            [org.bytedeco.onnxruntime OrtApiBase OrtApi OrtEnv OrtSession OrtSessionOptions
@@ -299,3 +299,26 @@
 
 (defn value-count* [^OrtApi ort-api ^OrtValue value]
   (call-size-t ort-api GetValueCount value))
+
+(defn is-tensor* [^OrtApi ort-api ^OrtValue value]
+  (= 1 (call-int ort-api IsTensor value)))
+
+;; TODO new in 1.23.
+(defn tensor-size-in-bytes* [^OrtApi ort-api ^OrtValue value]
+  (call-size-t ort-api GetTensoriSizeInBytes value))
+
+(defn tensor-mutable-data* [^OrtApi ort-api ^OrtValue value]
+  (call-pointer-pointer ort-api Pointer GetTensorMutableData value))
+
+(defn value-value* [^OrtApi ort-api ^OrtAllocator allo ^OrtValue value ^long i]
+  (call-pointer-pointer ort-api OrtValue GetValue value i allo))
+
+(defn create-value* [^OrtApi ort-api ^long type ^PointerPointer in]
+  (call-pointer-pointer ort-api OrtValue CreateValue in (size in) type))
+
+(defn run* [^OrtApi ort-api ^OrtSession sess ^OrtRunOptions opt
+            ^PointerPointer input-names ^PointerPointer inputs
+            ^PointerPointer output-names ^PointerPointer outputs]
+  (with-check ort-api
+    (.Run ort-api sess opt input-names inputs (size inputs) output-names (size output-names) outputs)
+    outputs))

@@ -10,7 +10,7 @@
     uncomplicate.diamond.internal.onnxrt.core-test
   (:require [midje.sweet :refer [facts throws => =not=> roughly truthy just]]
             [uncomplicate.commons.core :refer [with-release info bytesize size release]]
-            [uncomplicate.clojure-cpp :refer [null? float-pointer]]
+            [uncomplicate.clojure-cpp :refer [null? float-pointer long-pointer pointer-vec capacity! put-entry!]]
             [uncomplicate.diamond.internal.onnxrt.core :refer :all])
   (:import clojure.lang.ExceptionInfo))
 
@@ -47,7 +47,6 @@
   "Test memory-info."
   (with-release [env (environment)
                  opt (options)
-                 sess (session env "data/logreg_iris.onnx" opt)
                  mem-info (memory-info :cpu :arena 0 :default)]
     (allocator-key mem-info) => :cpu
     (allocator-type mem-info) => :arena
@@ -64,7 +63,6 @@
   "Test tensor values."
   (with-release [env (environment)
                  opt (options)
-                 sess (session env "data/logreg_iris.onnx" opt)
                  mem-info (memory-info :cpu :arena 0 :default)
                  data (float-array 5)
                  val (create-tensor mem-info [2 2] data)
@@ -83,15 +81,29 @@
 
 (facts
   "Hello world example test."
+  ;; This uses a mysterious format of logreg_iris that I am not sure is even sensible.
+  ;; The example comes from older onnxruntime, though, ind the shape [3 2] is indeed correct
+  ;; That shape just dont' match the original [-1 4], but it doesn't matter here,
+  ;; because we only test whether the api works as intended, not whether the model or data makes any sense.
   (with-release [env (environment)
                  opt (options)
                  sess (session env "data/logreg_iris.onnx" opt)
                  input-info (input-type-info sess 0)
+                 x-info (info input-info)
                  output-info-0 (output-type-info sess 0)
                  output-info-1 (output-type-info sess 1)
                  inputs-info (input-type-info sess)
                  output-1-element (sequence-type (cast-type output-info-1))
-                 output-1-val (val-type (cast-type output-1-element))]
+                 output-1-val (val-type (cast-type output-1-element))
+                 mem-info (memory-info :cpu :arena 0 :default)
+                 x-data (float-pointer (range (:count x-info)))
+                 x (create-tensor mem-info (:shape x-info) x-data)
+                 infer! (runner sess)
+                 labels-data (long-pointer [0 1 2])
+                 labels (create-tensor mem-info [3] labels-data)
+                 probabilities-data (repeatedly 3 (partial float-pointer 3))
+                 probabilities (mapv #(create-tensor mem-info [3] %) probabilities-data)
+                 outputs! (create-sequence (map #(create-map labels %) probabilities))]
     sess =not=> nil
     (input-count sess) => 1
     (output-count sess) => 2
@@ -104,4 +116,27 @@
     (info output-info-0) => {:count 3 :shape [3] :data-type :long :type :tensor}
     (scalar? (cast-type output-1-val)) => true
     (info output-info-1) => {:element {:key :long :type :map :val :float} :type :sequence}
-    (output-type-info sess 2) => (throws IndexOutOfBoundsException)))
+    (output-type-info sess 2) => (throws IndexOutOfBoundsException)
+
+    (info x) => {:count 1
+                 :type :value
+                 :val {:count 6 :data-type :float :shape [3 2] :type :tensor}}
+
+    (with-release [outputs (infer! [x])]
+      (tensor? (outputs 0)) => true
+      (pointer-vec (capacity! (long-pointer (mutable-data (outputs 0))) 3)) => [0 0 0]
+      (value-count (outputs 1)) => 3
+
+      (map #(vector (pointer-vec (capacity! (long-pointer (mutable-data (value-value % 0))) 3))
+                    (pointer-vec (capacity! (float-pointer (mutable-data (value-value % 1))) 3)))
+           (value-value (outputs 1)))
+      => [[[0 1 2] (mapv float [0.64399236 0.3070779 0.04892978])]
+          [[0 1 2] (mapv float [0.99137473 0.0012765623 0.0073487093])]
+          [[0 1 2] (mapv float [0.9991861 2.4719932E-6 8.1140944E-4])]]
+
+      (map #(vector (pointer-vec (capacity! (long-pointer (mutable-data (value-value % 0))) 3))
+                    (pointer-vec (capacity! (float-pointer (mutable-data (value-value % 1))) 3)))
+           (value-value (second (infer! [x] [labels outputs!]))))
+      => [[[0 1 2] (mapv float [0.64399236 0.3070779 0.04892978])]
+          [[0 1 2] (mapv float [0.99137473 0.0012765623 0.0073487093])]
+          [[0 1 2] (mapv float [0.9991861 2.4719932E-6 8.1140944E-4])]])))
