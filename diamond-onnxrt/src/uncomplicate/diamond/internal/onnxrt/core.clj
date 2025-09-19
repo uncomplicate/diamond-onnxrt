@@ -342,7 +342,7 @@
   (capacity! (tensor-mutable-data* *ort-api* value)
              (tensor-size-in-bytes* *ort-api* value)))
 
-(defn tensor-mutable-data [value]
+(defn mutable-data [value]
   (tensor-mutable-data* *ort-api* (safe value)))
 
 (defn value-value
