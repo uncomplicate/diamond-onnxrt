@@ -34,6 +34,6 @@
              :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.57.0"]
                                      [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]}}
 
-  :repositories [["maven-snapshots" "https://central.sonatype.com/repository/maven-snapshots"]]
+  ;;:repositories [["maven-snapshots" "https://central.sonatype.com/repository/maven-snapshots"]]
 
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"])

@@ -86,8 +86,9 @@
   ([opt!]
    (append-provider! opt! :dnnl nil)))
 
-(defn graph-optimization [opt! level]
-  (graph-optimization* *ort-api* opt! (enc-keyword ort-graph-optimization level)))
+(defn graph-optimization! [opt! level]
+  (graph-optimization* *ort-api* opt! (enc-keyword ort-graph-optimization level))
+  opt!)
 
 (defn environment
   ([logging-level log-name]
@@ -109,8 +110,9 @@
 
 (defn input-name
   ([sess ^long i]
-   (check-index i (input-count sess) "input")
-   (get-string* (input-name* *ort-api* (safe sess) i (safe *default-allocator*))))
+   (let [allo (safe *default-allocator*)]
+     (check-index i (input-count sess) "input")
+     (get-string* allo (input-name* *ort-api* (safe sess) allo i))))
   ([sess]
    (let [allo (safe *default-allocator*)
          free (free* allo)]
@@ -122,8 +124,9 @@
 
 (defn output-name
   ([sess ^long i]
-   (check-index i (output-count sess) "output")
-   (get-string* (output-name* *ort-api* (sess sess) i (safe *default-allocator*))))
+   (let [allo (safe *default-allocator*)]
+     (check-index i (output-count sess) "output")
+     (get-string* allo (output-name* *ort-api* (safe sess) allo i))))
   ([sess]
    (let [allo (safe *default-allocator*)
          free (free* allo)]
@@ -397,6 +400,9 @@
   (when-not (<= 0 (size pt) n) (dragan-says-ex (format "Provided %s has incorrect size." type)
                                                {:required n :provided (size pt)})))
 
+;; TODO input-names and output-names are not that important. Optimize for input and output tensors!
+;; At the time of creation, we could check how many inputs and outputs there are, and thus avoid brackets in input/output calls when it's not necessarry.
+;; Ditto for the result
 (defn runner
   ([sess opt input-names output-names inputs outputs!]
    (partial (runner sess opt input-names output-names) inputs outputs!))

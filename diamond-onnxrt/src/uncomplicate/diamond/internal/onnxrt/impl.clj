@@ -146,7 +146,7 @@
 
 (defn graph-optimization* [^OrtApi ort-api ^OrtSessionOptions opt ^long level]
   (with-check ort-api
-    (.SetGraphOptimizationLevel ort-api opt level)
+    (.SetSessionGraphOptimizationLevel ort-api opt level)
     opt))
 
 (defn available-providers* [^OrtApi ort-api]
