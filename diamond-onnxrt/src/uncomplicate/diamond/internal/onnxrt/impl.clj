@@ -16,7 +16,7 @@
              [utils :as utils :refer [dragan-says-ex]]]
             [uncomplicate.clojure-cpp
              :refer [null? pointer pointer-pointer int-pointer long-pointer byte-pointer char-pointer
-                     size-t-pointer get-entry get-pointer get-string capacity! capacity]])
+                     size-t-pointer get-entry put-entry! get-pointer get-string capacity! capacity]])
   (:import [org.bytedeco.javacpp Pointer BytePointer PointerPointer Loader]
            [org.bytedeco.onnxruntime OrtApiBase OrtApi OrtEnv OrtSession OrtSessionOptions
             OrtAllocator OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo
@@ -84,8 +84,6 @@
 (extend-ort OrtRunOptions ReleaseRunOptions)
 (extend-ort OrtValue ReleaseValue)
 
-(declare cast-type*)
-
 (extend-type OrtTypeInfo
   Releaseable
   (release [this]
@@ -107,7 +105,7 @@
            (.deallocate this#)
            (.setNull this#))
          true))))
-
+;;TODO add other provider options here
 (extend-ort-call OrtDnnlProviderOptions ReleaseDnnlProviderOptions)
 (extend-ort-call OrtCUDAProviderOptionsV2 ReleaseCUDAProviderOptions)
 
@@ -206,11 +204,25 @@
 (defn input-name* [^OrtApi ort-api ^OrtSession sess ^OrtAllocator allo ^long i]
   (call-pointer-pointer ort-api BytePointer SessionGetInputName sess i allo))
 
+(defn input-names* [^OrtApi ort-api ^OrtSession sess ^OrtAllocator allo]
+  (let-release [cnt (input-count* ort-api sess)
+                res (pointer-pointer cnt)]
+    (dotimes [i cnt]
+      (put-entry! res i (input-name* ort-api sess allo i)))
+    res))
+
 (defn output-count* ^long [^OrtApi ort-api ^OrtSession sess]
   (call-size-t ort-api SessionGetOutputCount sess))
 
 (defn output-name* [^OrtApi ort-api ^OrtSession sess ^OrtAllocator allo ^long i]
   (call-pointer-pointer ort-api BytePointer SessionGetOutputName sess i allo))
+
+(defn output-names* [^OrtApi ort-api ^OrtSession sess ^OrtAllocator allo]
+  (let-release [cnt (output-count* ort-api sess)
+                res (pointer-pointer cnt)]
+    (dotimes [i cnt]
+      (put-entry! res i (output-name* ort-api sess allo i)))
+    res))
 
 (defn input-type-info* [^OrtApi ort-api ^OrtSession sess ^long i]
   (call-pointer-pointer ort-api OrtTypeInfo SessionGetInputTypeInfo sess i))

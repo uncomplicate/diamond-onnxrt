@@ -12,7 +12,8 @@
             [uncomplicate.commons.core :refer [with-release info bytesize size release]]
             [uncomplicate.fluokitten.core :refer [fold fmap!]]
             [uncomplicate.clojure-cpp
-             :refer [null? float-pointer long-pointer pointer-vec capacity! put-entry! fill! get-entry]]
+             :refer [null? float-pointer long-pointer pointer-vec capacity! put-entry! fill! get-entry
+                     pointer-pointer]]
             [uncomplicate.neanderthal.math :refer [exp]]
             [uncomplicate.diamond.internal.onnxrt.core :refer :all])
   (:import clojure.lang.ExceptionInfo))
@@ -125,24 +126,51 @@
                  :type :value
                  :val {:count 6 :data-type :float :shape [3 2] :type :tensor}}
 
-    (with-release [outputs (infer! [x])]
-      (tensor? (outputs 0)) => true
-      (pointer-vec (capacity! (long-pointer (mutable-data (outputs 0))) 3)) => [0 0 0]
-      (value-count (outputs 1)) => 3
+    (with-release [outputs (infer! (pointer-pointer [x]))]
+      (tensor? (value outputs 0)) => true
+      (pointer-vec (capacity! (long-pointer (mutable-data (value outputs 0))) 3)) => [0 0 0]
+      (value-count (value outputs 1)) => 3
 
       (map #(vector (pointer-vec (capacity! (long-pointer (mutable-data (value-value % 0))) 3))
                     (pointer-vec (capacity! (float-pointer (mutable-data (value-value % 1))) 3)))
-           (value-value (outputs 1)))
+           (value-value (value outputs 1)))
       => [[[0 1 2] (mapv float [0.64399236 0.3070779 0.04892978])]
           [[0 1 2] (mapv float [0.99137473 0.0012765623 0.0073487093])]
           [[0 1 2] (mapv float [0.9991861 2.4719932E-6 8.1140944E-4])]]
 
       (map #(vector (pointer-vec (capacity! (long-pointer (mutable-data (value-value % 0))) 3))
                     (pointer-vec (capacity! (float-pointer (mutable-data (value-value % 1))) 3)))
-           (value-value (second (infer! [x] [labels outputs!]))))
+           (value-value (value (infer! (pointer-pointer [x]) (pointer-pointer [labels outputs!])) 1)))
       => [[[0 1 2] (mapv float [0.64399236 0.3070779 0.04892978])]
           [[0 1 2] (mapv float [0.99137473 0.0012765623 0.0073487093])]
           [[0 1 2] (mapv float [0.9991861 2.4719932E-6 8.1140944E-4])]])))
+
+#_(facts
+  "Correct logreg iris test."
+  ;; This uses a logreg_iris.onnx model that matches the iris data as described in literature
+  (with-release [env (environment)
+                 opt (options)
+                 sess (session env "data/logreg_iris_correct.onnx" opt)
+                 input-info (input-type-info sess 0)
+                 ;; x-info (info input-info )
+                 ;; ;; output-info-0 (output-type-info sess 0)
+                 ;; ;; output-info-1 (output-type-info sess 1)
+                 ;; ;; inputs-info (input-type-info sess)
+                 ;; ;; output-1-element (sequence-type (cast-type output-info-1))
+                 ;; ;; output-1-val (val-type (cast-type output-1-element))
+                 mem-info (memory-info :cpu :arena 0 :default)
+
+                 ;;x-data (float-pointer (range (info input-info :shape)))
+                 ;; x (create-tensor mem-info (:shape x-info) x-data)
+                 ;; infer! (runner sess)
+                 ;; labels-data (long-pointer [0 1 2])
+                 ;; labels (create-tensor mem-info [3] labels-data)
+                 ;; probabilities-data (repeatedly 3 (partial float-pointer 3))
+                 ;; probabilities (mapv #(create-tensor mem-info [3] %) probabilities-data)
+                 ;; outputs! (create-sequence (map #(create-map labels %) probabilities))
+                 ]
+    (shape (cast-type input-info)) => [-1 4]
+    (tensor-count (cast-type input-info)) => :a))
 
 (defonce test-image-0 (map #(float (/ % 255)) [0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 84.0 185.0 159.0 151.0 60.0 36.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 222.0 254.0 254.0 254.0 254.0 241.0 198.0 198.0 198.0 198.0 198.0 198.0 198.0 198.0 170.0 52.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 67.0 114.0 72.0 114.0 163.0 227.0 254.0 225.0 254.0 254.0 254.0 250.0 229.0 254.0 254.0 140.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 17.0 66.0 14.0 67.0 67.0 67.0 59.0 21.0 236.0 254.0 106.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 83.0 253.0 209.0 18.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 22.0 233.0 255.0 83.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 129.0 254.0 238.0 44.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 59.0 249.0 254.0 62.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 133.0 254.0 187.0 5.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 9.0 205.0 248.0 58.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 126.0 254.0 182.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 75.0 251.0 240.0 57.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 19.0 221.0 254.0 166.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 3.0 203.0 254.0 219.0 35.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 38.0 254.0 254.0 77.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 31.0 224.0 254.0 115.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 133.0 254.0 254.0 52.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 61.0 242.0 254.0 254.0 52.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 121.0 254.0 254.0 219.0 40.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 121.0 254.0 207.0 18.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0]))
 
@@ -169,8 +197,9 @@
     (info output-info) => {:count 10 :data-type :float :shape [1 10] :type :tensor}
     (input-name sess 0) => "Input3"
     (output-name sess 0) => "Plus214_Output_0"
-    ;; This takes, more or less, 40 microseconds per one call (measured after init, with 1000000 runs)
-    (classify! [x] [y!]) => [y!]
+    ;; This takes, more or less, 40 microseconds per one call (measured after init, with 100000 iterations)
+    (get-entry (classify! (pointer-pointer [x]) (pointer-pointer [y!])))
+    => (get-entry (pointer-pointer [y!]))
     (let [res (pointer-vec (softmax y-data!))
           seven (res 7)]
       seven => 1.0

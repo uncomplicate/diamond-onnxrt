@@ -12,12 +12,13 @@
              [core :refer [let-release with-release Releaseable release Info info bytesize size]]
              [utils :refer [enc-keyword dragan-says-ex mask]]]
             [uncomplicate.clojure-cpp
-             :refer [get-string byte-pointer long-pointer null? pointer pointer-pointer pointer-type
-                     pointer-vec safe safe2 get-pointer put-entry! fill! capacity!]]
+             :refer [get-string get-entry byte-pointer long-pointer null? pointer pointer-pointer pointer-type
+                     pointer-vec safe safe2 get-pointer capacity!]]
             [uncomplicate.diamond.internal.onnxrt
              [constants :refer :all]
              [impl :refer :all]])
-  (:import org.bytedeco.javacpp.Pointer
+  (:import [clojure.lang Seqable IFn AFn]
+           [org.bytedeco.javacpp Pointer PointerPointer]
            org.bytedeco.onnxruntime.global.onnxruntime
            [org.bytedeco.onnxruntime OrtDnnlProviderOptions
             OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo
@@ -322,6 +323,11 @@
   ([shape data-type]
    (create-tensor *default-allocator* shape data-type)))
 
+(defn value
+  ([ptr]
+   (get-pointer ptr OrtValue 0))
+  ([^PointerPointer pptr ^long i]
+   (.get pptr OrtValue i)))
 
 (defn value-info [value]
   (value-info* *ort-api* (safe value)))
@@ -387,47 +393,38 @@
        :val (with-release [vti (value-info this)] (info vti))
        nil))))
 
-(defn ^:private append-names
-  ([names ^long n default-name]
-   (let [cnt (count names)]
-     (if (<= (count names) n)
-       (into names (repeat (- n cnt) ""))
-       names)))
-  ([names ^long n]
-   (append-names names n "")))
+(deftype Runner [ort-api sess opt allo free in-cnt out-cnt in-names out-names]
+  Releaseable
+  (release [_]
+    (dotimes [i in-cnt]
+      (free* (safe allo) free (get-entry in-names i)))
+    (release in-names)
+    (dotimes [i out-cnt]
+      (free* (safe allo) free (get-entry out-names i)))
+    (release out-names)
+    true)
+  IFn
+  (invoke [this in out]
+    (run* ort-api (safe sess) (safe2 opt) in-names in out-names out)
+    out)
+  (invoke [this in]
+    (let-release [out (pointer-pointer (repeat out-cnt nil))]
+      (.invoke this in out)
+      out))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
-(defn ^:private check-size [^long n pt type]
-  (when-not (<= 0 (size pt) n) (dragan-says-ex (format "Provided %s has incorrect size." type)
-                                               {:required n :provided (size pt)})))
-
-;; TODO input-names and output-names are not that important. Optimize for input and output tensors!
-;; At the time of creation, we could check how many inputs and outputs there are, and thus avoid brackets in input/output calls when it's not necessarry.
-;; Ditto for the result
-(defn runner
-  ([sess opt input-names output-names inputs outputs!]
-   (partial (runner sess opt input-names output-names) inputs outputs!))
-  ([sess opt input-names output-names]
-   (let [input-cnt (input-count sess)
-         output-cnt (output-count sess)
-         input-names (pointer-pointer (append-names (mapv str input-names) input-cnt))
-         output-names (pointer-pointer (append-names (mapv str output-names) output-cnt))]
-     (fn run!
-       ([inputs outputs!]
-        (check-size input-cnt inputs "input object")
-        (check-size output-cnt outputs! "output! object")
-        (with-release [in-pp (pointer-pointer inputs)
-                       out-pp (pointer-pointer outputs!)]
-          (run* *ort-api* (safe sess) (safe2 opt) input-names (safe in-pp) output-names (safe out-pp)))
-        outputs!)
-       ([inputs]
-        (check-size input-cnt inputs "input object")
-        (let-release [in-pp (pointer-pointer inputs)
-                      out-pp (fill! (pointer-pointer output-cnt) nil)]
-          (run* *ort-api* (safe sess) (safe2 opt) input-names (safe in-pp) output-names (safe out-pp))
-          (mapv #(get-pointer % OrtValue 0) (pointer-vec out-pp)))))))
-  ([sess input-names output-names]
-   (runner sess nil input-names output-names))
+(defn runner*
   ([sess opt]
-   (runner sess opt (input-name sess) (output-name sess)))
+   (let [ort-api (safe *ort-api*)
+         allo (safe *default-allocator*)
+         free (free* allo)
+         sess (safe sess)
+         opt (safe2 opt)
+         in-cnt (input-count* ort-api sess)
+         out-cnt (output-count* ort-api sess)]
+     (->Runner ort-api sess opt allo free in-cnt out-cnt
+               (input-names* ort-api sess allo)
+               (output-names* ort-api sess allo))))
   ([sess]
    (runner sess nil)))
