@@ -249,3 +249,19 @@
    "OpenVINO_NPU" :openvino-npu
    "WebGPU_Buffer" :webgpu-buffer
    "WebNN_Tensor" :webnn})
+
+(def ^:const onnx-dimension-denotation
+  {:data-batch "DATA_BATCH"
+   :batch "DATA_BATCH"
+   :data-channel "DATA_CHANNEL"
+   :channel "DATA_CHANNEL"
+   :data-time "DATA_TIME"
+   :time "DATA_TIME"
+   :data-feature "DATA_FEATURE"
+   :feature "DATA_FEATURE"
+   :filter-in-channel "FILTER_IN_CHANNEL"
+   :in-channel "FILTER_IN_CHANNEL"
+   :filter-out-channel "FILTER_OUT_CHANNEL"
+   :out-channel "FILTER_OUT_CHANNEL"
+   :filter-spatial "FILTER_SPATIAL"
+   :spatial "FILTER_SPATIAL"})

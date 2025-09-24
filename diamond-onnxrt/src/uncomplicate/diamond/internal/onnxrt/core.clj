@@ -91,6 +91,15 @@
   (graph-optimization* *ort-api* opt! (enc-keyword ort-graph-optimization level))
   opt!)
 
+(defn override-dimension! [opt! name ^long value]
+  (let [ort-api *ort-api*]
+    (if (keyword? name)
+      (with-release [name (byte-pointer (enc-keyword onnx-dimension-denotation name))]
+        (free-dimension-override-by-denotation* ort-api (safe opt!) name value))
+      (with-release [name (byte-pointer (str name))]
+        (free-dimension-override-by-name* ort-api (safe opt!) name value)))
+    opt!))
+
 (defn environment
   ([logging-level log-name]
    (with-release [log-name (byte-pointer (if (seq log-name) log-name "default"))]
@@ -140,6 +149,28 @@
 (defn shape [info]
   (with-release [dims (safe (tensor-dimensions* *ort-api* (safe info)))]
     (doall (pointer-vec dims))))
+
+(defn shape! [info! values]
+  (let [ort-api *ort-api*
+        cnt (dimensions-count* ort-api (safe info!))]
+    (if (<= 0 (count values) cnt)
+      (with-release [values (long-pointer (seq values))]
+        (tensor-dimensions* ort-api info! values))
+      (dragan-says-ex "You have to provide value for each dimension." {:required cnt :provided (cnt values)}))))
+
+(defn symbolic-shape [info]
+  (let [allo (safe *default-allocator*)
+        free (free* allo)]
+    (with-release [symbolic-dims (symbolic-dimensions* *ort-api* (safe info))]
+      (doall (mapv #(get-string* %) (pointer-vec symbolic-dims))))))
+
+(defn symbolic-shape! [info names]
+  (let [ort-api *ort-api*
+        cnt (dimensions-count* ort-api info)]
+    (if (= (count names) cnt)
+      (with-release [ppnames (pointer-pointer (seq names))]
+        (symbolic-dimensions* *ort-api* (safe info) ppnames))
+      (dragan-says-ex "You have to provide name for each dimension." {:required cnt :provided (cnt names)}))))
 
 (defn cast-type [^OrtTypeInfo info]
   (let [ort-api *ort-api*
@@ -427,4 +458,4 @@
                (input-names* ort-api sess allo)
                (output-names* ort-api sess allo))))
   ([sess]
-   (runner sess nil)))
+   (runner* sess nil)))

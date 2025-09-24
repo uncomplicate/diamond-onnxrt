@@ -102,7 +102,7 @@
                  mem-info (memory-info :cpu :arena 0 :default)
                  x-data (float-pointer (range (:count x-info)))
                  x (create-tensor mem-info (:shape x-info) x-data)
-                 infer! (runner sess)
+                 infer! (runner* sess)
                  labels-data (long-pointer [0 1 2])
                  labels (create-tensor mem-info [3] labels-data)
                  probabilities-data (repeatedly 3 (partial float-pointer 3))
@@ -121,7 +121,7 @@
     (scalar? (cast-type output-1-val)) => true
     (info output-info-1) => {:element {:key :long :type :map :val :float} :type :sequence}
     (output-type-info sess 2) => (throws IndexOutOfBoundsException)
-
+    (symbolic-shape (cast-type input-info)) => ["" ""]
     (info x) => {:count 1
                  :type :value
                  :val {:count 6 :data-type :float :shape [3 2] :type :tensor}}
@@ -145,32 +145,33 @@
           [[0 1 2] (mapv float [0.99137473 0.0012765623 0.0073487093])]
           [[0 1 2] (mapv float [0.9991861 2.4719932E-6 8.1140944E-4])]])))
 
-#_(facts
-  "Correct logreg iris test."
+(facts
+  "The correct logreg iris test."
   ;; This uses a logreg_iris.onnx model that matches the iris data as described in literature
   (with-release [env (environment)
-                 opt (options)
+                 opt (doto (options)
+                       (append-provider! :dnnl)
+                       (graph-optimization! :extended)
+                       (override-dimension! :batch 1))
                  sess (session env "data/logreg_iris_correct.onnx" opt)
                  input-info (input-type-info sess 0)
-                 ;; x-info (info input-info )
-                 ;; ;; output-info-0 (output-type-info sess 0)
-                 ;; ;; output-info-1 (output-type-info sess 1)
-                 ;; ;; inputs-info (input-type-info sess)
-                 ;; ;; output-1-element (sequence-type (cast-type output-info-1))
-                 ;; ;; output-1-val (val-type (cast-type output-1-element))
+                 output-info (output-type-info sess)
                  mem-info (memory-info :cpu :arena 0 :default)
+                 x-data (float-pointer [5.1 3.5 1.4 0.2])
+                 x (create-tensor mem-info [1 4] x-data)
+                 infer! (runner* sess)]
+    (let [x-info (cast-type input-info)]
+      (shape x-info) => [-1 4]
+      (symbolic-shape x-info) => ["" ""]
+      (symbolic-shape! x-info ["free_dimension" "2"])
+      (symbolic-shape x-info) => ["free_dimension" "2"]
+      (shape! x-info [1 4]) => x-info
+      (tensor-count x-info) => 4)
 
-                 ;;x-data (float-pointer (range (info input-info :shape)))
-                 ;; x (create-tensor mem-info (:shape x-info) x-data)
-                 ;; infer! (runner sess)
-                 ;; labels-data (long-pointer [0 1 2])
-                 ;; labels (create-tensor mem-info [3] labels-data)
-                 ;; probabilities-data (repeatedly 3 (partial float-pointer 3))
-                 ;; probabilities (mapv #(create-tensor mem-info [3] %) probabilities-data)
-                 ;; outputs! (create-sequence (map #(create-map labels %) probabilities))
-                 ]
-    (shape (cast-type input-info)) => [-1 4]
-    (tensor-count (cast-type input-info)) => :a))
+    (with-release [outputs (infer! (pointer-pointer [x]))]
+      (map #(vector (pointer-vec (capacity! (long-pointer (mutable-data (value-value % 0))) 3))
+                    (pointer-vec (capacity! (float-pointer (mutable-data (value-value % 1))) 3)))
+           (value-value (value outputs 1))) => [[[0 1 2] (mapv float [0.9794105 0.020589445 4.5429786E-8])]])))
 
 (defonce test-image-0 (map #(float (/ % 255)) [0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 84.0 185.0 159.0 151.0 60.0 36.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 222.0 254.0 254.0 254.0 254.0 241.0 198.0 198.0 198.0 198.0 198.0 198.0 198.0 198.0 170.0 52.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 67.0 114.0 72.0 114.0 163.0 227.0 254.0 225.0 254.0 254.0 254.0 250.0 229.0 254.0 254.0 140.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 17.0 66.0 14.0 67.0 67.0 67.0 59.0 21.0 236.0 254.0 106.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 83.0 253.0 209.0 18.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 22.0 233.0 255.0 83.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 129.0 254.0 238.0 44.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 59.0 249.0 254.0 62.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 133.0 254.0 187.0 5.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 9.0 205.0 248.0 58.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 126.0 254.0 182.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 75.0 251.0 240.0 57.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 19.0 221.0 254.0 166.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 3.0 203.0 254.0 219.0 35.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 38.0 254.0 254.0 77.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 31.0 224.0 254.0 115.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 133.0 254.0 254.0 52.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 61.0 242.0 254.0 254.0 52.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 121.0 254.0 254.0 219.0 40.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 121.0 254.0 207.0 18.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0]))
 
@@ -192,7 +193,7 @@
                  x (create-tensor mem-info [1 1 28 28] x-data)
                  y-data! (fill! (float-pointer 10) 0)
                  y! (create-tensor mem-info [1 10] y-data!)
-                 classify! (runner sess)]
+                 classify! (runner* sess)]
     (info input-info) => {:count 784 :data-type :float :shape [1 1 28 28] :type :tensor}
     (info output-info) => {:count 10 :data-type :float :shape [1 10] :type :tensor}
     (input-name sess 0) => "Input3"

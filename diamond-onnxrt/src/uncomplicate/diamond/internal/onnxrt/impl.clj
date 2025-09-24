@@ -16,8 +16,8 @@
              [utils :as utils :refer [dragan-says-ex]]]
             [uncomplicate.clojure-cpp
              :refer [null? pointer pointer-pointer int-pointer long-pointer byte-pointer char-pointer
-                     size-t-pointer get-entry put-entry! get-pointer get-string capacity! capacity]])
-  (:import [org.bytedeco.javacpp Pointer BytePointer PointerPointer Loader]
+                     size-t-pointer get-entry put-entry! get-string capacity! capacity get-pointer]])
+  (:import [org.bytedeco.javacpp Loader Pointer BytePointer PointerPointer LongPointer]
            [org.bytedeco.onnxruntime OrtApiBase OrtApi OrtEnv OrtSession OrtSessionOptions
             OrtAllocator OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo
             OrtStatus OrtArenaCfg OrtCustomOpDomain OrtIoBinding OrtKernelInfo
@@ -174,6 +174,16 @@
     (.SessionOptionsAppendExecutionProvider_CUDA_V2 ort-api opt cuda-opt)
     opt))
 
+(defn free-dimension-override-by-name* [^OrtApi ort-api ^OrtSessionOptions opt ^BytePointer name ^long value]
+  (with-check ort-api
+    (.AddFreeDimensionOverrideByName ort-api opt name value)
+    opt))
+
+(defn free-dimension-override-by-denotation* [^OrtApi ort-api ^OrtSessionOptions opt ^BytePointer denotation ^long value]
+  (with-check ort-api
+    (.AddFreeDimensionOverride ort-api opt denotation value)
+    opt))
+
 (defn session* [^OrtApi ort-api ^OrtEnv env ^Pointer model-path opt]
   (call-pointer-pointer ort-api OrtSession CreateSession env model-path opt))
 
@@ -189,13 +199,15 @@
    (.Free allo)))
 
 (defn get-string*
+  ([ptr]
+   (get-string (get-pointer ptr BytePointer 0)))
   ([allo ptr]
    (try
-     (get-string ptr)
+     (get-string (get-pointer ptr BytePointer 0))
      (finally (free* allo ptr))))
   ([allo free ptr]
    (try
-     (get-string ptr)
+     (get-string (get-pointer ptr BytePointer 0))
      (finally (free* allo free ptr)))))
 
 (defn input-count* ^long [^OrtApi ort-api ^OrtSession sess]
@@ -263,12 +275,29 @@
 (defn tensor-element-count* ^long [^OrtApi ort-api ^OrtTensorTypeAndShapeInfo info]
   (call-size-t ort-api GetTensorShapeElementCount info))
 
-(defn tensor-dimensions* [^OrtApi ort-api ^OrtTensorTypeAndShapeInfo info]
-  (with-release [cnt (dimensions-count* ort-api info)]
-    (let-release [res (long-pointer (max 1 cnt))]
-      (with-check ort-api
-        (.GetDimensions ort-api info res cnt)
-        res))))
+(defn tensor-dimensions*
+  ([^OrtApi ort-api ^OrtTensorTypeAndShapeInfo info]
+   (with-release [cnt (dimensions-count* ort-api info)]
+     (let-release [res (long-pointer (max 1 cnt))]
+       (with-check ort-api
+         (.GetDimensions ort-api info res cnt)
+         res))))
+  ([^OrtApi ort-api ^OrtTensorTypeAndShapeInfo info ^LongPointer values]
+   (with-check ort-api
+     (.SetDimensions ort-api info values (size values))
+     info)))
+
+(defn symbolic-dimensions*
+  ([^OrtApi ort-api ^OrtTensorTypeAndShapeInfo info]
+   (let-release [cnt (dimensions-count* ort-api info)
+                 res (pointer-pointer (max 1 cnt))]
+     (with-check ort-api
+       (.GetSymbolicDimensions ort-api info res cnt)
+       res)))
+  ([^OrtApi ort-api ^OrtTensorTypeAndShapeInfo info ppnames]
+   (with-check ort-api
+     (.SetSymbolicDimensions ort-api info ppnames (size ppnames))
+     info)))
 
 (defn memory-info* [^OrtApi ort-api ^BytePointer name type id mem-type]
   (call-pointer-pointer ort-api OrtMemoryInfo CreateMemoryInfo name (int type) (int id) (int mem-type)))
