@@ -11,31 +11,40 @@
   (:require [midje.sweet :refer [facts =>]]
             [uncomplicate.commons [core :refer [with-release release]]]
             [uncomplicate.neanderthal
-             [core :refer [iamax transfer! view-vctr]]]
+             [core :refer [iamax transfer! asum scal!]]
+             [vect-math :refer [exp!]]]
             [uncomplicate.diamond
              [tensor :refer [tensor]]]
             [uncomplicate.diamond.internal.onnxrt
              [core :refer :all]
              [model :refer :all]
-             [core-test :refer [test-image-0 softmax]]]
+             [core-test :refer [test-image-0]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]))
 
+(defn softmax! [xs]
+  (scal! (/ 1.0 (asum (exp! xs))) xs))
+
 (defn test-onnx-model [fact]
-  (with-release [env (environment :warning "test")
+  (with-release [env (environment :warning "test");;TODO I shuld just test how long does it take to create this. Anyway, it's a part of the context
                  opt (-> (options)
-                         (append-provider! :dnnl)
+                         (append-provider! :dnnl);;TODO this is also a kind of factory-ish job
                          (graph-optimization! :extended))
-                 sess (session env "data/mnist-12.onnx" opt)
+                 sess (session env "data/mnist-12.onnx" opt);;TODO this can even be a part of a (proxied) factory...
                  mem-info (memory-info :cpu :arena 0 :default);;TODO gpu I think that this can be provided by the factory (extend-type DnnlFactory even)
-                 src-tz (tensor fact [1 1 28 28] :float :nchw)
                  mnist-bluep (onnx-model fact sess nil mem-info)
+                 src-tz (tensor fact [1 1 28 28] :float :nchw)
                  mnist-infer! (mnist-bluep src-tz)]
 
     (transfer! test-image-0 src-tz)
 
     (facts
       "ONNX MNIST inference test."
-      (iamax (softmax (view-vctr (mnist-infer!)))) => 7)))
+      (iamax (softmax! (mnist-infer!))) => 7)))
 
 (with-release [fact (dnnl-factory)]
   (test-onnx-model fact))
+
+;; TODO timings: env: 30 microseconds
+;; TODO timings: opts with settings: 30 microseconds
+;; TODO timings: session loading: 2 milliseconds
+;; TODO timings: mem-info: 25 microseconds
