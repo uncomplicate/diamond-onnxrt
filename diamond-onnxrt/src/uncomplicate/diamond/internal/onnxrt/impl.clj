@@ -6,7 +6,8 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns uncomplicate.diamond.internal.onnxrt.impl
+(ns ^{:author "Dragan Djuric"}
+    uncomplicate.diamond.internal.onnxrt.impl
   (:require [uncomplicate.commons
              [core :refer [Releaseable release with-release let-release size bytesize
                            ;;Info

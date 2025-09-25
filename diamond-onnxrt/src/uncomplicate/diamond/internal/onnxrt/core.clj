@@ -6,7 +6,8 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns uncomplicate.diamond.internal.onnxrt.core
+(ns ^{:author "Dragan Djuric"}
+    uncomplicate.diamond.internal.onnxrt.core
   (:require [clojure.string :as st :refer [lower-case split]]
             [uncomplicate.commons
              [core :refer [let-release with-release Releaseable release Info info bytesize size]]
@@ -340,7 +341,7 @@
        :allocator-type (allocator-type this)
        nil))))
 
-(defn create-tensor
+(defn onnx-tensor
   ([mem-info shape data data-type]
    (let [data (pointer data)]
      (create-tensor* *ort-api* (safe mem-info) (safe data) (safe (long-pointer (seq shape)))
@@ -349,10 +350,10 @@
    (if (or (keyword data-or-type) (number? data-or-type))
      (allocate-tensor* *ort-api* (safe mem-info-or-alloc) (safe (long-pointer (seq shape)))
                        (enc-keyword pointer-type data-or-type))
-     (create-tensor mem-info-or-alloc shape data-or-type
+     (onnx-tensor mem-info-or-alloc shape data-or-type
                     (enc-keyword pointer-type (type (pointer data-or-type))))))
   ([shape data-type]
-   (create-tensor *default-allocator* shape data-type)))
+   (onnx-tensor *default-allocator* shape data-type)))
 
 (defn value
   ([ptr]
@@ -402,11 +403,11 @@
 (defn map-vals [value]
   (value-value value 1))
 
-(defn create-sequence [values]
+(defn onnx-sequence [values]
   (with-release [values (pointer-pointer (seq values))]
     (create-value* *ort-api* onnxruntime/ONNX_TYPE_SEQUENCE (safe values))))
 
-(defn create-map [keys values]
+(defn onnx-map [keys values]
   (with-release [kvs (pointer-pointer [keys values])]
     (create-value* *ort-api* onnxruntime/ONNX_TYPE_MAP (safe kvs))))
 

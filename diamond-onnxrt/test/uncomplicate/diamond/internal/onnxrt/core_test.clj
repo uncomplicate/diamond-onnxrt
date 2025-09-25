@@ -69,7 +69,7 @@
                  opt (options)
                  mem-info (memory-info :cpu :arena 0 :default)
                  data (float-array 5)
-                 val (create-tensor mem-info [2 2] data)
+                 val (onnx-tensor mem-info [2 2] data)
                  val-type-info (value-info val)]
     (info val) => {:count 1
                    :type :value
@@ -79,9 +79,9 @@
     (value-count val) => 1
     (release val-type-info) => true
     (info val-type-info) => (throws RuntimeException)
-    (create-tensor mem-info [0 -1] data) => (throws RuntimeException)
-    (create-tensor mem-info [0 0] nil) => (throws RuntimeException)
-    (create-tensor mem-info 3 data) => (throws RuntimeException)))
+    (onnx-tensor mem-info [0 -1] data) => (throws RuntimeException)
+    (onnx-tensor mem-info [0 0] nil) => (throws RuntimeException)
+    (onnx-tensor mem-info 3 data) => (throws RuntimeException)))
 
 (facts
   "Hello world example test."
@@ -101,13 +101,13 @@
                  output-1-val (val-type (cast-type output-1-element))
                  mem-info (memory-info :cpu :arena 0 :default)
                  x-data (float-pointer (range (:count x-info)))
-                 x (create-tensor mem-info (:shape x-info) x-data)
+                 x (onnx-tensor mem-info (:shape x-info) x-data)
                  infer! (runner* sess)
                  labels-data (long-pointer [0 1 2])
-                 labels (create-tensor mem-info [3] labels-data)
+                 labels (onnx-tensor mem-info [3] labels-data)
                  probabilities-data (repeatedly 3 (partial float-pointer 3))
-                 probabilities (mapv #(create-tensor mem-info [3] %) probabilities-data)
-                 outputs! (create-sequence (map #(create-map labels %) probabilities))]
+                 probabilities (mapv #(onnx-tensor mem-info [3] %) probabilities-data)
+                 outputs! (onnx-sequence (map #(onnx-map labels %) probabilities))]
     sess =not=> nil
     (input-count sess) => 1
     (output-count sess) => 2
@@ -159,7 +159,7 @@
                  mem-info (memory-info :cpu :arena 0 :default)
                  x-data (float-pointer [5.1 3.5 1.4 0.2
                                         4.9 3.0	1.4 0.2])
-                 x (create-tensor mem-info [2 4] x-data)
+                 x (onnx-tensor mem-info [2 4] x-data)
                  infer! (runner* sess)]
     (let [x-info (cast-type input-info)]
       (shape x-info) => [-1 4]
@@ -192,9 +192,9 @@
                  input-info (input-type-info sess 0)
                  output-info (output-type-info sess 0)
                  x-data (float-pointer test-image-0)
-                 x (create-tensor mem-info [1 1 28 28] x-data)
+                 x (onnx-tensor mem-info [1 1 28 28] x-data)
                  y-data! (fill! (float-pointer 10) 0)
-                 y! (create-tensor mem-info [1 10] y-data!)
+                 y! (onnx-tensor mem-info [1 10] y-data!)
                  classify! (runner* sess)]
     (info input-info) => {:count 784 :data-type :float :shape [1 1 28 28] :type :tensor}
     (info output-info) => {:count 10 :data-type :float :shape [1 10] :type :tensor}
