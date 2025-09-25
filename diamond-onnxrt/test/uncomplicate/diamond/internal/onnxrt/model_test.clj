@@ -11,8 +11,7 @@
   (:require [midje.sweet :refer [facts =>]]
             [uncomplicate.commons [core :refer [with-release release]]]
             [uncomplicate.neanderthal
-             [core :refer [entry! entry native transfer! view-vctr vctr
-                           cols view-ge nrm2 axpy! asum axpy nrm2]]]
+             [core :refer [iamax transfer! view-vctr]]]
             [uncomplicate.diamond
              [tensor :refer [tensor]]]
             [uncomplicate.diamond.internal.onnxrt
@@ -27,7 +26,7 @@
                          (append-provider! :dnnl)
                          (graph-optimization! :extended))
                  sess (session env "data/mnist-12.onnx" opt)
-                 mem-info (memory-info :cpu :arena 0 :default)
+                 mem-info (memory-info :cpu :arena 0 :default);;TODO gpu I think that this can be provided by the factory (extend-type DnnlFactory even)
                  src-tz (tensor fact [1 1 28 28] :float :nchw)
                  mnist-bluep (onnx-model fact sess nil mem-info)
                  mnist-infer! (mnist-bluep src-tz)]
@@ -36,7 +35,7 @@
 
     (facts
       "ONNX MNIST inference test."
-      (entry (softmax (view-vctr (mnist-infer!))) 7) => 1.0)))
+      (iamax (softmax (view-vctr (mnist-infer!)))) => 7)))
 
 (with-release [fact (dnnl-factory)]
   (test-onnx-model fact))
