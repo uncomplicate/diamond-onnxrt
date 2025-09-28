@@ -300,6 +300,7 @@
      (.SetSymbolicDimensions ort-api info ppnames (size ppnames))
      info)))
 
+;;TODO use v2 from 1.23+
 (defn memory-info* [^OrtApi ort-api ^BytePointer name type id mem-type]
   (call-pointer-pointer ort-api OrtMemoryInfo CreateMemoryInfo name (int type) (int id) (int mem-type)))
 

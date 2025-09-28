@@ -16,7 +16,7 @@
             [uncomplicate.neanderthal.block :refer [buffer]]
             #_[uncomplicate.neanderthal.internal.api :refer [flow]]
             [uncomplicate.diamond.tensor
-             :refer [default-desc Transfer input output connector revert shape data-type layout TensorDescriptor view-tz]]
+             :refer [*diamond-factory* default-desc Transfer input output connector revert shape data-type layout TensorDescriptor view-tz]]
             [uncomplicate.diamond.internal
              [protocols
               :refer [Parameters bias weights ParametersSeq parameters DescriptorProvider
@@ -30,7 +30,7 @@
 
 ;; ================================ Activation =============================================
 
-(deftype StraightInference [bluep src-conn dst-tz infer! in-pp out-pp]
+(deftype StraightInference [fact bluep src-conn dst-tz infer! in-pp out-pp]
   Releaseable
   (release [_]
     (release src-conn)
@@ -51,6 +51,9 @@
       :src (info src-conn)
       :dst (info dst-tz)
       (info bluep info-type)))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
   Transfer
   (input [_]
     (input src-conn))
@@ -70,6 +73,8 @@
 (deftype StraightInferenceBlueprint [fact sess opt mem-info src-desc dst-desc]
   Releaseable
   (release [_]
+    (release sess)
+    (release opt)
     (release src-desc)
     (release dst-desc))
   Info
@@ -88,9 +93,9 @@
   (inf-desc [_]
     dst-desc)
   (train-desc [_]
-    (dragan-says-ex "ONNX Runtime doesn't support training. (yet!)"))
+    dst-desc)
   (diff-desc [_]
-    (dragan-says-ex "ONNX Runtime doesn't support training. (yet!)"))
+    dst-desc)
   TensorDescriptor
   (shape [this]
     (shape dst-desc))
@@ -107,13 +112,13 @@
                   in-pp (pointer-pointer [in-onnx])
                   out-onnx (onnx-tensor mem-info (shape dst-desc) (buffer (output dst-tz)))
                   out-pp (pointer-pointer [out-onnx])]
-      (->StraightInference this src-conn dst-tz infer! in-pp out-pp)))
+      (->StraightInference fact this src-conn dst-tz infer! in-pp out-pp)))
   (invoke [this src-tz diff-tz]
     (dragan-says-ex "ONNX Runtime doesn't support training. (yet!)"))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(defn onnx-model [fact sess opt mem-info]
+(defn onnx-straight-model [fact sess mem-info]
   (let [in-info (cast-type (input-type-info sess 0))
         in-shape (onnx/shape in-info)
         in-type (tensor-type in-info)
@@ -122,4 +127,12 @@
         out-type (tensor-type out-info)]
     (let-release [src-desc (create-tensor-desc fact in-shape in-type (default-strides in-shape))
                   dst-desc (create-tensor-desc fact out-shape out-type (default-strides out-shape))]
-      (->StraightInferenceBlueprint fact sess opt mem-info src-desc dst-desc))))
+      (->StraightInferenceBlueprint fact sess nil mem-info src-desc dst-desc))))
+
+(defn onnx
+  ([sess mem-info]
+   (fn
+     ([fact src-desc]
+      (onnx-straight-model fact sess mem-info))
+     ([src-desc]
+      (onnx *diamond-factory* sess mem-info)))))
