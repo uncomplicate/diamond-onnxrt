@@ -23,10 +23,12 @@
            org.bytedeco.onnxruntime.global.onnxruntime
            [org.bytedeco.onnxruntime OrtDnnlProviderOptions
             OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo
-            OrtMemoryInfo OrtValue]))
+            OrtMemoryInfo OrtValue OrtThreadingOptions]))
 
 (defprotocol OnnxType
   (onnx-type [this]))
+
+;; ================= API ===========================================================================
 
 (defn init-ort-api!
   ([^long ort-api-version]
@@ -60,8 +62,144 @@
       (finally
         (release-available-providers* *ort-api* pprov)))))
 
-(defn options []
-  (session-options* *ort-api*))
+;; ===================== Threading Options ==========================================================
+
+(defn threading-options
+  ([]
+   (threading-options* *ort-api*))
+  ([options]
+   (let [ort-api *ort-api*]
+     (let-release [res (threading-options* ort-api)]
+       (when-let [num-threads (:intra-op-threads options)]
+         (global-intra-op-threads* ort-api res num-threads))
+       (when-let [num-threads (:inter-op-threads options)]
+         (global-inter-op-threads* ort-api res num-threads))
+       (when (contains? options :spin)
+         (global-spin-control* ort-api res (if (:spin options) 1 0)))
+       (when (contains? options :denormal-as-zero)
+         (global-denormal-as-zero* ort-api res))
+       res))))
+
+(defn intra-op-threads! [opt! ^long num-threads]
+  (if (instance? OrtThreadingOptions opt!)
+    (global-intra-op-threads* *ort-api* (safe opt!) (max 0 num-threads))
+    (intra-op-threads* *ort-api* (safe opt!) (max 0 num-threads))))
+
+(defn inter-op-threads! [opt! ^long num-threads]
+  (if (instance? OrtThreadingOptions opt!)
+    (global-inter-op-threads* *ort-api* (safe opt!) num-threads)
+    (inter-op-threads* *ort-api* (safe opt!) num-threads)))
+
+(defn spin-control! [opt! allow-spinning]
+  (global-spin-control* *ort-api* (safe opt!) (if allow-spinning 1 0)))
+
+(defn denormal-as-zero! [opt!]
+  (global-denormal-as-zero* *ort-api* (safe opt!)))
+
+(defn custom-thread-creation! [opt! custom-options] ;;TODO options helper
+  (global-custom-thread-creation* *ort-api* (safe opt!) (safe custom-options)))
+
+(defn custom-create-thread! [opt! fn] ;;TODO function helper
+  (global-custom-create-thread* *ort-api* (safe opt!) (safe fn)))
+
+(defn custom-join-thread! [opt! fn] ;;TODO function helper
+  (global-custom-join-thread* *ort-api* (safe opt!) (safe fn)))
+
+;; ===================== Environment  ==============================================================
+(defn telemetry!
+  ([env! enable?]
+   (if enable?
+     (enable-telemetry* *ort-api* (safe env!))
+     (disable-telemetry* *ort-api* (safe env!))))
+  ([env!]
+   (enable-telemetry* *ort-api* (safe env!))))
+
+(defn telemetry-language! [env! projection]
+  (language-projection* *ort-api* (safe env!) (enc-keyword ort-language-projection projection)))
+
+(defn environment
+  ([logging-level log-name options]
+   (with-release [log-name (byte-pointer (if (seq log-name) log-name "default"))]
+     (if (instance? OrtThreadingOptions options)
+       (env* *ort-api* (enc-keyword ort-logging-level logging-level) log-name (safe options))
+       (with-release [threading-opt (threading-options options)]
+         (env* *ort-api* (enc-keyword ort-logging-level logging-level) log-name (safe threading-opt))))))
+  ([logging-level log-name]
+   (with-release [log-name (byte-pointer (if (seq log-name) log-name "default"))]
+     (env* *ort-api* (enc-keyword ort-logging-level logging-level) log-name)))
+  ([options]
+   (environment :warning "default" options))
+  ([]
+   (environment :warning "default")))
+
+;; ===================== Session Options ==========================================================
+
+(defn options
+  ([]
+   (session-options* *ort-api*))
+  ([clonee]
+   (clone-session-options* *ort-api* (safe clonee))))
+
+(defn execution-mode [opt! mode]
+  (execution-mode* *ort-api* (safe opt!) (enc-keyword ort-execution-mode mode)))
+
+(defn profiling!
+  ([opt! enable?]
+   (if enable?
+     (enable-profiling* *ort-api* (safe opt!))
+     (disable-profiling* *ort-api* (safe opt!))))
+  ([opt!]
+   (enable-profiling* *ort-api* (safe opt!))))
+
+(defn mem-pattern!
+  ([opt! enable?]
+   (if enable?
+     (enable-mem-pattern* *ort-api* (safe opt!))
+     (disable-mem-pattern* *ort-api* (safe opt!))))
+  ([opt!]
+   (enable-mem-pattern* *ort-api* (safe opt!))))
+
+(defn cpu-mem-arena!
+  ([opt! enable?]
+   (if enable?
+     (enable-cpu-mem-arena* *ort-api* (safe opt!))
+     (disable-cpu-mem-arena* *ort-api* (safe opt!))))
+  ([opt!]
+   (enable-cpu-mem-arena* *ort-api* (safe opt!))))
+
+(defn log-id! [opt! name]
+  (with-release [name (byte-pointer (str name))]
+    (session-log-id* *ort-api* (safe opt!) name)
+    opt!))
+
+(defn severity! [opt! ^long level]
+  (session-severity* *ort-api* (safe opt!) level)
+  opt!)
+
+(defn verbosity! [opt! level]
+  (session-verbosity* *ort-api* (safe opt!) (enc-keyword ort-logging-level level))
+  opt!)
+
+(defn graph-optimization! [opt! level]
+  (graph-optimization* *ort-api* (safe opt!) (enc-keyword ort-graph-optimization level))
+  opt!)
+
+(defn override-dimension! [opt! name ^long value]
+  (let [ort-api *ort-api*]
+    (if (keyword? name)
+      (with-release [name (byte-pointer (enc-keyword onnx-dimension-denotation name))]
+        (free-dimension-override-by-denotation* ort-api (safe opt!) name value))
+      (with-release [name (byte-pointer (str name))]
+        (free-dimension-override-by-name* ort-api (safe opt!) name value)))
+    opt!))
+
+(defn config! [opt! config]
+  (let [ort-api *ort-api*]
+    (doseq [[key value] (seq config)]
+      (session-config-entry* ort-api opt!
+                             (get ort-session-options-config-keys key (name key))
+                             ((get ort-session-options-config-encoders key identity) value)))
+    opt!))
 
 (defn append-dnnl! [opt! opt-map]
   (with-release [dnnl (dnnl-options* *ort-api*)]
@@ -88,29 +226,22 @@
   ([opt!]
    (append-provider! opt! :dnnl nil)))
 
-(defn graph-optimization! [opt! level]
-  (graph-optimization* *ort-api* opt! (enc-keyword ort-graph-optimization level))
+(defn user-logging-fn! [opt! logging-fn param] ;;TODO create a mechanism to wrap any clojure function into OrtLoggingFunction
+  (user-logging-function* *ort-api* (safe opt!) (safe logging-fn) (safe2 param))
   opt!)
 
-(defn override-dimension! [opt! name ^long value]
-  (let [ort-api *ort-api*]
-    (if (keyword? name)
-      (with-release [name (byte-pointer (enc-keyword onnx-dimension-denotation name))]
-        (free-dimension-override-by-denotation* ort-api (safe opt!) name value))
-      (with-release [name (byte-pointer (str name))]
-        (free-dimension-override-by-name* ort-api (safe opt!) name value)))
-    opt!))
+;; ========================= Session ===============================================================
 
-(defn environment
-  ([logging-level log-name]
-   (with-release [log-name (byte-pointer (if (seq log-name) log-name "default"))]
-     (env* *ort-api* (enc-keyword ort-logging-level logging-level) log-name)))
-  ([]
-   (environment :warning "default")))
-
-(defn session [env ^String model-path options]
-  (with-release [model-path (platform-pointer model-path)]
-    (session* *ort-api* (safe env) (safe (platform-pointer model-path)) (safe options))))
+(defn session
+  ([env model-path-or-data options]
+   (if (string? model-path-or-data)
+     (with-release [model-path (platform-pointer model-path-or-data)]
+       (session* *ort-api* (safe env) (safe (platform-pointer model-path)) (safe options)))
+     (session-from-array* *ort-api* (safe env) (safe model-path-or-data) (safe options))))
+  ([env model-path options prepackaged-weights]
+   (with-release [model-path (platform-pointer model-path)]
+     (session-from-prepackaged-weights* *ort-api* (safe env) (safe model-path) (safe options)
+                                        (safe prepackaged-weights)))))
 
 (defn input-count ^long [sess]
   (input-count* *ort-api* (safe sess)))

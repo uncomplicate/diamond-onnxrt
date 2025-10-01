@@ -20,11 +20,12 @@
                      size-t-pointer get-entry put-entry! get-string capacity! capacity get-pointer]])
   (:import [org.bytedeco.javacpp Loader Pointer BytePointer PointerPointer LongPointer]
            [org.bytedeco.onnxruntime OrtApiBase OrtApi OrtEnv OrtSession OrtSessionOptions
-            OrtAllocator OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo
-            OrtStatus OrtArenaCfg OrtCustomOpDomain OrtIoBinding OrtKernelInfo
-            OrtMemoryInfo OrtModelMetadata OrtOp OrtOpAttr OrtPrepackedWeightsContainer OrtRunOptions OrtValue
-            OrtDnnlProviderOptions OrtCUDAProviderOptionsV2
-
+            OrtAllocator OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo
+            OrtOptionalTypeInfo OrtStatus OrtArenaCfg OrtCustomOpDomain OrtIoBinding OrtKernelInfo
+            OrtMemoryInfo OrtModelMetadata OrtOp OrtOpAttr OrtPrepackedWeightsContainer OrtRunOptions
+            OrtValue OrtDnnlProviderOptions OrtCUDAProviderOptionsV2 OrtLoggingFunction
+            OrtThreadingOptions OrtGraph OrtKeyValuePairs OrtLoraAdapter OrtModel OrtNode
+            OrtCustomCreateThreadFn OrtCustomJoinThreadFn
             OrtAllocator$Free_OrtAllocator_Pointer]))
 
 (def ^:dynamic *ort-api*)
@@ -63,26 +64,31 @@
            (.setNull this#))
          true))))
 
-(extend-ort OrtEnv ReleaseEnv)
-(extend-ort OrtStatus ReleaseStatus)
-(extend-ort OrtSession ReleaseSession)
-(extend-ort OrtSessionOptions ReleaseSessionOptions)
 (extend-ort OrtAllocator ReleaseAllocator)
-(extend-ort OrtTypeInfo ReleaseTypeInfo)
-(extend-ort OrtTensorTypeAndShapeInfo ReleaseTensorTypeAndShapeInfo)
-(extend-ort OrtSequenceTypeInfo ReleaseSequenceTypeInfo)
-(extend-ort OrtMapTypeInfo ReleaseMapTypeInfo)
-(extend-ort OrtOptionalTypeInfo ReleaseOptionalTypeInfo)
 (extend-ort OrtArenaCfg ReleaseArenaCfg)
 (extend-ort OrtCustomOpDomain ReleaseCustomOpDomain)
+(extend-ort OrtEnv ReleaseEnv)
+(extend-ort OrtGraph ReleaseOrtGraph)
 (extend-ort OrtIoBinding ReleaseIoBinding)
 (extend-ort OrtKernelInfo ReleaseKernelInfo)
+(extend-ort OrtKeyValuePairs ReleaseKeyValuePairs)
+(extend-ort OrtLoraAdapter ReleaseLoraAdapter)
+(extend-ort OrtMapTypeInfo ReleaseMapTypeInfo)
 (extend-ort OrtMemoryInfo ReleaseMemoryInfo)
+(extend-ort OrtModel ReleaseModel)
 (extend-ort OrtModelMetadata ReleaseModelMetadata)
+(extend-ort OrtNode ReleaseNode)
 (extend-ort OrtOp ReleaseOp)
 (extend-ort OrtOpAttr ReleaseOpAttr)
 (extend-ort OrtPrepackedWeightsContainer ReleasePrepackedWeightsContainer)
 (extend-ort OrtRunOptions ReleaseRunOptions)
+(extend-ort OrtSequenceTypeInfo ReleaseSequenceTypeInfo)
+(extend-ort OrtSession ReleaseSession)
+(extend-ort OrtSessionOptions ReleaseSessionOptions)
+(extend-ort OrtStatus ReleaseStatus)
+(extend-ort OrtTensorTypeAndShapeInfo ReleaseTensorTypeAndShapeInfo)
+(extend-ort OrtThreadingOptions ReleaseThreadingOptions)
+(extend-ort OrtTypeInfo ReleaseTypeInfo)
 (extend-ort OrtValue ReleaseValue)
 
 (extend-type OrtTypeInfo
@@ -131,8 +137,7 @@
          (. ort-api# (~method ~@args res#))
          (get-entry res# 0)))))
 
-(defn env* [^OrtApi ort-api ^long logging-level ^Pointer name]
-  (call-pointer-pointer ort-api OrtEnv CreateEnv logging-level name))
+;; ================= OrtApi ========================================================================
 
 (defn version* [^OrtApiBase ort-api-base]
   (.call (.GetVersionString ort-api-base)))
@@ -140,12 +145,152 @@
 (defn build-info* [^OrtApi ort-api]
   (.call (.GetBuildInfoString *ort-api*)))
 
+;; ===================== OrtEnv ====================================================================
+
+(defn env*
+  ([^OrtApi ort-api ^long logging-level ^Pointer name]
+   (call-pointer-pointer ort-api OrtEnv CreateEnv logging-level name))
+  ([^OrtApi ort-api ^long logging-level ^Pointer name ^OrtThreadingOptions opts]
+   (call-pointer-pointer ort-api OrtEnv CreateEnvWithGlobalThreadPools logging-level name opts)))
+
+(defn enable-telemetry* [^OrtApi ort-api ^OrtEnv env]
+  (with-check ort-api
+    (.EnableTelemetryEvents ort-api env)
+    env))
+
+(defn disable-telemetry* [^OrtApi ort-api ^OrtEnv env]
+  (with-check ort-api
+    (.DisableTelemetryEvents ort-api env)
+    env))
+
+(defn language-projection* [^OrtApi ort-api ^OrtEnv env ^long projection]
+  (with-check ort-api
+    (.SetLanguageProjection ort-api env projection)
+    env))
+
+;; ===================== OrtThreadingOptions =======================================================
+
+(defn threading-options* [^OrtApi ort-api]
+  (call-pointer-pointer ort-api OrtThreadingOptions CreateThreadingOptions))
+
+(defn global-intra-op-threads* [^OrtApi ort-api ^OrtThreadingOptions threading-opt
+                                ^long num-threads]
+  (with-check ort-api
+    (.SetGlobalIntraOpNumThreads ort-api threading-opt num-threads)
+    threading-opt))
+
+(defn global-inter-op-threads* [^OrtApi ort-api ^OrtThreadingOptions threading-opt
+                                ^long num-threads]
+  (with-check ort-api
+    (.SetGlobalInterOpNumThreads ort-api threading-opt num-threads)
+    threading-opt))
+
+(defn global-spin-control* [^OrtApi ort-api ^OrtThreadingOptions threading-opt
+                            ^long allow-spinning]
+  (with-check ort-api
+    (.SetGlobalSpinControl ort-api threading-opt allow-spinning)
+    threading-opt))
+
+(defn global-denormal-as-zero* [^OrtApi ort-api ^OrtThreadingOptions threading-opt]
+  (with-check ort-api
+    (.SetGlobalDenormalAsZero ort-api threading-opt)
+    threading-opt))
+
+(defn global-custom-thread-creation* [^OrtApi ort-api ^OrtThreadingOptions threading-opt ^Pointer custom-options]
+  (with-check ort-api
+    (.SetGlobalCustomThreadCreationOptions ort-api threading-opt custom-options)
+    threading-opt))
+
+(defn global-custom-create-thread* [^OrtApi ort-api ^OrtThreadingOptions threading-opt
+                                    ^OrtCustomCreateThreadFn fn]
+  (with-check ort-api
+    (.SetGlobalCustomCreateThreadFn ort-api threading-opt fn)
+    threading-opt))
+
+(defn global-custom-join-thread* [^OrtApi ort-api ^OrtThreadingOptions threading-opt
+                                    ^OrtCustomCreateThreadFn fn]
+  (with-check ort-api
+    (.SetGlobalCustomJoinThreadFn ort-api threading-opt fn)
+    threading-opt))
+
+;; ===================== OrtSessionOptions =========================================================
+
 (defn session-options* [^OrtApi ort-api]
   (call-pointer-pointer ort-api OrtSessionOptions CreateSessionOptions))
+
+(defn clone-session-options*
+  ([^OrtApi ort-api ^OrtSessionOptions opt]
+   (call-pointer-pointer ort-api OrtSessionOptions CloneSessionOptions opt)))
+
+(defn execution-mode* [^OrtApi ort-api ^OrtSessionOptions opt ^long mode]
+  (with-check ort-api
+    (.SetSessionExecutionMode ort-api opt mode)
+    opt))
+
+(defn enable-profiling* [^OrtApi ort-api ^OrtSessionOptions opt]
+  (with-check ort-api
+    (.EnableProfiling ort-api opt)
+    opt))
+
+(defn disable-profiling* [^OrtApi ort-api ^OrtSessionOptions opt]
+  (with-check ort-api
+    (.DisableProfiling ort-api opt)
+    opt))
+
+(defn enable-mem-pattern* [^OrtApi ort-api ^OrtSessionOptions opt]
+  (with-check ort-api
+    (.EnableMemPattern ort-api opt)
+    opt))
+
+(defn disable-mem-pattern* [^OrtApi ort-api ^OrtSessionOptions opt]
+  (with-check ort-api
+    (.DisableMemPattern ort-api opt)
+    opt))
+
+(defn enable-cpu-mem-arena* [^OrtApi ort-api ^OrtSessionOptions opt]
+  (with-check ort-api
+    (.EnableMemArena ort-api opt)
+    opt))
+
+(defn disable-cpu-mem-arena* [^OrtApi ort-api ^OrtSessionOptions opt]
+  (with-check ort-api
+    (.DisableMemArena ort-api opt)
+    opt))
+
+(defn session-log-id* [^OrtApi ort-api ^OrtSessionOptions opt ^BytePointer log-id]
+  (with-check ort-api
+    (.SetSessionLogId ort-api opt log-id)
+    opt))
+
+(defn session-severity* [^OrtApi ort-api ^OrtSessionOptions opt ^long level]
+  (with-check ort-api
+    (.SetSessionSeverityLevel ort-api opt level)
+    opt))
+
+(defn session-verbosity* [^OrtApi ort-api ^OrtSessionOptions opt ^long level]
+  (with-check ort-api
+    (.SetSessionVerbosityLevel ort-api opt level)
+    opt))
+
+(defn intra-op-threads* [^OrtApi ort-api ^OrtSessionOptions opt ^long num-threads]
+  (with-check ort-api
+    (.SetIntraOpNumThreads ort-api opt num-threads)
+    opt))
+
+(defn inter-op-threads* [^OrtApi ort-api ^OrtSessionOptions opt ^long num-threads]
+  (with-check ort-api
+    (.SetInterOpNumThreads ort-api opt num-threads)
+    opt))
 
 (defn graph-optimization* [^OrtApi ort-api ^OrtSessionOptions opt ^long level]
   (with-check ort-api
     (.SetSessionGraphOptimizationLevel ort-api opt level)
+    opt))
+
+(defn user-logging-function* [^OrtApi ort-api ^OrtSessionOptions opt
+                              ^OrtLoggingFunction user-logging-fn ^Pointer param]
+  (with-check ort-api
+    (.SetUserLoggingFunction ort-api opt user-logging-fn param)
     opt))
 
 (defn available-providers* [^OrtApi ort-api]
@@ -185,11 +330,34 @@
     (.AddFreeDimensionOverride ort-api opt denotation value)
     opt))
 
-(defn session* [^OrtApi ort-api ^OrtEnv env ^Pointer model-path opt]
+(defn session-config-entry* [^OrtApi ort-api ^OrtSessionOptions opt ^String key ^String value]
+  (with-release [key (byte-pointer key)
+                 value (byte-pointer value)]
+    (with-check ort-api
+      (.AddSessionConfigEntry ort-api opt key value)
+      opt)))
+
+(defn prepackaged-weights* [^OrtApi ort-api]
+  (call-pointer-pointer ort-api OrtPrepackedWeightsContainer CreatePrepackagedWeightsContainer))
+
+(defn session* [^OrtApi ort-api ^OrtEnv env ^Pointer model-path ^OrtSessionOptions opt]
   (call-pointer-pointer ort-api OrtSession CreateSession env model-path opt))
+
+(defn session-from-array* [^OrtApi ort-api ^OrtEnv env ^Pointer model-data ^OrtSessionOptions opt]
+  (call-pointer-pointer ort-api OrtSession CreateSessionFromArray env model-data (size model-data) opt))
+
+(defn session-from-prepackaged-weights* [^OrtApi ort-api ^OrtEnv env
+                                         ^Pointer model-path ^OrtSessionOptions opt
+                                         ^OrtPrepackedWeightsContainer prepackaged-weights]
+  (call-pointer-pointer ort-api OrtSession CreateSessionFromArray env model-path opt
+                        prepackaged-weights))
 
 (defn default-allocator* [^OrtApi ort-api]
   (call-pointer-pointer ort-api OrtAllocator GetAllocatorWithDefaultOptions))
+
+;;TODO 1.23+ allocator-stats*
+;;TODO 1.23+ shared-allocator*
+
 
 (defn free*
   ([^OrtAllocator allo ^OrtAllocator$Free_OrtAllocator_Pointer free ^Pointer ptr]
