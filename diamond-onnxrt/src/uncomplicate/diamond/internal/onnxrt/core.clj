@@ -106,6 +106,7 @@
   (global-custom-join-thread* *ort-api* (safe opt!) (safe fn)))
 
 ;; ===================== Environment  ==============================================================
+
 (defn telemetry!
   ([env! enable?]
    (if enable?
@@ -201,6 +202,8 @@
                              ((get ort-session-options-config-encoders key identity) value)))
     opt!))
 
+;;TODO 1.23+ SessionGetMemoryInfoForInputs(), SessionGetEpDeviceForInputs() etc.
+
 (defn append-dnnl! [opt! opt-map]
   (with-release [dnnl (dnnl-options* *ort-api*)]
     (.use_arena dnnl (get :arena opt-map 0))
@@ -236,12 +239,52 @@
   ([env model-path-or-data options]
    (if (string? model-path-or-data)
      (with-release [model-path (platform-pointer model-path-or-data)]
-       (session* *ort-api* (safe env) (safe (platform-pointer model-path)) (safe options)))
-     (session-from-array* *ort-api* (safe env) (safe model-path-or-data) (safe options))))
+       (session* *ort-api* (safe env)
+                 (safe (platform-pointer model-path))
+                 (safe options)))
+     (session-from-array* *ort-api* (safe env)
+                          (safe model-path-or-data)
+                          (safe options))))
   ([env model-path options prepackaged-weights]
    (with-release [model-path (platform-pointer model-path)]
-     (session-from-prepackaged-weights* *ort-api* (safe env) (safe model-path) (safe options)
+     (session-from-prepackaged-weights* *ort-api* (safe env)
+                                        (safe model-path) (safe options)
                                         (safe prepackaged-weights)))))
+
+(defn initializer-count ^long [sess]
+  (overridable-initializer-count* *ort-api* (safe sess)))
+
+(defn initializer-type-info
+  ([sess ^long i]
+   (let [ort-api *ort-api*
+         sess (safe sess)]
+     (check-index i (overridable-initializer-count* ort-api sess) "initializer")
+     (overridable-initializer-type-info* ort-api sess i)))
+  ([sess]
+   (let [ort-api *ort-api*
+         sess (safe sess)]
+     (map #(overridable-initializer-type-info* ort-api sess %)
+          (range (overridable-initializer-count* ort-api sess))))))
+
+(defn initializer-name
+  ([sess ^long i]
+   (let [allo (safe *default-allocator*)]
+     (check-index i (initializer-count sess) "input")
+     (get-string* allo (overridable-initializer-name*
+                        *ort-api* (safe sess) allo i))))
+  ([sess]
+   (let [allo (safe *default-allocator*)
+         free (free* allo)]
+     (doall (mapv #(get-string* allo free (overridable-initializer-name*
+                                           *ort-api* (safe sess) allo %))
+                  (range (initializer-count sess)))))))
+
+(defn profiling-start-time ^long [sess]
+  (profiling-start-time* *ort-api* (safe sess)))
+
+(defn end-profiling [sess]
+  (let [allo (safe *default-allocator*)]
+    (get-string* allo (end-profiling* *ort-api* (safe sess) allo))))
 
 (defn input-count ^long [sess]
   (input-count* *ort-api* (safe sess)))
@@ -288,7 +331,8 @@
     (if (<= 0 (count values) cnt)
       (with-release [values (long-pointer (seq values))]
         (tensor-dimensions* ort-api info! values))
-      (dragan-says-ex "You have to provide value for each dimension." {:required cnt :provided (cnt values)}))))
+      (dragan-says-ex "You have to provide value for each dimension."
+                      {:required cnt :provided (cnt values)}))))
 
 (defn symbolic-shape [info]
   (let [allo (safe *default-allocator*)
@@ -302,7 +346,8 @@
     (if (= (count names) cnt)
       (with-release [ppnames (pointer-pointer (seq names))]
         (symbolic-dimensions* *ort-api* (safe info) ppnames))
-      (dragan-says-ex "You have to provide name for each dimension." {:required cnt :provided (cnt names)}))))
+      (dragan-says-ex "You have to provide name for each dimension."
+                      {:required cnt :provided (cnt names)}))))
 
 (defn cast-type [^OrtTypeInfo info]
   (let [ort-api *ort-api*
@@ -475,11 +520,13 @@
 (defn onnx-tensor
   ([mem-info shape data data-type]
    (let [data (pointer data)]
-     (create-tensor* *ort-api* (safe mem-info) (safe data) (safe (long-pointer (seq shape)))
+     (create-tensor* *ort-api* (safe mem-info) (safe data)
+                     (safe (long-pointer (seq shape)))
                      (enc-keyword onnx-data-type data-type))))
   ([mem-info-or-alloc shape data-or-type]
    (if (or (keyword data-or-type) (number? data-or-type))
-     (allocate-tensor* *ort-api* (safe mem-info-or-alloc) (safe (long-pointer (seq shape)))
+     (allocate-tensor* *ort-api* (safe mem-info-or-alloc)
+                       (safe (long-pointer (seq shape)))
                        (enc-keyword pointer-type data-or-type))
      (onnx-tensor mem-info-or-alloc shape data-or-type
                     (enc-keyword pointer-type (type (pointer data-or-type))))))

@@ -25,7 +25,7 @@
             OrtMemoryInfo OrtModelMetadata OrtOp OrtOpAttr OrtPrepackedWeightsContainer OrtRunOptions
             OrtValue OrtDnnlProviderOptions OrtCUDAProviderOptionsV2 OrtLoggingFunction
             OrtThreadingOptions OrtGraph OrtKeyValuePairs OrtLoraAdapter OrtModel OrtNode
-            OrtCustomCreateThreadFn OrtCustomJoinThreadFn
+            OrtCustomCreateThreadFn OrtCustomJoinThreadFn ;;TODO 1.23+ OrtSyncStream
             OrtAllocator$Free_OrtAllocator_Pointer]))
 
 (def ^:dynamic *ort-api*)
@@ -337,27 +337,13 @@
       (.AddSessionConfigEntry ort-api opt key value)
       opt)))
 
-(defn prepackaged-weights* [^OrtApi ort-api]
-  (call-pointer-pointer ort-api OrtPrepackedWeightsContainer CreatePrepackagedWeightsContainer))
-
-(defn session* [^OrtApi ort-api ^OrtEnv env ^Pointer model-path ^OrtSessionOptions opt]
-  (call-pointer-pointer ort-api OrtSession CreateSession env model-path opt))
-
-(defn session-from-array* [^OrtApi ort-api ^OrtEnv env ^Pointer model-data ^OrtSessionOptions opt]
-  (call-pointer-pointer ort-api OrtSession CreateSessionFromArray env model-data (size model-data) opt))
-
-(defn session-from-prepackaged-weights* [^OrtApi ort-api ^OrtEnv env
-                                         ^Pointer model-path ^OrtSessionOptions opt
-                                         ^OrtPrepackedWeightsContainer prepackaged-weights]
-  (call-pointer-pointer ort-api OrtSession CreateSessionFromArray env model-path opt
-                        prepackaged-weights))
+;; ================= Allocators ================================================
 
 (defn default-allocator* [^OrtApi ort-api]
   (call-pointer-pointer ort-api OrtAllocator GetAllocatorWithDefaultOptions))
 
 ;;TODO 1.23+ allocator-stats*
 ;;TODO 1.23+ shared-allocator*
-
 
 (defn free*
   ([^OrtAllocator allo ^OrtAllocator$Free_OrtAllocator_Pointer free ^Pointer ptr]
@@ -378,6 +364,45 @@
    (try
      (get-string (get-pointer ptr BytePointer 0))
      (finally (free* allo free ptr)))))
+
+;; ================================== Session ==================================
+
+(defn session* [^OrtApi ort-api ^OrtEnv env
+                ^Pointer model-path ^OrtSessionOptions opt]
+  (call-pointer-pointer ort-api OrtSession CreateSession env model-path opt))
+
+(defn session-from-array* [^OrtApi ort-api ^OrtEnv env
+                           ^Pointer model-data ^OrtSessionOptions opt]
+  (call-pointer-pointer ort-api OrtSession CreateSessionFromArray
+    env model-data (size model-data) opt))
+
+(defn prepackaged-weights* [^OrtApi ort-api]
+  (call-pointer-pointer ort-api
+      OrtPrepackedWeightsContainer CreatePrepackagedWeightsContainer))
+
+(defn session-from-prepackaged-weights* [^OrtApi ort-api ^OrtEnv env
+                                         ^Pointer model-path ^OrtSessionOptions opt
+                                         ^OrtPrepackedWeightsContainer prepackaged-weights]
+  (call-pointer-pointer ort-api
+      OrtSession CreateSessionFromArray env model-path opt prepackaged-weights))
+
+(defn overridable-initializer-count* ^long [^OrtApi ort-api ^OrtSession sess]
+  (call-size-t ort-api SessionGetOverridableInitializerCount sess))
+
+(defn overridable-initializer-name* [^OrtApi ort-api ^OrtSession sess
+                                     ^OrtAllocator allo ^long i]
+  (call-pointer-pointer ort-api
+      BytePointer SessionGetOverridableInitializerName sess i allo))
+
+(defn overridable-initializer-type-info* [^OrtApi ort-api ^OrtSession sess ^long i]
+  (call-pointer-pointer ort-api
+      OrtTypeInfo SessionGetOverridableInitializerTypeInfo sess i))
+
+(defn profiling-start-time* [^OrtApi ort-api ^OrtSession sess]
+  (call-size-t ort-api sess))
+
+(defn end-profiling* [^OrtApi ort-api ^OrtSession sess ^OrtAllocator allo]
+  (call-pointer-pointer ort-api BytePointer SessionEndProfiling sess allo))
 
 (defn input-count* ^long [^OrtApi ort-api ^OrtSession sess]
   (call-size-t ort-api SessionGetInputCount sess))
@@ -412,16 +437,19 @@
   (call-pointer-pointer ort-api OrtTypeInfo SessionGetOutputTypeInfo sess i))
 
 (defn tensor-info* [^OrtApi ort-api ^OrtTypeInfo info]
-  (call-pointer-pointer ort-api OrtTensorTypeAndShapeInfo CastTypeInfoToTensorInfo info))
+  (call-pointer-pointer ort-api
+      OrtTensorTypeAndShapeInfo CastTypeInfoToTensorInfo info))
 
 (defn sequence-info* [^OrtApi ort-api ^OrtTypeInfo info]
-  (call-pointer-pointer ort-api OrtSequenceTypeInfo CastTypeInfoToSequenceTypeInfo info))
+  (call-pointer-pointer ort-api
+      OrtSequenceTypeInfo CastTypeInfoToSequenceTypeInfo info))
 
 (defn map-info* [^OrtApi ort-api ^OrtTypeInfo info]
   (call-pointer-pointer ort-api OrtMapTypeInfo CastTypeInfoToMapTypeInfo info))
 
 (defn optional-info* [^OrtApi ort-api ^OrtTypeInfo info]
-  (call-pointer-pointer ort-api OrtOptionalTypeInfo CastTypeInfoToOptionalTypeInfo info))
+  (call-pointer-pointer ort-api
+      OrtOptionalTypeInfo CastTypeInfoToOptionalTypeInfo info))
 
 (defn type-info-type* ^long [^OrtApi ort-api ^OrtTypeInfo info]
   (call-int ort-api GetOnnxTypeFromTypeInfo info))
@@ -470,7 +498,8 @@
 
 ;;TODO use v2 from 1.23+
 (defn memory-info* [^OrtApi ort-api ^BytePointer name type id mem-type]
-  (call-pointer-pointer ort-api OrtMemoryInfo CreateMemoryInfo name (int type) (int id) (int mem-type)))
+  (call-pointer-pointer ort-api
+      OrtMemoryInfo CreateMemoryInfo name (int type) (int id) (int mem-type)))
 
 (defn device-type*
   ([^OrtApi ort-api]

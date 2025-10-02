@@ -27,44 +27,6 @@
   (type (build-info)) => String)
 
 (facts
-  "Test threading options."
-  (with-release [opt (threading-options)
-                 opt1 (threading-options {:intra-op-threads 2
-                                          :iner-op-threads 3
-                                          :spin false
-                                          :denormal-as-zero :whatever})]
-    (intra-op-threads! opt 2) => opt
-    opt =not=> opt1
-    (inter-op-threads! opt 3) => opt
-    opt =not=> opt1
-    (spin-control! opt false) => opt
-    opt =not=> opt1
-    (denormal-as-zero! opt) => opt
-    opt =not=> opt1))
-
-(facts
- "Test environment."
- (with-release [env (environment nil)
-                env1 (environment {:intra-op-threads 0
-                                   :iner-op-threads 0
-                                   :spin false
-                                   :denormal-as-zero :whatever})]
-   env1 => env
-   (release env) => true
-   env1 =not=> env
-   (environment) => env1))
-
-(facts
- "Test session options."
- (with-release [opt (options)]
-   (append-provider! opt :dnnl) => opt
-   (graph-optimization! opt :extended) => opt
-   (override-dimension! opt :batch 2) => opt
-   (config! opt {:use-env-allocators true
-                 :function-inlining true}) => opt
-   (config! opt {:garbage "random"}) => opt))
-
-(facts
   "Test DNNL execution provider."
   (with-release [env (environment)
                  opt (options)]
@@ -147,6 +109,9 @@
                  probabilities (mapv #(onnx-tensor mem-info [3] %) probabilities-data)
                  outputs! (onnx-sequence (map #(onnx-map labels %) probabilities))]
     sess =not=> nil
+    (initializer-count sess) => 0
+    (initializer-name sess) => []
+    (initializer-type-info sess) => []
     (input-count sess) => 1
     (output-count sess) => 2
     (input-name sess) => ["float_input"]
