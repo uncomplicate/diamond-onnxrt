@@ -28,6 +28,10 @@
 (defprotocol OnnxType
   (onnx-type [this]))
 
+(defn check-index [^long i ^long cnt object]
+  (when-not (< -1 i cnt)
+    (throw (IndexOutOfBoundsException. (format "The requested %s name is out of bounds of this %s pointer." object object)))))
+
 ;; ================= API ===========================================================================
 
 (defn init-ort-api!
@@ -288,10 +292,6 @@
 
 (defn input-count ^long [sess]
   (input-count* *ort-api* (safe sess)))
-
-(defn check-index [^long i ^long cnt object]
-  (when-not (< -1 i cnt)
-    (throw (IndexOutOfBoundsException. (format "The requested %s name is out of bounds of this %s pointer." object object)))))
 
 (defn input-name
   ([sess ^long i]
