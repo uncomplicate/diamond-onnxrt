@@ -133,9 +133,11 @@
    (onnx-straight-model fact sess nil mem-info)))
 
 (defn onnx
-  ([sess mem-info]
+  ([sess run-opt mem-info]
    (fn
      ([fact src-desc]
-      (onnx-straight-model fact sess mem-info))
+      (onnx-straight-model fact sess run-opt mem-info))
      ([src-desc]
-      (onnx *diamond-factory* sess mem-info)))))
+      (onnx *diamond-factory* sess run-opt mem-info))))
+  ([sess mem-info]
+   (onnx sess nil mem-info)))

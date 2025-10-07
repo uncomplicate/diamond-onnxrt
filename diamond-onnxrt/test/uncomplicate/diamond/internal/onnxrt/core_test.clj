@@ -72,6 +72,9 @@
                          :graph "3c59201b940f410fa29dc71ea9d5767d"
                          :graph-description ""
                          :producer "OnnxMLTools"}
+    (info sess) => {:input {"float_input" {:data-type :float :shape [3 2]}}
+                    :output {"label" {:data-type :long :shape [3]}
+                             "probabilities" {:structure [[:long :float]]}}}
     (input-count sess) => 1
     (output-count sess) => 2
     (input-name sess) => ["float_input"]
@@ -101,13 +104,11 @@
                  data (float-array 5)
                  val (onnx-tensor mem-info [2 2] data)
                  val-type-info (value-info val)]
-    (info val) => {:count 1
-                   :type :value
-                   :val {:count 4 :data-type :float :shape [2 2] :type :tensor}}
+    (info val) => {:value {:data-type :float :shape [2 2]}}
     (value? val) => true
     (none? val) => false
     (tensor? val) => true
-    (info val-type-info) => (:val (info val))
+    (info val-type-info) => (:value (info val))
     (onnx-type val) => :tensor
     (value-count val) => 1
     (release val-type-info) => true
@@ -133,7 +134,7 @@
                  output-1-element (sequence-type (cast-type output-info-1))
                  output-1-val (val-type (cast-type output-1-element))
                  mem-info (memory-info :cpu :arena 0 :default)
-                 x-data (float-pointer (range (:count x-info)))
+                 x-data (float-pointer (range (info input-info :count)))
                  x (onnx-tensor mem-info (:shape x-info) x-data)
                  infer! (runner* sess)
                  labels-data (long-pointer [0 1 2])
@@ -143,17 +144,15 @@
                  outputs! (onnx-sequence (map #(onnx-map labels %) probabilities))]
     sess =not=> nil
     (onnx-type input-info) => :tensor
-    (info input-info) => {:count 6 :shape [3 2] :data-type :float :type :tensor}
+    (info input-info) => {:data-type :float :shape [3 2]}
     (input-type-info sess 1) => (throws IndexOutOfBoundsException)
-    (map info inputs-info) => [{:count 6 :shape [3 2] :data-type :float :type :tensor}]
-    (info output-info-0) => {:count 3 :shape [3] :data-type :long :type :tensor}
+    (map info inputs-info) => [{:data-type :float :shape [3 2]}]
+    (info output-info-0) => {:data-type :long :shape [3]}
     (scalar? (cast-type output-1-val)) => true
-    (info output-info-1) => {:element {:key :long :type :map :val :float} :type :sequence}
+    (info output-info-1) => {:structure [[:long :float]]}
     (output-type-info sess 2) => (throws IndexOutOfBoundsException)
     (symbolic-shape (cast-type input-info)) => ["" ""]
-    (info x) => {:count 1
-                 :type :value
-                 :val {:count 6 :data-type :float :shape [3 2] :type :tensor}}
+    (info x) => {:value {:data-type :float :shape [3 2]}}
 
     (with-release [outputs (infer! (pointer-pointer [x]))]
       (tensor? (value outputs 0)) => true
@@ -225,10 +224,12 @@
                  y-data! (fill! (float-pointer 10) 0)
                  y! (onnx-tensor mem-info [1 10] y-data!)
                  classify! (runner* sess)]
-    (info input-info) => {:count 784 :data-type :float :shape [1 1 28 28] :type :tensor}
-    (info output-info) => {:count 10 :data-type :float :shape [1 10] :type :tensor}
+    (info input-info) => {:data-type :float :shape [1 1 28 28]}
+    (info output-info) => {:data-type :float :shape [1 10]}
     (input-name sess 0) => "Input3"
     (output-name sess 0) => "Plus214_Output_0"
+    (info sess) => {:input {"Input3" {:data-type :float :shape [1 1 28 28]}}
+                    :output {"Plus214_Output_0" {:data-type :float :shape [1 10]}}}
     ;; This takes, more or less, 40 microseconds per one call (measured after init, with 100000 iterations)
     (get-entry (classify! (pointer-pointer [x]) (pointer-pointer [y!])))
     => (get-entry (pointer-pointer [y!]))

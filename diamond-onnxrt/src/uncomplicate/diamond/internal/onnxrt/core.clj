@@ -24,7 +24,7 @@
            [org.bytedeco.onnxruntime OrtDnnlProviderOptions
             OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo
             OrtMemoryInfo OrtValue OrtThreadingOptions OrtModelMetadata OrtIoBinding OrtSessionOptions
-            OrtRunOptions]))
+            OrtRunOptions OrtSession]))
 
 (defprotocol OnnxType
   (onnx-type [this]))
@@ -160,7 +160,7 @@
   ([clonee]
    (clone-session-options* *ort-api* (safe clonee))))
 
-(defn execution-mode [opt! mode]
+(defn execution-mode! [opt! mode]
   (execution-mode* *ort-api* (safe opt!) (enc-keyword ort-execution-mode mode)))
 
 (defn profiling!
@@ -300,18 +300,6 @@
 (defn initializer-count ^long [sess]
   (overridable-initializer-count* *ort-api* (safe sess)))
 
-(defn initializer-type-info
-  ([sess ^long i]
-   (let [ort-api *ort-api*
-         sess (safe sess)]
-     (check-index i (overridable-initializer-count* ort-api sess) "initializer")
-     (overridable-initializer-type-info* ort-api sess i)))
-  ([sess]
-   (let [ort-api *ort-api*
-         sess (safe sess)]
-     (map #(overridable-initializer-type-info* ort-api sess %)
-          (range (overridable-initializer-count* ort-api sess))))))
-
 (defn initializer-name
   ([sess ^long i]
    (let [allo (safe *default-allocator*)]
@@ -323,6 +311,18 @@
      (doall (mapv #(get-string* allo free (overridable-initializer-name*
                                            *ort-api* (safe sess) allo %))
                   (range (initializer-count sess)))))))
+
+(defn initializer-type-info
+  ([sess ^long i]
+   (let [ort-api *ort-api*
+         sess (safe sess)]
+     (check-index i (overridable-initializer-count* ort-api sess) "initializer")
+     (overridable-initializer-type-info* ort-api sess i)))
+  ([sess]
+   (let [ort-api *ort-api*
+         sess (safe sess)]
+     (map #(overridable-initializer-type-info* ort-api sess %)
+          (range (overridable-initializer-count* ort-api sess))))))
 
 (defn profiling-start-time ^long [sess]
   (profiling-start-time* *ort-api* (safe sess)))
@@ -358,6 +358,48 @@
          free (free* allo)]
      (doall (mapv #(get-string* allo free (output-name* *ort-api* (safe sess) allo %))
                   (range (output-count sess)))))))
+
+(defn input-type-info
+  ([sess ^long i]
+   (let [ort-api *ort-api*
+         sess (safe sess)]
+     (check-index i (input-count* ort-api sess) "input")
+     (input-type-info* ort-api sess i)))
+  ([sess]
+   (let [ort-api *ort-api*
+         sess (safe sess)]
+     (map #(input-type-info* ort-api sess %)
+          (range (input-count* ort-api sess))))))
+
+(defn output-type-info
+  ([sess ^long i]
+   (let [ort-api *ort-api*
+         sess (safe sess)]
+     (check-index i (output-count* ort-api sess) "output")
+     (output-type-info* ort-api sess i)))
+  ([sess]
+   (let [ort-api *ort-api*
+         sess (safe sess)]
+     (map #(output-type-info* ort-api sess %)
+          (range (output-count* ort-api sess))))))
+
+(extend-type OrtSession
+  Info
+  (info
+    ([this]
+     (let [res {:input (apply hash-map (interleave (input-name this) (info (input-type-info this))))
+                :output (apply hash-map (interleave (output-name this) (info (output-type-info this))))}]
+       (let [init (apply hash-map (interleave (initializer-name this)
+                                              (info (initializer-type-info this))))]
+         (if (seq init)
+           (assoc res :initializer init)
+           res))))
+    ([this type-info]
+     (case type-info
+       :input (apply hash-map (interleave (input-name this) (info (input-type-info this))))
+       :output (apply hash-map (interleave (output-name this) (info (output-type-info this))))
+       :initializer (apply hash-map (interleave (initializer-name this) (info (initializer-type-info this))))
+       nil))))
 
 ;; ==================== Model Metadata =============================================================
 
@@ -492,6 +534,7 @@
 
 (defn shape! [info! values]
   (let [ort-api *ort-api*
+
         cnt (dimensions-count* ort-api (safe info!))]
     (if (<= 0 (count values) cnt)
       (with-release [values (long-pointer (seq values))]
@@ -547,9 +590,7 @@
      (if (scalar? this)
        (tensor-type this)
        {:data-type (tensor-type this)
-        :shape (shape this)
-        :count (tensor-count this)
-        :type :tensor}))
+        :shape (shape this)}))
     ([this info-type]
      (case info-type
        :data-type (tensor-type this)
@@ -565,12 +606,11 @@
   Info
   (info
     ([this]
-     {:type :sequence
-      :element (with-release [sti (sequence-type this)] (info sti))})
+     {:structure [(with-release [sti (sequence-type this)] (info sti :structure))]})
     ([this type-info]
      (case type-info
        :type :sequence
-       :element (with-release [sti (sequence-type this)] (info sti))
+       :structure [(with-release [sti (sequence-type this)] (info sti :structure))]
        nil))))
 
 (extend-type OrtOptionalTypeInfo
@@ -593,39 +633,12 @@
   Info
   (info
     ([this]
-     {:type :map
-      :key (key-type this)
-      :val (with-release [vi (val-type this)] (info vi))})
+     {:structure [(key-type this) (with-release [vi (val-type this)] (info vi))]})
     ([this info-type]
      (case info-type
        :type :map
-       :key (key-type this)
-       :val (with-release [vi (val-type this)] (info vi))
+       :structure [(key-type this) (with-release [vi (val-type this)] (info vi))]
        nil))))
-
-(defn input-type-info
-  ([sess ^long i]
-   (let [ort-api *ort-api*
-         sess (safe sess)]
-     (check-index i (input-count* ort-api sess) "input")
-     (input-type-info* ort-api sess i)))
-  ([sess]
-   (let [ort-api *ort-api*
-         sess (safe sess)]
-     (map #(input-type-info* ort-api sess %)
-          (range (input-count* ort-api sess))))))
-
-(defn output-type-info
-  ([sess ^long i]
-   (let [ort-api *ort-api*
-         sess (safe sess)]
-     (check-index i (output-count* ort-api sess) "output")
-     (output-type-info* ort-api sess i)))
-  ([sess]
-   (let [ort-api *ort-api*
-         sess (safe sess)]
-     (map #(output-type-info* ort-api sess %)
-          (range (output-count* ort-api sess))))))
 
 (defn memory-info
   ([alloc-key alloc-type device-id mem-type]
@@ -758,14 +771,12 @@
   Info
   (info
     ([this]
-     {:count (value-count this)
-      :type :value
-      :val (with-release [vti (value-info this)] (info vti))})
+     {:value (with-release [vti (value-info this)] (info vti))})
     ([this type-info]
      (case type-info
        :count (value-count this)
        :type :value
-       :val (with-release [vti (value-info this)] (info vti))
+       :value (with-release [vti (value-info this)] (info vti))
        nil)))
   OnnxType
   (onnx-type [this]
