@@ -17,7 +17,8 @@
              [utils :as utils :refer [dragan-says-ex]]]
             [uncomplicate.clojure-cpp
              :refer [null? pointer pointer-pointer int-pointer long-pointer byte-pointer char-pointer
-                     size-t-pointer get-entry put-entry! get-string capacity! capacity get-pointer]])
+                     size-t-pointer get-entry put-entry! get-string capacity! capacity get-pointer
+                     limit!]])
   (:import [org.bytedeco.javacpp Loader Pointer BytePointer PointerPointer LongPointer]
            [org.bytedeco.onnxruntime OrtApiBase OrtApi OrtEnv OrtSession OrtSessionOptions
             OrtAllocator OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo
@@ -144,6 +145,34 @@
 
 (defn build-info* [^OrtApi ort-api]
   (.call (.GetBuildInfoString *ort-api*)))
+
+;; ================= Allocators ================================================
+
+(defn default-allocator* [^OrtApi ort-api]
+  (call-pointer-pointer ort-api OrtAllocator GetAllocatorWithDefaultOptions))
+
+;;TODO 1.23+ allocator-stats*
+;;TODO 1.23+ shared-allocator*
+
+(defn free*
+  ([^OrtAllocator allo ^OrtAllocator$Free_OrtAllocator_Pointer free ^Pointer ptr]
+   (.call (.Free allo) allo ptr))
+  ([^OrtAllocator allo ^Pointer ptr]
+   (.call (.Free allo) allo ptr))
+  ([^OrtAllocator allo]
+   (.Free allo)))
+
+(defn get-string*
+  ([ptr]
+   (get-string (get-pointer ptr BytePointer 0)))
+  ([allo ptr]
+   (try
+     (get-string (get-pointer ptr BytePointer 0))
+     (finally (free* allo ptr))))
+  ([allo free ptr]
+   (try
+     (get-string (get-pointer ptr BytePointer 0))
+     (finally (free* allo free ptr)))))
 
 ;; ===================== OrtEnv ====================================================================
 
@@ -330,40 +359,35 @@
     (.AddFreeDimensionOverride ort-api opt denotation value)
     opt))
 
-(defn session-config-entry* [^OrtApi ort-api ^OrtSessionOptions opt ^String key ^String value]
-  (with-release [key (byte-pointer key)
-                 value (byte-pointer value)]
-    (with-check ort-api
-      (.AddSessionConfigEntry ort-api opt key value)
-      opt)))
+(defn disable-per-session-threads* [^OrtApi ort-api ^OrtSessionOptions opt]
+  (with-check ort-api
+    (.DisablePerSessionThreads ort-api opt)
+    opt))
 
-;; ================= Allocators ================================================
+(defn add-session-config-entry* [^OrtApi ort-api ^OrtSessionOptions opt ^BytePointer key ^BytePointer value]
+  (with-check ort-api
+    (.AddSessionConfigEntry ort-api opt key value)
+    opt))
 
-(defn default-allocator* [^OrtApi ort-api]
-  (call-pointer-pointer ort-api OrtAllocator GetAllocatorWithDefaultOptions))
+(defn has-session-config-entry* [^OrtApi ort-api ^OrtSessionOptions opt ^BytePointer key]
+  (= 1 (call-int ort-api HasSessionConfigEntry opt key)))
 
-;;TODO 1.23+ allocator-stats*
-;;TODO 1.23+ shared-allocator*
+(defn get-session-config-entry*
+  ([^OrtApi ort-api ^OrtSessionOptions opt ^BytePointer key]
+   (let [none nil
+         actual-size (call-size-t ort-api GetSessionConfigEntry opt key ^BytePointer none)]
+     (let-release [res (byte-pointer actual-size)]
+       (limit! (get-session-config-entry* ort-api opt key res) (dec actual-size)))))
+  ([^OrtApi ort-api ^OrtSessionOptions opt ^BytePointer key ^BytePointer res]
+   (with-release [actual-size (size-t-pointer [(capacity res)])]
+     (with-check ort-api
+       (.GetSessionConfigEntry ort-api opt key res actual-size)
+       (limit! res (dec (get-entry actual-size 0)))))))
 
-(defn free*
-  ([^OrtAllocator allo ^OrtAllocator$Free_OrtAllocator_Pointer free ^Pointer ptr]
-   (.call (.Free allo) allo ptr))
-  ([^OrtAllocator allo ^Pointer ptr]
-   (.call (.Free allo) allo ptr))
-  ([^OrtAllocator allo]
-   (.Free allo)))
-
-(defn get-string*
-  ([ptr]
-   (get-string (get-pointer ptr BytePointer 0)))
-  ([allo ptr]
-   (try
-     (get-string (get-pointer ptr BytePointer 0))
-     (finally (free* allo ptr))))
-  ([allo free ptr]
-   (try
-     (get-string (get-pointer ptr BytePointer 0))
-     (finally (free* allo free ptr)))))
+(defn initializer* [^OrtApi ort-api ^OrtSessionOptions opt ^BytePointer name ^OrtValue val]
+  (with-check ort-api
+    (.AddInitializer opt name val)
+    opt))
 
 ;; ================================== Session ==================================
 
@@ -542,6 +566,9 @@
 
 (defn is-tensor* [^OrtApi ort-api ^OrtValue value]
   (= 1 (call-int ort-api IsTensor value)))
+
+(defn has-value* ^long [^OrtApi ort-api ^OrtValue value]
+  (call-int ort-api HasValue value))
 
 ;; TODO new in 1.23.
 (defn tensor-size-in-bytes* [^OrtApi ort-api ^OrtValue value]

@@ -111,17 +111,6 @@
 
 ;; ===================== Environment  ==============================================================
 
-(defn telemetry!
-  ([env! enable?]
-   (if enable?
-     (enable-telemetry* *ort-api* (safe env!))
-     (disable-telemetry* *ort-api* (safe env!))))
-  ([env!]
-   (enable-telemetry* *ort-api* (safe env!))))
-
-(defn telemetry-language! [env! projection]
-  (language-projection* *ort-api* (safe env!) (enc-keyword ort-language-projection projection)))
-
 (defn environment
   ([logging-level log-name options]
    (with-release [log-name (byte-pointer (if (seq log-name) log-name "default"))]
@@ -136,6 +125,17 @@
    (environment :warning "default" options))
   ([]
    (environment :warning "default")))
+
+(defn telemetry!
+  ([env! enable?]
+   (if enable?
+     (enable-telemetry* *ort-api* (safe env!))
+     (disable-telemetry* *ort-api* (safe env!))))
+  ([env!]
+   (enable-telemetry* *ort-api* (safe env!))))
+
+(defn telemetry-language! [env! projection]
+  (language-projection* *ort-api* (safe env!) (enc-keyword ort-language-projection projection)))
 
 ;; ===================== Session Options ==========================================================
 
@@ -172,9 +172,9 @@
   ([opt!]
    (enable-cpu-mem-arena* *ort-api* (safe opt!))))
 
-(defn log-id! [opt! name]
-  (with-release [name (byte-pointer (str name))]
-    (session-log-id* *ort-api* (safe opt!) name)
+(defn log-id! [opt! id]
+  (with-release [id (byte-pointer (name id))]
+    (session-log-id* *ort-api* (safe opt!) id)
     opt!))
 
 (defn severity! [opt! ^long level]
@@ -198,15 +198,44 @@
         (free-dimension-override-by-name* ort-api (safe opt!) name value)))
     opt!))
 
+(defn disable-per-session-threads! [opt!]
+  (disable-per-session-threads* *ort-api* (safe opt!))
+  opt!)
+
 (defn config! [opt! config]
   (let [ort-api *ort-api*]
     (doseq [[key value] (seq config)]
-      (session-config-entry* ort-api opt!
-                             (get ort-session-options-config-keys key (name key))
-                             ((get ort-session-options-config-encoders key identity) value)))
+      (with-release [config-key (byte-pointer (get ort-session-options-config-keys key (name key)))
+                     config-value (byte-pointer ((get ort-session-options-config-encoders key identity) value))]
+        (add-session-config-entry* ort-api opt! config-key config-value)))
     opt!))
 
+(defn config
+  ([opt key]
+   (let [ort-api (safe *ort-api*)
+         opt (safe opt)]
+     (with-release [config-key (byte-pointer (get ort-session-options-config-keys key (name key)))]
+       (if (has-session-config-entry* ort-api opt config-key)
+         (with-release [value (get-session-config-entry* ort-api opt config-key)]
+           ((get ort-session-options-config-decoders key identity) (get-string value)))
+         nil))))
+  ([opt]
+   (let [ort-api (safe *ort-api*)
+         opt (safe opt)]
+     (reduce (fn [kv [k v]]
+               (if-let [value (config opt k)]
+                 (assoc kv k value)
+                 kv))
+             {}
+             ort-session-options-config-keys))))
+
 ;;TODO 1.23+ SessionGetMemoryInfoForInputs(), SessionGetEpDeviceForInputs() etc.
+
+(defn initializer! [opt! init-name val]
+  (with-release [init-name (byte-pointer (name init-name))]
+    (initializer* *ort-api* (safe opt!) init-name)))
+
+;;TODO EnableOrtCustomOps for now, we do not support loading ort custom extensions. When we come to it, we will implement all related to this.
 
 (defn append-dnnl! [opt! opt-map]
   (with-release [dnnl (dnnl-options* *ort-api*)]
@@ -555,6 +584,12 @@
 
 (defn tensor? [value]
   (is-tensor* *ort-api* (safe value)))
+
+(defn value? [value]
+  (= 1 (has-value* *ort-api* (safe value))))
+
+(defn none? [value]
+  (= 0 (has-value* *ort-api* (safe value))))
 
 ;;TODO new in 1.23
 #_(defn mutable-data [value]

@@ -48,6 +48,23 @@
     (null? sess) => false))
 
 (facts
+  "Test session and session options."
+  (let [env (environment)
+        opt (options)
+        sess (session env "data/logreg_iris.onnx" opt)]
+    (initializer-count sess) => 0
+    (initializer-name sess) => []
+    (initializer-type-info sess) => []
+    (config opt) => {}
+    (config! opt {:env-allocators true}) => opt
+    (config opt :env-allocators) => true
+    (config opt) => {:env-allocators true :use-env-allocators true}
+    (input-count sess) => 1
+    (output-count sess) => 2
+    (input-name sess) => ["float_input"]
+    (output-name sess) => ["label" "probabilities"]))
+
+(facts
   "Test memory-info."
   (with-release [env (environment)
                  opt (options)
@@ -74,6 +91,9 @@
     (info val) => {:count 1
                    :type :value
                    :val {:count 4 :data-type :float :shape [2 2] :type :tensor}}
+    (value? val) => true
+    (none? val) => false
+    (tensor? val) => true
     (info val-type-info) => (:val (info val))
     (onnx-type val) => :tensor
     (value-count val) => 1
@@ -109,13 +129,6 @@
                  probabilities (mapv #(onnx-tensor mem-info [3] %) probabilities-data)
                  outputs! (onnx-sequence (map #(onnx-map labels %) probabilities))]
     sess =not=> nil
-    (initializer-count sess) => 0
-    (initializer-name sess) => []
-    (initializer-type-info sess) => []
-    (input-count sess) => 1
-    (output-count sess) => 2
-    (input-name sess) => ["float_input"]
-    (output-name sess) => ["label" "probabilities"]
     (onnx-type input-info) => :tensor
     (info input-info) => {:count 6 :shape [3 2] :data-type :float :type :tensor}
     (input-type-info sess 1) => (throws IndexOutOfBoundsException)

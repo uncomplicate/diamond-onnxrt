@@ -355,14 +355,30 @@
       "0")))
 
 (defn true-zero [entry]
-  "1" "0"
-  "0" "1"
-  (if entry
-    "0"
-    "1"))
+  (case entry
+    "1" "0"
+    "0" "1"
+    (if entry
+      "0"
+      "1")))
+
+(defn one-true [entry]
+  (case entry
+    "1" true
+    "0" false
+    entry))
+
+(defn zero-true [entry]
+  (case entry
+    "1" false
+    "0" true
+    (not entry)))
 
 (defn capitalized-name [obj]
   (clojure.string/capitalize (name obj)))
+
+(defn lower-case-keyword [value]
+  (clojure.string/lower-case (keyword (str value))))
 
 (def ^:const ort-session-options-config-encoders
   {:disable-prepacking true-one
@@ -448,3 +464,88 @@
    :ep-dynamic-workload capitalized-name
    :disable-model-compile true-one
    :model-compile true-zero})
+
+(def ^:const ort-session-options-config-decoders
+  {:disable-prepacking one-true
+   :prepacking zero-true
+   :use-env-allocators one-true
+   :env-allocators one-true
+   :use-session-allocators zero-true
+   :session-allocators zero-true
+   :load-model-format identity
+   :load-format identity
+   :save-model-format identity
+   :save-format identity
+   :denormal-as-zero one-true
+   :disable-quant-qdq one-true
+   :quant-qdq zero-true
+   :disable-double-qdq-remover one-true
+   :double-qdq-remover zero-true
+   :quant-qdq-cleanup one-true
+   :gelu-approximation one-true
+   :disable-aot-function-inlining one-true
+   :aot-function-inlining zero-true
+   :disable-aot-inlining one-true
+   :aot-inlining zero-true
+   :disable-function-inlining one-true
+   :function-inlining zero-true
+   :memory-optimizer-config identity
+   :memory-optimizer identity
+   :memory-probe-recompute-config identity
+   :memory-probe-recompute identity
+   :disable-specified-optimizers identity
+   :use-device-allocator-for-initializers one-true
+   :use-device-initializers one-true
+   :use-device-allocator one-true
+   :inter-op-allow-spinning one-true
+   :inter-op-spinning one-true
+   :intra-op-allow-spinning one-true
+   :intra-op-spinning one-true
+   :use-ort-model-bytes-directly one-true
+   :use-ort-model-bytes one-true
+   :use-model-bytes-directly one-true
+   :use-ort-model-bytes-for-initializers one-true
+   :use-ort-bytes-for-initializers one-true
+   :use-ort-for-initializers one-true
+   :use-ort-initializers one-true
+   :qdq-is-int8-allowed one-true
+   :qdq-is-int8 one-true
+   :x64quantprecision identity
+   :minimal-build-optimizations name
+   :minimal-optimizations name
+   :partitioning-stop-ops identity
+   :dynamic-block-base read-string
+   :force-spinning-stop identity
+   :strict-shape-type-inference one-true
+   :allow-released-opsets-only one-true
+   :released-opsets-only one-true
+   :node-partition-config-file identity
+   :intra-op-thread-affinities identity
+   :debug-layout-transformation one-true
+   :disable-cpu-ep-fallback one-true
+   :cpu-ep-fallback zero-true
+   :optimized-model-external-initializers-file-name identity
+   :external-initializers-file-name identity
+   :optimized-modelexternal-initializers-min-size-in-bytes read-string
+   :external-initializers-min-bytesize read-string
+   :external-initializers-min-size-in-bytes read-string
+   :model-external-initializers-file-folder-path identity
+   :external-initializers-file-folder-path identity
+   :save-external-prepacked-constant-initializers one-true
+   :save-external-prepacked-initializers one-true
+   :save-prepacked-initializers one-true
+   :collect-node-memory-stats-to-file identity
+   :resource-cuda-partitioning-settings identity
+   :ep-context one-true
+   :ep-context-file-path identity
+   :ep-context-embed-mode one-true
+   :ep-context-node-name-prefix identity
+   :ep-share-ep-contexts one-true
+   :ep-stop-share-ep-contexts one-true
+   :ep-context-model-external-initializers-file-name identity
+   :enable-gemm-fastmath-arm64-bloat16 one-true
+   :qdq-matmultnbits-accuracy-level read-string
+   :ep-dynamic-workload-type lower-case-keyword
+   :ep-dynamic-workload lower-case-keyword
+   :disable-model-compile one-true
+   :model-compile zero-true})
