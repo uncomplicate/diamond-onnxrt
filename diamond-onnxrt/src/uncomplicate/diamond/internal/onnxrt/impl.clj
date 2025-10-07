@@ -9,12 +9,8 @@
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.diamond.internal.onnxrt.impl
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release with-release let-release size bytesize
-                           ;;Info
-                           ;; info Viewable view Bytes bytesize Entries sizeof* bytesize*
-                           ;; sizeof size
-                           ]]
-             [utils :as utils :refer [dragan-says-ex]]]
+             [core :refer [Releaseable release with-release let-release size bytesize]]
+             [utils :refer [dragan-says-ex]]]
             [uncomplicate.clojure-cpp
              :refer [null? pointer pointer-pointer int-pointer long-pointer byte-pointer char-pointer
                      size-t-pointer get-entry put-entry! get-string capacity! capacity get-pointer
@@ -408,24 +404,42 @@
 
 ;; ================================== Session ==================================
 
-(defn session* [^OrtApi ort-api ^OrtEnv env
-                ^Pointer model-path ^OrtSessionOptions opt]
-  (call-pointer-pointer ort-api OrtSession CreateSession env model-path opt))
+(defn session*
+  ([^OrtApi ort-api ^OrtEnv env
+    ^Pointer model-path ^OrtSessionOptions opt]
+   (call-pointer-pointer ort-api OrtSession CreateSession env model-path opt))
+  ([^OrtApi ort-api ^OrtEnv env
+    ^Pointer model-path ^OrtSessionOptions opt
+    ^OrtPrepackedWeightsContainer prepacked-weihgts-container]
+   (call-pointer-pointer ort-api OrtSession CreateSessionFromPrepackedWeightsContainer env
+                         model-path opt prepacked-weihgts-container)))
 
-(defn session-from-array* [^OrtApi ort-api ^OrtEnv env
-                           ^Pointer model-data ^OrtSessionOptions opt]
-  (call-pointer-pointer ort-api OrtSession CreateSessionFromArray
-    env model-data (size model-data) opt))
+(defn session-from-array*
+  ([^OrtApi ort-api ^OrtEnv env
+    ^Pointer model-data ^OrtSessionOptions opt]
+   (call-pointer-pointer ort-api OrtSession CreateSessionFromArray env
+                         model-data (size model-data) opt))
+  ([^OrtApi ort-api ^OrtEnv env
+    ^Pointer model-data ^OrtSessionOptions opt
+    ^OrtPrepackedWeightsContainer prepacked-weihgts-container]
+   (call-pointer-pointer ort-api OrtSession CreateSessionFromArrayWithPrepackedWeightsContainer env
+                         model-data (size model-data) opt prepacked-weihgts-container)))
+
+(defn run*
+  ([^OrtApi ort-api ^OrtSession sess ^OrtRunOptions run-opt
+    ^PointerPointer input-names ^PointerPointer inputs
+    ^PointerPointer output-names ^PointerPointer outputs]
+   (with-check ort-api
+     (.Run ort-api sess run-opt input-names inputs (size inputs) output-names (size output-names) outputs)
+     outputs))
+  ([^OrtApi ort-api ^OrtSession sess ^OrtRunOptions run-opt ^OrtIoBinding binding]
+   (with-check ort-api
+     (.RunWithBinding ort-api sess run-opt binding)
+     binding)))
 
 (defn prepackaged-weights* [^OrtApi ort-api]
   (call-pointer-pointer ort-api
       OrtPrepackedWeightsContainer CreatePrepackagedWeightsContainer))
-
-(defn session-from-prepackaged-weights* [^OrtApi ort-api ^OrtEnv env
-                                         ^Pointer model-path ^OrtSessionOptions opt
-                                         ^OrtPrepackedWeightsContainer prepackaged-weights]
-  (call-pointer-pointer ort-api
-      OrtSession CreateSessionFromArray env model-path opt prepackaged-weights))
 
 (defn overridable-initializer-count* ^long [^OrtApi ort-api ^OrtSession sess]
   (call-size-t ort-api SessionGetOverridableInitializerCount sess))
@@ -477,10 +491,10 @@
 (defn output-type-info* [^OrtApi ort-api ^OrtSession sess ^long i]
   (call-pointer-pointer ort-api OrtTypeInfo SessionGetOutputTypeInfo sess i))
 
+;; ==================== Model Metadata =============================================================
+
 (defn session-model-metadata* [^OrtApi ort-api ^OrtSession sess]
   (call-pointer-pointer ort-api OrtModelMetadata SessionGetModelMetadata sess))
-
-;; ==================== Model Metadata =============================================================
 
 (defn producer-name* [^OrtApi ort-api ^OrtModelMetadata metadata ^OrtAllocator allo]
   (call-pointer-pointer ort-api BytePointer ModelMetadataGetProducerName metadata allo))
@@ -503,6 +517,38 @@
     (with-check ort-api
       (.ModelMetadataGetCustomMetadataMapKeys ort-api metadata allo res cnt)
       (capacity! res (get-entry cnt 0)))))
+
+;; ==================== IO Binding =================================================================
+
+(defn io-binding* [^OrtApi ort-api ^OrtSession sess]
+  (call-pointer-pointer ort-api OrtIoBinding CreateIoBinding sess))
+
+(defn bind-input* [^OrtApi ort-api ^OrtIoBinding binding ^BytePointer name ^OrtValue value]
+  (with-check ort-api
+    (.BindInput ort-api binding name value)
+    binding))
+
+(defn bind-output* [^OrtApi ort-api ^OrtIoBinding binding ^BytePointer name ^OrtValue value]
+  (with-check ort-api
+    (.BindOutput ort-api binding name value)
+    binding))
+
+(defn bind-output-to-device* [^OrtApi ort-api ^OrtIoBinding binding
+                              ^BytePointer name ^OrtMemoryInfo mem-info]
+  (with-check ort-api
+    (.BindOutputToDevice ort-api binding name mem-info)
+    binding))
+
+(defn bound-names* [^OrtApi ort-api ^OrtIoBinding binding ^OrtAllocator allo]
+  (let-release [res (pointer-pointer nil)
+                lengths (size-t-pointer nil)]
+    (dotimes [i (call-size-t ort-api GetBoundOutputNames binding allo res lengths)]
+      (capacity! (.get res BytePointer i) (get-entry lengths i)))
+    res))
+
+(defn bound-values* [^OrtApi ort-api ^OrtIoBinding binding ^OrtAllocator allo]
+  (let-release [res (pointer-pointer nil)]
+    (capacity! res (call-size-t ort-api GetBoundOutputNames binding allo res))))
 
 ;; ==================== Info =======================================================================
 
@@ -628,10 +674,3 @@
 
 (defn create-value* [^OrtApi ort-api ^long type ^PointerPointer in]
   (call-pointer-pointer ort-api OrtValue CreateValue in (size in) type))
-
-(defn run* [^OrtApi ort-api ^OrtSession sess ^OrtRunOptions opt
-            ^PointerPointer input-names ^PointerPointer inputs
-            ^PointerPointer output-names ^PointerPointer outputs]
-  (with-check ort-api
-    (.Run ort-api sess opt input-names inputs (size inputs) output-names (size output-names) outputs)
-    outputs))

@@ -172,7 +172,8 @@
            (value-value (value (infer! (pointer-pointer [x]) (pointer-pointer [labels outputs!])) 1)))
       => [[[0 1 2] (mapv float [0.64399236 0.3070779 0.04892978])]
           [[0 1 2] (mapv float [0.99137473 0.0012765623 0.0073487093])]
-          [[0 1 2] (mapv float [0.9991861 2.4719932E-6 8.1140944E-4])]])))
+          [[0 1 2] (mapv float [0.9991861 2.4719932E-6 8.1140944E-4])]]
+      )))
 
 (facts
   "The correct logreg iris test."
