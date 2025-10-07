@@ -18,7 +18,7 @@
             [uncomplicate.clojure-cpp
              :refer [null? pointer pointer-pointer int-pointer long-pointer byte-pointer char-pointer
                      size-t-pointer get-entry put-entry! get-string capacity! capacity get-pointer
-                     limit!]])
+                     limit limit!]])
   (:import [org.bytedeco.javacpp Loader Pointer BytePointer PointerPointer LongPointer]
            [org.bytedeco.onnxruntime OrtApiBase OrtApi OrtEnv OrtSession OrtSessionOptions
             OrtAllocator OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo
@@ -131,6 +131,13 @@
          (. ort-api# (~method ~@args res#))
          (get-entry res# 0)))))
 
+(defmacro call-long [ort-api method & args]
+  `(let [ort-api# ~ort-api]
+     (with-release [res# (long-pointer 1)]
+       (with-check ort-api#
+         (. ort-api# (~method ~@args res#))
+         (get-entry res# 0)))))
+
 (defmacro call-size-t [ort-api method & args]
   `(let [ort-api# ~ort-api]
      (with-release [res# (size-t-pointer 1)]
@@ -140,11 +147,32 @@
 
 ;; ================= OrtApi ========================================================================
 
-(defn version* [^OrtApiBase ort-api-base]
-  (.call (.GetVersionString ort-api-base)))
+(defn version*
+  ([^OrtApiBase ort-api-base]
+   (.call (.GetVersionString ort-api-base)))
+  ([^OrtApi ort-api ^OrtModelMetadata metadata]
+   (call-long ort-api ModelMetadataGetVersion metadata)))
 
 (defn build-info* [^OrtApi ort-api]
   (.call (.GetBuildInfoString *ort-api*)))
+
+;; ============ Misc ===============================================================================
+
+(defn available-providers* [^OrtApi ort-api]
+  (let-release [res (pointer-pointer nil)]
+    (capacity! res (call-int ort-api GetAvailableProviders res))))
+
+(defn release-available-providers* [^OrtApi ort-api ^PointerPointer providers]
+  (with-check ort-api
+    (.ReleaseAvailableProviders ort-api providers (limit providers))))
+
+(defn current-gpu-device-id*
+  (^long [^OrtApi ort-api]
+   (call-int ort-api GetCurrentGPUDeviceId))
+  ([^OrtApi ort-api ^long id]
+   (with-check ort-api
+     (.SetCurrentGPUDeviceId ort-api (int-pointer [id]))
+     ort-api)))
 
 ;; ================= Allocators ================================================
 
@@ -322,17 +350,6 @@
     (.SetUserLoggingFunction ort-api opt user-logging-fn param)
     opt))
 
-(defn available-providers* [^OrtApi ort-api]
-  (with-release [cnt (int-pointer 1)]
-    (let [res (pointer-pointer nil)]
-      (with-check ort-api
-        (.GetAvailableProviders ort-api res cnt)
-        (capacity! res (get-entry cnt 0))))))
-
-(defn release-available-providers* [^OrtApi ort-api ^PointerPointer providers]
-  (with-check ort-api
-    (.ReleaseAvailableProviders ort-api providers (capacity providers))))
-
 (defn dnnl-options* [^OrtApi ort-api]
   (call-pointer-pointer ort-api OrtDnnlProviderOptions CreateDnnlProviderOptions))
 
@@ -459,6 +476,35 @@
 
 (defn output-type-info* [^OrtApi ort-api ^OrtSession sess ^long i]
   (call-pointer-pointer ort-api OrtTypeInfo SessionGetOutputTypeInfo sess i))
+
+(defn session-model-metadata* [^OrtApi ort-api ^OrtSession sess]
+  (call-pointer-pointer ort-api OrtModelMetadata SessionGetModelMetadata sess))
+
+;; ==================== Model Metadata =============================================================
+
+(defn producer-name* [^OrtApi ort-api ^OrtModelMetadata metadata ^OrtAllocator allo]
+  (call-pointer-pointer ort-api BytePointer ModelMetadataGetProducerName metadata allo))
+
+(defn graph-name* [^OrtApi ort-api ^OrtModelMetadata metadata ^OrtAllocator allo]
+  (call-pointer-pointer ort-api BytePointer ModelMetadataGetGraphName metadata allo))
+
+(defn domain* [^OrtApi ort-api ^OrtModelMetadata metadata ^OrtAllocator allo]
+  (call-pointer-pointer ort-api BytePointer ModelMetadataGetDomain metadata allo))
+
+(defn description* [^OrtApi ort-api ^OrtModelMetadata metadata ^OrtAllocator allo]
+  (call-pointer-pointer ort-api BytePointer ModelMetadataGetDescription metadata allo))
+
+(defn graph-description* [^OrtApi ort-api ^OrtModelMetadata metadata ^OrtAllocator allo]
+  (call-pointer-pointer ort-api BytePointer ModelMetadataGetDescription metadata allo))
+
+(defn custom-map-keys* [^OrtApi ort-api ^OrtModelMetadata metadata ^OrtAllocator allo]
+  (with-release [res (pointer-pointer nil)
+                 cnt (long-pointer 1)]
+    (with-check ort-api
+      (.ModelMetadataGetCustomMetadataMapKeys ort-api metadata allo res cnt)
+      (capacity! res (get-entry cnt 0)))))
+
+;; ==================== Info =======================================================================
 
 (defn tensor-info* [^OrtApi ort-api ^OrtTypeInfo info]
   (call-pointer-pointer ort-api

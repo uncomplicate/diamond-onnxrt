@@ -23,7 +23,7 @@
            org.bytedeco.onnxruntime.global.onnxruntime
            [org.bytedeco.onnxruntime OrtDnnlProviderOptions
             OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo
-            OrtMemoryInfo OrtValue OrtThreadingOptions]))
+            OrtMemoryInfo OrtValue OrtThreadingOptions OrtModelMetadata]))
 
 (defprotocol OnnxType
   (onnx-type [this]))
@@ -54,6 +54,8 @@
   (with-release [p (build-info* *ort-api*)]
     (get-string p)))
 
+;; =================== Misc ========================================================================
+
 (defn available-providers []
   (with-release [pprov (available-providers* *ort-api*)]
     (try
@@ -66,7 +68,13 @@
       (finally
         (release-available-providers* *ort-api* pprov)))))
 
-;; ===================== Threading Options ==========================================================
+(defn current-gpu-device-id ^long []
+  (current-gpu-device-id* *ort-api*))
+
+(defn current-gpu-device-id! [^long id]
+ (current-gpu-device-id* *ort-api* id))
+
+;; ===================== Threading Options =========================================================
 
 (defn threading-options
   ([]
@@ -347,6 +355,58 @@
      (doall (mapv #(get-string* allo free (output-name* *ort-api* (safe sess) allo %))
                   (range (output-count sess)))))))
 
+(defn session-model-metadata [sess]
+  (session-model-metadata* *ort-api* (safe sess)))
+
+;; ==================== Model Metadata =============================================================
+
+(defn producer-name [metadata]
+  (let [allo (safe *default-allocator*)]
+    (get-string* allo (producer-name* *ort-api* (safe metadata) allo))))
+
+(defn graph-name [metadata]
+  (let [allo (safe *default-allocator*)]
+    (get-string* allo (graph-name* *ort-api* (safe metadata) allo))))
+
+(defn domain [metadata]
+  (let [allo (safe *default-allocator*)]
+    (get-string* allo (domain* *ort-api* (safe metadata) allo))))
+
+(defn description [metadata]
+  (let [allo (safe *default-allocator*)]
+    (get-string* allo (description* *ort-api* (safe metadata) allo))))
+
+(defn graph-description [metadata]
+  (let [allo (safe *default-allocator*)]
+    (get-string* allo (graph-description* *ort-api* (safe metadata) allo))))
+
+(defn custom-map-keys [metadata]
+  (let [allo (safe *default-allocator*)]
+    (with-release [map-keys (custom-map-keys* *ort-api* (safe metadata) allo)]
+      (doall (mapv #(get-string* allo (byte-pointer key)) (pointer-vec map-keys))))))
+
+(extend-type OrtModelMetadata
+  Info
+  (info
+    ([this]
+     {:producer (producer-name this)
+      :description (description this)
+      :graph (graph-name this)
+      :graph-description (graph-description this)
+      :domain (domain this)
+      :custom-map-keys (custom-map-keys this)})
+    ([this type-info]
+     (case type-info
+       :producer (producer-name this)
+       :description (description this)
+       :graph (graph-name this)
+       :graph-description (graph-description this)
+       :domain (domain this)
+       :custom-map-keys (custom-map-keys this)
+       nil))))
+
+;; ==================== Info =======================================================================
+
 (defn scalar? [info]
   (= 0 (dimensions-count* *ort-api* (safe info))))
 
@@ -571,11 +631,6 @@
 (defn value-info [value]
   (value-info* *ort-api* (safe value)))
 
-(extend-type OrtValue
-  OnnxType
-  (onnx-type [this]
-    (dec-onnx-type (value-type* *ort-api* (safe this)))))
-
 (defn value-count ^long [value]
   (let [ort-api *ort-api*]
     (if (<= 2 (value-type* ort-api (safe value)) 3)
@@ -593,8 +648,8 @@
 
 ;;TODO new in 1.23
 #_(defn mutable-data [value]
-  (capacity! (tensor-mutable-data* *ort-api* value)
-             (tensor-size-in-bytes* *ort-api* value)))
+    (limit! (tensor-mutable-data* *ort-api* value)
+            (tensor-size-in-bytes* *ort-api* value)))
 
 (defn mutable-data [value]
   (tensor-mutable-data* *ort-api* (safe value)))
@@ -636,7 +691,10 @@
        :count (value-count this)
        :type :value
        :val (with-release [vti (value-info this)] (info vti))
-       nil))))
+       nil)))
+  OnnxType
+  (onnx-type [this]
+    (dec-onnx-type (value-type* *ort-api* (safe this)))))
 
 (deftype Runner [ort-api sess opt allo free in-cnt out-cnt in-names out-names]
   Releaseable

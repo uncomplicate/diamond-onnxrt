@@ -51,7 +51,8 @@
   "Test session and session options."
   (let [env (environment)
         opt (options)
-        sess (session env "data/logreg_iris.onnx" opt)]
+        sess (session env "data/logreg_iris.onnx" opt)
+        metamodel (session-model-metadata sess)]
     (initializer-count sess) => 0
     (initializer-name sess) => []
     (initializer-type-info sess) => []
@@ -59,6 +60,18 @@
     (config! opt {:env-allocators true}) => opt
     (config opt :env-allocators) => true
     (config opt) => {:env-allocators true :use-env-allocators true}
+    (producer-name metamodel) => "OnnxMLTools"
+    (graph-name metamodel) => "3c59201b940f410fa29dc71ea9d5767d"
+    (domain metamodel) => "onnxml"
+    (description metamodel) => ""
+    (graph-description metamodel) => ""
+    (custom-map-keys metamodel) => []
+    (info metamodel) => {:custom-map-keys []
+                         :description ""
+                         :domain "onnxml"
+                         :graph "3c59201b940f410fa29dc71ea9d5767d"
+                         :graph-description ""
+                         :producer "OnnxMLTools"}
     (input-count sess) => 1
     (output-count sess) => 2
     (input-name sess) => ["float_input"]
