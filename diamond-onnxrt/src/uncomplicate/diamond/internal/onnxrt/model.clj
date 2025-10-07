@@ -70,21 +70,21 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(deftype StraightInferenceBlueprint [fact sess opt mem-info src-desc dst-desc]
+(deftype StraightInferenceBlueprint [fact sess run-opt mem-info src-desc dst-desc]
   Releaseable
   (release [_]
     (release sess)
-    (release opt)
+    (release run-opt)
     (release src-desc)
     (release dst-desc))
   Info
   (info [this]
     {:session (info sess)
-     :options (info opt)})
+     :options (info run-opt)})
   (info [this info-type]
     (case info-type
       :session (info sess)
-      :options (info opt)
+      :options (info run-opt)
       nil))
   DiamondFactoryProvider
   (diamond-factory [_]
@@ -107,7 +107,7 @@
   (invoke [this src-tz]
     (let-release [src-conn (connector src-tz src-desc)
                   dst-tz (create-tensor fact dst-desc (batch-index src-tz) false)
-                  infer! (runner* sess opt)
+                  infer! (runner* sess run-opt)
                   in-onnx (onnx-tensor mem-info (shape src-desc) (buffer (output src-conn)))
                   in-pp (pointer-pointer [in-onnx])
                   out-onnx (onnx-tensor mem-info (shape dst-desc) (buffer (output dst-tz)))
@@ -118,16 +118,19 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(defn onnx-straight-model [fact sess mem-info]
-  (let [in-info (cast-type (input-type-info sess 0))
-        in-shape (onnx/shape in-info)
-        in-type (tensor-type in-info)
-        out-info (cast-type (output-type-info sess 0))
-        out-shape (onnx/shape out-info)
-        out-type (tensor-type out-info)]
-    (let-release [src-desc (create-tensor-desc fact in-shape in-type (default-strides in-shape))
-                  dst-desc (create-tensor-desc fact out-shape out-type (default-strides out-shape))]
-      (->StraightInferenceBlueprint fact sess nil mem-info src-desc dst-desc))))
+(defn onnx-straight-model
+  ([fact sess run-opt mem-info]
+   (let [in-info (cast-type (input-type-info sess 0))
+         in-shape (onnx/shape in-info)
+         in-type (tensor-type in-info)
+         out-info (cast-type (output-type-info sess 0))
+         out-shape (onnx/shape out-info)
+         out-type (tensor-type out-info)]
+     (let-release [src-desc (create-tensor-desc fact in-shape in-type (default-strides in-shape))
+                   dst-desc (create-tensor-desc fact out-shape out-type (default-strides out-shape))]
+       (->StraightInferenceBlueprint fact sess run-opt mem-info src-desc dst-desc))))
+  ([fact sess mem-info]
+   (onnx-straight-model fact sess nil mem-info)))
 
 (defn onnx
   ([sess mem-info]

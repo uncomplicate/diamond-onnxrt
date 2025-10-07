@@ -550,6 +550,43 @@
   (let-release [res (pointer-pointer nil)]
     (capacity! res (call-size-t ort-api GetBoundOutputNames binding allo res))))
 
+;; =================== Run Options =================================================================
+
+(defn run-options [^OrtApi ort-api]
+  (call-pointer-pointer ort-api OrtRunOptions CreateRunOptions))
+
+(defn run-severity*
+  ([^OrtApi ort-api ^OrtRunOptions run-opt ^long level]
+   (with-check ort-api
+     (.RunOptionsSetRunLogSeverityLevel ort-api run-opt level)
+     run-opt))
+  (^long [^OrtApi ort-api ^OrtRunOptions run-opt]
+   (call-int ort-api RunOptionsGetRunLogSeverityLevel run-opt)))
+
+(defn run-verbosity*
+  ([^OrtApi ort-api ^OrtRunOptions run-opt ^long level]
+   (with-check ort-api
+     (.RunOptionsSetRunLogVerbosityLevel ort-api run-opt level)
+     run-opt))
+  (^long [^OrtApi ort-api ^OrtRunOptions run-opt]
+   (call-int ort-api RunOptionsGetRunLogVerbosityLevel run-opt)))
+
+(defn run-tag*
+  ([^OrtApi ort-api ^OrtRunOptions run-opt ^BytePointer tag]
+   (with-check ort-api
+     (.RunOptionsSetRunTag ort-api run-opt tag)
+     run-opt))
+  ([^OrtApi ort-api ^OrtRunOptions run-opt]
+   (call-pointer-pointer ort-api BytePointer RunOptionsGetRunTag run-opt)))
+
+(defn set-terminate* [^OrtApi ort-api ^OrtRunOptions run-opt]
+  (with-check ort-api
+    (.RunOptionsSetTerminate ort-api run-opt)))
+
+(defn unset-terminate* [^OrtApi ort-api ^OrtRunOptions run-opt]
+  (with-check ort-api
+    (.RunOptionsUnsetTerminate ort-api run-opt)))
+
 ;; ==================== Info =======================================================================
 
 (defn tensor-info* [^OrtApi ort-api ^OrtTypeInfo info]
@@ -603,7 +640,7 @@
 (defn symbolic-dimensions*
   ([^OrtApi ort-api ^OrtTensorTypeAndShapeInfo info]
    (let-release [cnt (dimensions-count* ort-api info)
-                 res (pointer-pointer (max 1 cnt))]
+                 res (pointer-pointer cnt)]
      (with-check ort-api
        (.GetSymbolicDimensions ort-api info res cnt)
        res)))

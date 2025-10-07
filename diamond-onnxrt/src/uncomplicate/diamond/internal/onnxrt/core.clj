@@ -23,10 +23,17 @@
            org.bytedeco.onnxruntime.global.onnxruntime
            [org.bytedeco.onnxruntime OrtDnnlProviderOptions
             OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo
-            OrtMemoryInfo OrtValue OrtThreadingOptions OrtModelMetadata OrtIoBinding]))
+            OrtMemoryInfo OrtValue OrtThreadingOptions OrtModelMetadata OrtIoBinding OrtSessionOptions
+            OrtRunOptions]))
 
 (defprotocol OnnxType
   (onnx-type [this]))
+
+(defprotocol Options
+  (verbosity! [this level])
+  (severity! [this level])
+  (config! [this config])
+  (config [this] [this key]))
 
 (defn check-index [^long i ^long cnt object]
   (when-not (< -1 i cnt)
@@ -185,13 +192,6 @@
     (session-log-id* *ort-api* (safe opt!) id)
     opt!))
 
-(defn severity! [opt! ^long level]
-  (session-severity* *ort-api* (safe opt!) level)
-  opt!)
-
-(defn verbosity! [opt! level]
-  (session-verbosity* *ort-api* (safe opt!) (enc-keyword ort-logging-level level))
-  opt!)
 
 (defn graph-optimization! [opt! level]
   (graph-optimization* *ort-api* (safe opt!) (enc-keyword ort-graph-optimization level))
@@ -210,32 +210,39 @@
   (disable-per-session-threads* *ort-api* (safe opt!))
   opt!)
 
-(defn config! [opt! config]
-  (let [ort-api *ort-api*]
-    (doseq [[key value] (seq config)]
-      (with-release [config-key (byte-pointer (get ort-session-options-config-keys key (name key)))
-                     config-value (byte-pointer ((get ort-session-options-config-encoders key identity) value))]
-        (add-session-config-entry* ort-api opt! config-key config-value)))
+(extend-type OrtSessionOptions
+  Options
+  (config! [opt! config]
+    (let [ort-api *ort-api*]
+      (doseq [[key value] (seq config)]
+        (with-release [config-key (byte-pointer (get ort-session-options-config-keys key (name key)))
+                       config-value (byte-pointer ((get ort-session-options-config-encoders key identity) value))]
+          (add-session-config-entry* ort-api opt! config-key config-value)))
+      opt!))
+  (config
+    ([opt key]
+     (let [ort-api (safe *ort-api*)
+           opt (safe opt)]
+       (with-release [config-key (byte-pointer (get ort-session-options-config-keys key (name key)))]
+         (if (has-session-config-entry* ort-api opt config-key)
+           (with-release [value (get-session-config-entry* ort-api opt config-key)]
+             ((get ort-session-options-config-decoders key identity) (get-string value)))
+           nil))))
+    ([opt]
+     (let [ort-api (safe *ort-api*)
+           opt (safe opt)]
+       (reduce (fn [kv [k v]]
+                 (if-let [value (config opt k)]
+                   (assoc kv k value)
+                   kv))
+               {}
+               ort-session-options-config-keys))))
+  (severity! [opt! ^long level]
+    (session-severity* *ort-api* (safe opt!) level)
+    opt!)
+  (verbosity! [opt! level]
+    (session-verbosity* *ort-api* (safe opt!) (enc-keyword ort-logging-level level))
     opt!))
-
-(defn config
-  ([opt key]
-   (let [ort-api (safe *ort-api*)
-         opt (safe opt)]
-     (with-release [config-key (byte-pointer (get ort-session-options-config-keys key (name key)))]
-       (if (has-session-config-entry* ort-api opt config-key)
-         (with-release [value (get-session-config-entry* ort-api opt config-key)]
-           ((get ort-session-options-config-decoders key identity) (get-string value)))
-         nil))))
-  ([opt]
-   (let [ort-api (safe *ort-api*)
-         opt (safe opt)]
-     (reduce (fn [kv [k v]]
-               (if-let [value (config opt k)]
-                 (assoc kv k value)
-                 kv))
-             {}
-             ort-session-options-config-keys))))
 
 ;;TODO 1.23+ SessionGetMemoryInfoForInputs(), SessionGetEpDeviceForInputs() etc.
 
@@ -353,6 +360,7 @@
                   (range (output-count sess)))))))
 
 ;; ==================== Model Metadata =============================================================
+
 (defn session-model-metadata [sess]
   (session-model-metadata* *ort-api* (safe sess)))
 
@@ -460,7 +468,8 @@
              (doseq [out-name (pointer-vec out-names)]
                (if (instance? OrtMemoryInfo outputs)
                  (bind-output-to-device* ort-api res out-name outputs)
-                 (bind-output* ort-api res out-name (get-value outputs out-name)))))))))))
+                 (bind-output* ort-api res out-name (get-value outputs out-name))))))
+         res)))))
 
 (extend-type OrtIoBinding
   Info
@@ -762,7 +771,61 @@
   (onnx-type [this]
     (dec-onnx-type (value-type* *ort-api* (safe this)))))
 
-(deftype Runner [ort-api sess opt allo free in-cnt out-cnt in-names out-names]
+;; ======================== Run Options ============================================================
+
+(defn run-tag! [run-opt! tag]
+  (with-release [tag-name (byte-pointer tag)]
+    (run-tag* *ort-api* (safe run-opt!) (safe tag-name))))
+
+(defn run-tag [run-opt tag]
+  (get-string (run-tag* *ort-api* (safe run-opt))))
+
+(defn terminate!
+  ([run-opt]
+   (set-terminate* *ort-api* (safe run-opt)))
+  ([run-opt terminate?]
+   (if terminate?
+     (set-terminate* *ort-api* (safe run-opt))
+     (unset-terminate* *ort-api* (safe run-opt)))))
+
+(extend-type OrtRunOptions
+  Options
+  ;; TODO version 1.23+
+  ;; (config! [opt! config]
+  ;;   (let [ort-api *ort-api*]
+  ;;     (doseq [[key value] (seq config)]
+  ;;       (with-release [config-key (byte-pointer (get ort-run-options-config-keys key (name key)))
+  ;;                      config-value (byte-pointer ((get ort-run-options-config-encoders key identity) value))]
+  ;;         (add-run-config-entry* ort-api opt! config-key config-value)))
+  ;;     opt!))
+  ;; (config
+  ;;   ([opt key]
+  ;;    (let [ort-api (safe *ort-api*)
+  ;;          opt (safe opt)]
+  ;;      (with-release [config-key (byte-pointer (get ort-run-options-config-keys key (name key)))]
+  ;;        (if (has-run-config-entry* ort-api opt config-key)
+  ;;          (with-release [value (get-run-config-entry* ort-api opt config-key)]
+  ;;            ((get ort-run-options-config-decoders key identity) (get-string value)))
+  ;;          nil))))
+  ;;   ([opt]
+  ;;    (let [ort-api (safe *ort-api*)
+  ;;          opt (safe opt)]
+  ;;      (reduce (fn [kv [k v]]
+  ;;                (if-let [value (config opt k)]
+  ;;                  (assoc kv k value)
+  ;;                  kv))
+  ;;              {}
+  ;;              ort-run-options-config-keys))))
+  (severity! [opt! ^long level]
+    (run-severity* *ort-api* (safe opt!) level)
+    opt!)
+  (verbosity! [opt! level]
+    (run-verbosity* *ort-api* (safe opt!) (enc-keyword ort-logging-level level))
+    opt!))
+
+;; ========================== Runner ===============================================================
+
+(deftype Runner [ort-api sess run-opt allo free in-cnt out-cnt in-names out-names]
   Releaseable
   (release [_]
     (dotimes [i in-cnt]
@@ -774,7 +837,7 @@
     true)
   IFn
   (invoke [this in out]
-    (run* ort-api (safe sess) (safe2 opt) in-names in out-names out)
+    (run* ort-api (safe sess) (safe2 run-opt) in-names in out-names out)
     out)
   (invoke [this in]
     (let-release [out (pointer-pointer (repeat out-cnt nil))]
@@ -784,20 +847,21 @@
     (AFn/applyToHelper this xs)))
 
 (defn runner*
-  ([sess opt]
+  ([sess run-opt]
    (let [ort-api (safe *ort-api*)
          allo (safe *default-allocator*)
          free (free* allo)
          sess (safe sess)
-         opt (safe2 opt)
+         run-opt (safe2 run-opt)
          in-cnt (input-count* ort-api sess)
          out-cnt (output-count* ort-api sess)]
-     (->Runner ort-api sess opt allo free in-cnt out-cnt
+     (->Runner ort-api sess run-opt allo free in-cnt out-cnt
                (input-names* ort-api sess allo)
                (output-names* ort-api sess allo))))
   ([sess]
    (runner* sess nil)))
 
+;;TODO
 #_(deftype BindingRunner [ort-api sess opt allo free binding]
   IFn
   (invoke [this _ _]
