@@ -110,8 +110,12 @@
                  mem-info (memory-info :cpu :arena 0 :default)
                  data (float-array 5)
                  val (onnx-tensor mem-info [2 2] data)
-                 val-type-info (value-info val)]
+                 val-type-info (value-info val)
+                 tz-info (tensor-info [1 2] :double)]
     (info val) => {:value {:data-type :float :shape [2 2]}}
+    (info tz-info) => {:data-type :double :shape [1 2]}
+    (tensor-type! tz-info :float) => tz-info
+    (info tz-info) => {:data-type :float :shape [1 2]}
     (value? val) => true
     (none? val) => false
     (tensor? val) => true

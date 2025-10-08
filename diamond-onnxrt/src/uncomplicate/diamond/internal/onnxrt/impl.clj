@@ -595,9 +595,12 @@
 
 ;; ==================== OrtTypeInfo ================================================================
 
-(defn tensor-info* [^OrtApi ort-api ^OrtTypeInfo info]
-  (call-pointer-pointer ort-api
-      OrtTensorTypeAndShapeInfo CastTypeInfoToTensorInfo info))
+(defn tensor-info*
+  ([^OrtApi ort-api ^OrtTypeInfo info]
+   (call-pointer-pointer ort-api
+       OrtTensorTypeAndShapeInfo CastTypeInfoToTensorInfo info))
+  ([^OrtApi ort-api]
+    (call-pointer-pointer ort-api OrtTensorTypeAndShapeInfo CreateTensorTypeAndShapeInfo)))
 
 (defn sequence-info* [^OrtApi ort-api ^OrtTypeInfo info]
   (call-pointer-pointer ort-api
@@ -619,8 +622,13 @@
 
 ;; ==================== OrtTensorTypeAndShapeinfo ==================================================
 
-(defn tensor-type* ^long [^OrtApi ort-api ^OrtTensorTypeAndShapeInfo info]
-  (call-int ort-api GetTensorElementType info))
+(defn tensor-type*
+  (^long [^OrtApi ort-api ^OrtTensorTypeAndShapeInfo info]
+   (call-int ort-api GetTensorElementType info))
+  ([^OrtApi ort-api ^OrtTensorTypeAndShapeInfo info ^long type]
+   (with-check ort-api
+     (.SetTensorElementType ort-api info type)
+     info)))
 
 (defn sequence-type* [^OrtApi ort-api ^OrtSequenceTypeInfo info]
   (call-pointer-pointer ort-api OrtTypeInfo GetSequenceElementType info))
@@ -660,8 +668,6 @@
    (with-check ort-api
      (.SetSymbolicDimensions ort-api info ppnames (size ppnames))
      info)))
-
-
 
 ;; =================== Memory Info =================================================================
 

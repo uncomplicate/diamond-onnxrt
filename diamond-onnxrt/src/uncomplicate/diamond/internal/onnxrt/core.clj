@@ -572,6 +572,14 @@
 
 ;; ==================== OrtTensorTypeAndShapeinfo ==================================================
 
+(defn tensor-info [shape type]
+  (let [ort-api (safe *ort-api*)]
+    (let-release [res (safe (tensor-info* ort-api))]
+      (with-release [shape (safe (long-pointer (seq shape)))]
+        (tensor-dimensions* ort-api res shape)
+        (tensor-type* ort-api res (enc-keyword onnx-data-type type)))
+      res)))
+
 (defn scalar? [tensor-info]
   (= 0 (dimensions-count* *ort-api* (safe tensor-info))))
 
@@ -602,11 +610,14 @@
       (dragan-says-ex "You have to provide name for each dimension."
                       {:required cnt :provided (cnt names)}))))
 
-(defn tensor-type [info]
-  (dec-onnx-data-type (tensor-type* *ort-api* (safe info))))
+(defn tensor-type [tensor-info]
+  (dec-onnx-data-type (tensor-type* *ort-api* (safe tensor-info))))
 
-(defn tensor-count [info]
-  (tensor-element-count* *ort-api* (safe info)))
+(defn tensor-type! [tensor-info type]
+  (tensor-type* *ort-api* (safe tensor-info) (enc-keyword onnx-data-type type)))
+
+(defn tensor-count [tensor-info]
+  (tensor-element-count* *ort-api* (safe tensor-info)))
 
 (extend-type OrtTensorTypeAndShapeInfo
   Info
@@ -626,8 +637,8 @@
 
 ;; ==================== OrtSequenceTypeInfo ========================================================
 
-(defn sequence-type [info]
-  (sequence-type* *ort-api* (safe info)))
+(defn sequence-type [seq-info]
+  (sequence-type* *ort-api* (safe seq-info)))
 
 (extend-type OrtSequenceTypeInfo
   Info
@@ -654,11 +665,11 @@
 
 ;; ==================== OrtMapTypeInfo =============================================================
 
-(defn key-type [info]
-  (dec-onnx-data-type (key-type* *ort-api* (safe info))))
+(defn key-type [map-info]
+  (dec-onnx-data-type (key-type* *ort-api* (safe map-info))))
 
-(defn val-type [info]
-  (val-type* *ort-api* (safe info)))
+(defn val-type [map-info]
+  (val-type* *ort-api* (safe map-info)))
 
 (extend-type OrtMapTypeInfo
   Info
@@ -734,6 +745,8 @@
        :allocator-type (allocator-type this)
        nil))))
 
+;; =================== OrtValue ====================================================================
+
 (defn onnx-tensor
   ([mem-info shape data data-type]
    (let [data (pointer data)]
@@ -746,11 +759,9 @@
                        (safe (long-pointer (seq shape)))
                        (enc-keyword pointer-type data-or-type))
      (onnx-tensor mem-info-or-alloc shape data-or-type
-                    (enc-keyword pointer-type (type (pointer data-or-type))))))
+                  (enc-keyword pointer-type (type (pointer data-or-type))))))
   ([shape data-type]
    (onnx-tensor *default-allocator* shape data-type)))
-
-;; =================== OrtValue ====================================================================
 
 (defn value
   ([ptr]
