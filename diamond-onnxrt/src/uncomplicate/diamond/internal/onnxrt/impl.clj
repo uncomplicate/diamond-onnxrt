@@ -714,6 +714,9 @@
 (defn value-info* [^OrtApi ort-api ^OrtValue value]
   (call-pointer-pointer ort-api OrtTypeInfo GetTypeInfo value))
 
+(defn value-tensor-info* [^OrtApi ort-api ^OrtValue value]
+  (call-pointer-pointer ort-api OrtTensorTypeAndShapeInfo GetTensorTypeAndShape value))
+
 (defn value-type* ^long [^OrtApi ort-api ^OrtValue value]
   (call-int ort-api GetValueType value))
 

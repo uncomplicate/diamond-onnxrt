@@ -111,6 +111,7 @@
                  data (float-array 5)
                  val (onnx-tensor mem-info [2 2] data)
                  val-type-info (value-info val)
+                 val-tensor-type-info (value-tensor-info val)
                  tz-info (tensor-info [1 2] :double)]
     (info val) => {:value {:data-type :float :shape [2 2]}}
     (info tz-info) => {:data-type :double :shape [1 2]}
@@ -120,6 +121,7 @@
     (none? val) => false
     (tensor? val) => true
     (info val-type-info) => (:value (info val))
+    (info (cast-type val-type-info)) => (info val-tensor-type-info)
     (onnx-type val) => :tensor
     (value-count val) => 1
     (release val-type-info) => true

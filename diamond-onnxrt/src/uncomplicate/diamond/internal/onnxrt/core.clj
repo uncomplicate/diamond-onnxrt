@@ -772,6 +772,9 @@
 (defn value-info [value]
   (value-info* *ort-api* (safe value)))
 
+(defn value-tensor-info [value]
+  (value-tensor-info* *ort-api* (safe value)))
+
 (defn value-count ^long [value]
   (let [ort-api *ort-api*]
     (if (<= 2 (value-type* ort-api (safe value)) 3)
