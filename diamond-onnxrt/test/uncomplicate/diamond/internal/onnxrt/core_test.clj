@@ -60,6 +60,7 @@
     (config! opt {:env-allocators true}) => opt
     (config opt :env-allocators) => true
     (config opt) => {:env-allocators true :use-env-allocators true}
+    (dynamic-options! sess {:ep-dynamic-workload :default}) => sess
     (producer-name metamodel) => "OnnxMLTools"
     (graph-name metamodel) => "3c59201b940f410fa29dc71ea9d5767d"
     (domain metamodel) => "onnxml"

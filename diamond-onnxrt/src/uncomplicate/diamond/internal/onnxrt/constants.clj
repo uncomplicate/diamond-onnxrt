@@ -341,8 +341,6 @@
    :ep-context-model-external-initializers-file-name "ep.context_model_external_initializers_file_name"
    :enable-gemm-fastmath-arm64-bloat16 "mlas.enable_gemm_fastmath_arm64_bfloat16"
    :qdq-matmultnbits-accuracy-level "session.qdq_matmulnbits_accuracy_level"
-   :ep-dynamic-workload-type "ep.dynamic.workload_type"
-   :ep-dynamic-workload "ep.dynamic.workload_type"
    :disable-model-compile "session.disable_model_compile"
    :model-compile "session.disable_model_compile"})
 
@@ -460,8 +458,6 @@
    :ep-context-model-external-initializers-file-name identity
    :enable-gemm-fastmath-arm64-bloat16 true-one
    :qdq-matmultnbits-accuracy-level str
-   :ep-dynamic-workload-type capitalized-name
-   :ep-dynamic-workload capitalized-name
    :disable-model-compile true-one
    :model-compile true-zero})
 
@@ -545,7 +541,13 @@
    :ep-context-model-external-initializers-file-name identity
    :enable-gemm-fastmath-arm64-bloat16 one-true
    :qdq-matmultnbits-accuracy-level read-string
-   :ep-dynamic-workload-type lower-case-keyword
-   :ep-dynamic-workload lower-case-keyword
    :disable-model-compile one-true
    :model-compile zero-true})
+
+(def ^:const ort-ep-dynamic-options-keys
+  {:ep-dynamic-workload-type "ep.dynamic.workload_type"
+   :ep-dynamic-workload "ep.dynamic.workload_type"})
+
+(def ^:const ort-ep-dynamic-options-encoders
+  {:ep-dynamic-workload-type capitalized-name
+   :ep-dynamic-workload capitalized-name})

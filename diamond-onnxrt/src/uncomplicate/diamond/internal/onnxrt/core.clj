@@ -13,18 +13,18 @@
              [core :refer [let-release with-release Releaseable release Info info bytesize size]]
              [utils :refer [enc-keyword dragan-says-ex mask]]]
             [uncomplicate.clojure-cpp
-             :refer [get-string get-entry byte-pointer long-pointer null? pointer pointer-pointer pointer-type
-                     pointer-vec safe safe2 get-pointer capacity!]]
+             :refer [get-string get-entry byte-pointer long-pointer null? pointer pointer-pointer
+                     pointer-type pointer-vec safe safe2 get-pointer capacity!]]
             [uncomplicate.diamond.internal.onnxrt
              [constants :refer :all]
              [impl :refer :all]])
   (:import [clojure.lang Seqable IFn AFn]
            [org.bytedeco.javacpp Pointer PointerPointer]
            org.bytedeco.onnxruntime.global.onnxruntime
-           [org.bytedeco.onnxruntime OrtDnnlProviderOptions
-            OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo
-            OrtMemoryInfo OrtValue OrtThreadingOptions OrtModelMetadata OrtIoBinding OrtSessionOptions
-            OrtRunOptions OrtSession]))
+           [org.bytedeco.onnxruntime OrtDnnlProviderOptions OrtTypeInfo OrtTensorTypeAndShapeInfo
+            OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo OrtMemoryInfo OrtValue
+            OrtThreadingOptions OrtModelMetadata OrtIoBinding OrtSessionOptions OrtRunOptions
+            OrtSession]))
 
 (defprotocol OnnxType
   (onnx-type [this]))
@@ -217,7 +217,7 @@
       (doseq [[key value] (seq config)]
         (with-release [config-key (byte-pointer (get ort-session-options-config-keys key (name key)))
                        config-value (byte-pointer ((get ort-session-options-config-encoders key identity) value))]
-          (add-session-config-entry* ort-api opt! config-key config-value)))
+          (add-session-config-entry* ort-api (safe opt!) config-key config-value)))
       opt!))
   (config
     ([opt key]
@@ -296,6 +296,20 @@
                  (safe prepackaged-weights)))
      (session-from-array* *ort-api* (safe env) (safe model-path-or-data) (safe options)
                           (safe prepackaged-weights)))))
+
+(defn dynamic-options! [sess! config]
+  (let [ort-api *ort-api*]
+    (with-release [config-keys (map #(-> (get ort-ep-dynamic-options-keys % (name %))
+                                         (byte-pointer))
+                                    (keys config))
+                   config-values (map (fn [[k v]]
+                                        (-> ((get ort-ep-dynamic-options-encoders k identity) v)
+                                            (byte-pointer)))
+                                      config)
+                   ppkeys (pointer-pointer config-keys)
+                   ppvalues (pointer-pointer config-values)]
+      (ep-dynamic-options* ort-api (safe sess!) (safe ppkeys) (safe ppvalues)))
+    sess!))
 
 (defn initializer-count ^long [sess]
   (overridable-initializer-count* *ort-api* (safe sess)))
@@ -451,6 +465,10 @@
        :domain (domain this)
        :custom-map-keys (custom-map-keys this)
        nil))))
+
+;; ==================== Initializer Info ===========================================================
+
+;; TODO 1.23+
 
 ;; ==================== IO Binding =================================================================
 
@@ -640,6 +658,8 @@
        :structure [(key-type this) (with-release [vi (val-type this)] (info vi))]
        nil))))
 
+;; ======================= Memory Info =============================================================
+
 (defn memory-info
   ([alloc-key alloc-type device-id mem-type]
    (with-release [name (safe (byte-pointer (get ort-allocator-name alloc-key alloc-key)))]
@@ -709,6 +729,8 @@
                     (enc-keyword pointer-type (type (pointer data-or-type))))))
   ([shape data-type]
    (onnx-tensor *default-allocator* shape data-type)))
+
+;; =================== OrtValue ====================================================================
 
 (defn value
   ([ptr]

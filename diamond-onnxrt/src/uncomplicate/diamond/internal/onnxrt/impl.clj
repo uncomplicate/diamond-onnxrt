@@ -14,7 +14,7 @@
             [uncomplicate.clojure-cpp
              :refer [null? pointer pointer-pointer int-pointer long-pointer byte-pointer char-pointer
                      size-t-pointer get-entry put-entry! get-string capacity! capacity get-pointer
-                     limit limit!]])
+                     limit!]])
   (:import [org.bytedeco.javacpp Loader Pointer BytePointer PointerPointer LongPointer]
            [org.bytedeco.onnxruntime OrtApiBase OrtApi OrtEnv OrtSession OrtSessionOptions
             OrtAllocator OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo
@@ -160,7 +160,7 @@
 
 (defn release-available-providers* [^OrtApi ort-api ^PointerPointer providers]
   (with-check ort-api
-    (.ReleaseAvailableProviders ort-api providers (limit providers))))
+    (.ReleaseAvailableProviders ort-api providers (size providers))))
 
 (defn current-gpu-device-id*
   (^long [^OrtApi ort-api]
@@ -491,6 +491,12 @@
 (defn output-type-info* [^OrtApi ort-api ^OrtSession sess ^long i]
   (call-pointer-pointer ort-api OrtTypeInfo SessionGetOutputTypeInfo sess i))
 
+(defn ep-dynamic-options* [^OrtApi ort-api ^OrtSession sess
+                           ^PointerPointer keys ^PointerPointer values]
+  (with-check ort-api
+    (.SetEpDynamicOptions ort-api sess keys values (size keys))
+    sess))
+
 ;; ==================== Model Metadata =============================================================
 
 (defn session-model-metadata* [^OrtApi ort-api ^OrtSession sess]
@@ -649,6 +655,8 @@
      (.SetSymbolicDimensions ort-api info ppnames (size ppnames))
      info)))
 
+;; =================== Memory Info =================================================================
+
 ;;TODO use v2 from 1.23+
 (defn memory-info* [^OrtApi ort-api ^BytePointer name type id mem-type]
   (call-pointer-pointer ort-api
@@ -674,6 +682,8 @@
 (defn allocator-type* ^long [^OrtApi ort-api ^OrtMemoryInfo mem-info]
   (call-int ort-api MemoryInfoGetType mem-info))
 
+;; =================== OrtValue ====================================================================
+;;TODO 1.23+
 (defn create-tensor* [^OrtApi ort-api ^OrtMemoryInfo mem-info ^Pointer data shape type]
   (call-pointer-pointer ort-api OrtValue CreateTensorWithDataAsOrtValue mem-info
                         data (bytesize data)
