@@ -541,38 +541,7 @@
        :names (bound-names this)
        nil))))
 
-;; ==================== Info =======================================================================
-
-(defn scalar? [info]
-  (= 0 (dimensions-count* *ort-api* (safe info))))
-
-(defn shape [info]
-  (with-release [dims (safe (tensor-dimensions* *ort-api* (safe info)))]
-    (doall (pointer-vec dims))))
-
-(defn shape! [info! values]
-  (let [ort-api *ort-api*
-
-        cnt (dimensions-count* ort-api (safe info!))]
-    (if (<= 0 (count values) cnt)
-      (with-release [values (long-pointer (seq values))]
-        (tensor-dimensions* ort-api info! values))
-      (dragan-says-ex "You have to provide value for each dimension."
-                      {:required cnt :provided (cnt values)}))))
-
-(defn symbolic-shape [info]
-  (let [allo (safe *default-allocator*)]
-    (with-release [symbolic-dims (symbolic-dimensions* *ort-api* (safe info))]
-      (doall (mapv get-string* (pointer-vec symbolic-dims))))))
-
-(defn symbolic-shape! [info names]
-  (let [ort-api *ort-api*
-        cnt (dimensions-count* ort-api info)]
-    (if (= (count names) cnt)
-      (with-release [ppnames (pointer-pointer (seq names))]
-        (symbolic-dimensions* *ort-api* (safe info) ppnames))
-      (dragan-says-ex "You have to provide name for each dimension."
-                      {:required cnt :provided (cnt names)}))))
+;; ==================== OrtTypeInfo ================================================================
 
 (defn cast-type [^OrtTypeInfo info]
   (let [ort-api *ort-api*
@@ -584,6 +553,12 @@
       6 (optional-info* ort-api info)
       info)))
 
+(defn denotation [^OrtTypeInfo info]
+  (let [den (denotation* *ort-api* (safe info))]
+    (if (< 0 (size den))
+      (keyword (get-string den))
+      nil)))
+
 (extend-type OrtTypeInfo
   Info
   (info
@@ -594,6 +569,38 @@
   OnnxType
   (onnx-type [this]
     (dec-onnx-type (type-info-type* *ort-api* (safe this)))))
+
+;; ==================== OrtTensorTypeAndShapeinfo ==================================================
+
+(defn scalar? [tensor-info]
+  (= 0 (dimensions-count* *ort-api* (safe tensor-info))))
+
+(defn shape [tensor-info]
+  (with-release [dims (safe (tensor-dimensions* *ort-api* (safe tensor-info)))]
+    (doall (pointer-vec dims))))
+
+(defn shape! [tensor-info! values]
+  (let [ort-api *ort-api*
+        cnt (dimensions-count* ort-api (safe tensor-info!))]
+    (if (<= 0 (count values) cnt)
+      (with-release [values (long-pointer (seq values))]
+        (tensor-dimensions* ort-api tensor-info! values))
+      (dragan-says-ex "You have to provide value for each dimension."
+                      {:required cnt :provided (cnt values)}))))
+
+(defn symbolic-shape [tensor-info]
+  (let [allo (safe *default-allocator*)]
+    (with-release [symbolic-dims (symbolic-dimensions* *ort-api* (safe tensor-info))]
+      (doall (mapv get-string* (pointer-vec symbolic-dims))))))
+
+(defn symbolic-shape! [tensor-info names]
+  (let [ort-api *ort-api*
+        cnt (dimensions-count* ort-api tensor-info)]
+    (if (= (count names) cnt)
+      (with-release [ppnames (pointer-pointer (seq names))]
+        (symbolic-dimensions* *ort-api* (safe tensor-info) ppnames))
+      (dragan-says-ex "You have to provide name for each dimension."
+                      {:required cnt :provided (cnt names)}))))
 
 (defn tensor-type [info]
   (dec-onnx-data-type (tensor-type* *ort-api* (safe info))))
@@ -617,6 +624,8 @@
        :type :tensor
        nil))))
 
+;; ==================== OrtSequenceTypeInfo ========================================================
+
 (defn sequence-type [info]
   (sequence-type* *ort-api* (safe info)))
 
@@ -631,6 +640,8 @@
        :structure [(with-release [sti (sequence-type this)] (info sti :structure))]
        nil))))
 
+;; ==================== OrtOptionalTypeInfo ========================================================
+
 (extend-type OrtOptionalTypeInfo
   Info
   (info
@@ -640,6 +651,8 @@
      (case type-info
        :type :optional
        nil))))
+
+;; ==================== OrtMapTypeInfo =============================================================
 
 (defn key-type [info]
   (dec-onnx-data-type (key-type* *ort-api* (safe info))))
@@ -658,7 +671,7 @@
        :structure [(key-type this) (with-release [vi (val-type this)] (info vi))]
        nil))))
 
-;; ======================= Memory Info =============================================================
+;; ======================= OrtMemoryInfo ===========================================================
 
 (defn memory-info
   ([alloc-key alloc-type device-id mem-type]
@@ -695,6 +708,13 @@
 
 (defn allocator-type [mem-info]
   (dec-ort-allocator-type (allocator-type* *ort-api* (safe mem-info))))
+
+(defn equal-memory-info? [info1 info2]
+  (if (or (identical? info1 info2)
+          (and info1 info2
+               (compare-memory-info* *ort-api* (safe info1) (safe info2))))
+    true
+    false))
 
 (extend-type OrtMemoryInfo
   Info

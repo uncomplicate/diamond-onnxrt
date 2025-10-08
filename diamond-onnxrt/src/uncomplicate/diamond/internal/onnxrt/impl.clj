@@ -593,7 +593,7 @@
   (with-check ort-api
     (.RunOptionsUnsetTerminate ort-api run-opt)))
 
-;; ==================== Info =======================================================================
+;; ==================== OrtTypeInfo ================================================================
 
 (defn tensor-info* [^OrtApi ort-api ^OrtTypeInfo info]
   (call-pointer-pointer ort-api
@@ -612,6 +612,12 @@
 
 (defn type-info-type* ^long [^OrtApi ort-api ^OrtTypeInfo info]
   (call-int ort-api GetOnnxTypeFromTypeInfo info))
+
+(defn denotation* [^OrtApi ort-api ^OrtTypeInfo info]
+  (with-release [res (pointer-pointer 1)]
+    (limit! (.get res BytePointer 0) (max 0 (dec (call-size-t ort-api GetDenotationFromTypeInfo info res))))))
+
+;; ==================== OrtTensorTypeAndShapeinfo ==================================================
 
 (defn tensor-type* ^long [^OrtApi ort-api ^OrtTensorTypeAndShapeInfo info]
   (call-int ort-api GetTensorElementType info))
@@ -655,12 +661,17 @@
      (.SetSymbolicDimensions ort-api info ppnames (size ppnames))
      info)))
 
+
+
 ;; =================== Memory Info =================================================================
 
 ;;TODO use v2 from 1.23+
 (defn memory-info* [^OrtApi ort-api ^BytePointer name type id mem-type]
   (call-pointer-pointer ort-api
       OrtMemoryInfo CreateMemoryInfo name (int type) (int id) (int mem-type)))
+
+(defn compare-memory-info* [^OrtApi ort-api ^OrtMemoryInfo info1 ^OrtMemoryInfo info2]
+  (= 0 (call-int ort-api CompareMemoryInfo info1 info2)))
 
 (defn device-type*
   ([^OrtApi ort-api]

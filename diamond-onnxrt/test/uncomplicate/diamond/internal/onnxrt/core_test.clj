@@ -85,12 +85,18 @@
   "Test memory-info."
   (with-release [env (environment)
                  opt (options)
-                 mem-info (memory-info :cpu :arena 0 :default)]
+                 mem-info (memory-info :cpu :arena 0 :default)
+                 mem-info1 (memory-info :cpu :arena 0 :default)
+                 mem-info2 (memory-info :cpu :device 0 :default)]
     (allocator-key mem-info) => :cpu
     (allocator-type mem-info) => :arena
     (device-id mem-info) => 0
     (device-type mem-info) => :cpu
     (memory-type mem-info) => :default
+    (equal-memory-info? mem-info nil) => false
+    (equal-memory-info? mem-info mem-info) => true
+    (equal-memory-info? mem-info mem-info1) => true
+    (equal-memory-info? mem-info mem-info2) => false
     (info mem-info) => {:allocator-key :cpu
                         :allocator-type :arena
                         :device-id 0
@@ -145,6 +151,7 @@
                  outputs! (onnx-sequence (map #(onnx-map labels %) probabilities))]
     sess =not=> nil
     (onnx-type input-info) => :tensor
+    (denotation input-info) => nil
     (info input-info) => {:data-type :float :shape [3 2]}
     (input-type-info sess 1) => (throws IndexOutOfBoundsException)
     (map info inputs-info) => [{:data-type :float :shape [3 2]}]
