@@ -9,14 +9,14 @@
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.diamond.internal.onnxrt.model
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release Info info]]
+             [core :refer [Releaseable release with-release let-release Info info]]
              [utils :refer [dragan-says-ex]]]
+            [uncomplicate.fluokitten.core :refer [op]]
             [uncomplicate.clojure-cpp :refer [pointer-pointer pointer-vec]]
-            #_[uncomplicate.fluokitten.core :refer [fmap]]
-            [uncomplicate.neanderthal.block :refer [buffer]]
-            #_[uncomplicate.neanderthal.internal.api :refer [flow]]
+            [uncomplicate.neanderthal.block :refer [buffer]];;TODO
             [uncomplicate.diamond.tensor
-             :refer [*diamond-factory* default-desc Transfer input output connector revert shape data-type layout TensorDescriptor view-tz]]
+             :refer [*diamond-factory* default-desc Transfer input output connector revert shape
+                     data-type layout TensorDescriptor view-tz]]
             [uncomplicate.diamond.internal
              [protocols
               :refer [Parameters bias weights ParametersSeq parameters DescriptorProvider
@@ -25,7 +25,9 @@
                       inf-desc train-desc diff-desc Initializable init batch-index create-tensor create-tensor-desc]]
              [utils :refer [default-strides transfer-weights-bias! concat-strides concat-dst-shape direction-count]]]
             [uncomplicate.diamond.internal.onnxrt.core :as onnx
-             :refer [onnx-tensor runner* cast-type input-type-info output-type-info tensor-type]])
+             :refer [onnx-tensor runner* cast-type input-type-info output-type-info tensor-type
+                     environment session options graph-optimization! available-providers
+                     memory-info append-provider!]])
   (:import [clojure.lang IFn AFn]))
 
 ;; ================================ Activation =============================================
@@ -70,11 +72,13 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
+;;TODO run options should probably be tied to the instance, not to the blueprint.
 (deftype StraightInferenceBlueprint [fact sess run-opt mem-info src-desc dst-desc]
   Releaseable
   (release [_]
     (release sess)
     (release run-opt)
+    (release mem-info)
     (release src-desc)
     (release dst-desc))
   Info
@@ -132,12 +136,62 @@
   ([fact sess mem-info]
    (onnx-straight-model fact sess nil mem-info)))
 
+;;TODO move to commons.
+(defn load-class [^String classname]
+  (try (.loadClass (clojure.lang.DynamicClassLoader.) classname)
+       (catch Exception e
+         (info (format "Class %s is not available." classname))
+         nil)))
+
+(defprotocol OnnxProvider
+  (execution-providers [this])
+  (allocator-key [this])
+  (allocator-type [this]))
+
+(defmacro extend-diamond-factory [classname eps alloc-key alloc-type]
+  (when (load-class classname)
+    `(extend-type (Class/forName ~classname)
+       OnnxProvider
+       (execution-providers [_#]
+         ~eps)
+       (allocator-key [_#]
+         ~alloc-key)
+       (allocator-type [_#]
+         ~alloc-type))))
+
+(extend-diamond-factory "uncomplicate.diamond.internal.dnnl.factory.DnnlFactory" [:dnnl] :cpu :arena)
+(extend-diamond-factory "uncomplicate.diamond.internal.bnns.factory.BnnsFactory" [:coreml] :cpu :arena)
+(extend-diamond-factory "uncomplicate.diamond.internal.cudnn.factory.CUDnnFactory" [:cuda] :cuda :device)
+
+(def ^:dynamic *session-options*
+  {:logging-level :warning
+   :log-name (name (gensym "diamond_onnxrt_"))
+   :graph-optimization :extended
+   :base-ep [:dnnl]
+   :dnnl nil
+   :cuda nil
+   :coreml nil})
+
 (defn onnx
-  ([sess run-opt mem-info]
-   (fn
-     ([fact src-desc]
-      (onnx-straight-model fact sess run-opt mem-info))
-     ([src-desc]
-      (onnx *diamond-factory* sess run-opt mem-info))))
-  ([sess mem-info]
-   (onnx sess nil mem-info)))
+  ([model-path args]
+   (let [args (into *session-options* args)
+         available-ep (set (available-providers))]
+     (let-release [env (environment (:logging-level args) (:log-name args))]
+       (fn onnx-fn
+         ([fact src-desc]
+          (let [eproviders (op (:base-ep args) (get args :ep (execution-providers fact)))]
+             (with-release [opt (-> (options)
+                                   (graph-optimization! (:graph-optimization args)))]
+              (let-release [sess (session env model-path opt)
+                            mem-info (memory-info (allocator-key fact) (allocator-type fact))]
+                (doseq [ep eproviders]
+                  (append-provider! opt
+                                    (or (available-ep ep)
+                                        (dragan-says-ex (format "Execution provider %s is not available." ep)
+                                                        {:requested ep :available available-ep}))
+                                    (args ep)))
+                (onnx-straight-model fact sess nil mem-info))))) ;;TODO add run-options later
+         ([src-desc]
+          (onnx-fn *diamond-factory*))))))
+  ([model-path]
+   (onnx model-path nil)))

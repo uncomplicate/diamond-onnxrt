@@ -51,15 +51,9 @@
 ;; TODO timings: mem-info: 25 microseconds
 
 (defn test-onnx-network [fact]
-  (with-release [env (environment :warning "test")
-                 opt (-> (options)
-                         (append-provider! :dnnl)
-                         (graph-optimization! :extended))
-                 sess (session env "data/mnist-12.onnx" opt)
-                 mem-info (memory-info :cpu :arena 0 :default)
-                 src-tz (tensor fact [1 1 28 28] :float :nchw)
+  (with-release [src-tz (tensor fact [1 1 28 28] :float :nchw)
                  mnist-bp (network fact src-tz
-                                   [(onnx sess mem-info)
+                                   [(onnx "data/mnist-12.onnx")
                                     (activation :softmax)])
                  mnist-infer! (mnist-bp src-tz)]
 

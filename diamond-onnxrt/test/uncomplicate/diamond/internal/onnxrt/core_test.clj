@@ -32,6 +32,7 @@
                  opt (options)]
     (info opt) => truthy
     (append-provider! opt :random nil) => (throws ExceptionInfo)
+    (append-provider! opt :dnnl) => opt
     (append-provider! opt :dnnl) => opt))
 
 (facts
