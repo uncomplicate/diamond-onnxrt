@@ -145,19 +145,20 @@
 
 (defprotocol OnnxProvider
   (execution-providers [this])
-  (allocator-key [this])
-  (allocator-type [this]))
+  (alloc-key [this])
+  (alloc-type [this]))
 
 (defmacro extend-diamond-factory [classname eps alloc-key alloc-type]
-  (when (load-class classname)
-    `(extend-type (Class/forName ~classname)
+  (if (load-class classname)
+    `(extend-type ~(Class/forName classname)
        OnnxProvider
        (execution-providers [_#]
          ~eps)
-       (allocator-key [_#]
+       (alloc-key [_#]
          ~alloc-key)
-       (allocator-type [_#]
-         ~alloc-type))))
+       (alloc-type [_#]
+         ~alloc-type))
+    (println "Nothing loaded: " classname)));;TODO
 
 (extend-diamond-factory "uncomplicate.diamond.internal.dnnl.factory.DnnlFactory" [:dnnl] :cpu :arena)
 (extend-diamond-factory "uncomplicate.diamond.internal.bnns.factory.BnnsFactory" [:coreml] :cpu :arena)
@@ -180,10 +181,10 @@
        (fn onnx-fn
          ([fact src-desc]
           (let [eproviders (op (:base-ep args) (get args :ep (execution-providers fact)))]
-             (with-release [opt (-> (options)
+            (with-release [opt (-> (options)
                                    (graph-optimization! (:graph-optimization args)))]
               (let-release [sess (session env model-path opt)
-                            mem-info (memory-info (allocator-key fact) (allocator-type fact))]
+                            mem-info (memory-info (alloc-key fact) (alloc-type fact))]
                 (doseq [ep eproviders]
                   (append-provider! opt
                                     (or (available-ep ep)
