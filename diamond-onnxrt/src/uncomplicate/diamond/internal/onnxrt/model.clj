@@ -11,9 +11,9 @@
   (:require [uncomplicate.commons
              [core :refer [Releaseable release with-release let-release Info info]]
              [utils :refer [dragan-says-ex]]]
-            [uncomplicate.fluokitten.core :refer [op]]
             [uncomplicate.clojure-cpp :refer [pointer-pointer pointer-vec]]
             [uncomplicate.neanderthal.block :refer [buffer]];;TODO
+            [uncomplicate.neanderthal.internal.api :refer [device]]
             [uncomplicate.diamond.tensor
              :refer [*diamond-factory* default-desc Transfer input output connector revert shape
                      data-type layout TensorDescriptor view-tz]]
@@ -22,7 +22,8 @@
               :refer [Parameters bias weights ParametersSeq parameters DescriptorProvider
                       DiamondFactoryProvider DiffParameters diff-weights Backprop forward backward
                       DiffTransfer diff-input diff-output diff-z LinearBackprop backward-diff
-                      inf-desc train-desc diff-desc Initializable init batch-index create-tensor create-tensor-desc]]
+                      inf-desc train-desc diff-desc Initializable init batch-index create-tensor
+                      create-tensor-desc neanderthal-factory]]
              [utils :refer [default-strides transfer-weights-bias! concat-strides concat-dst-shape direction-count]]]
             [uncomplicate.diamond.internal.onnxrt.core :as onnx
              :refer [onnx-tensor runner* cast-type input-type-info output-type-info tensor-type
@@ -143,32 +144,11 @@
          (info (format "Class %s is not available." classname))
          nil)))
 
-(defprotocol OnnxProvider
-  (execution-providers [this])
-  (alloc-key [this])
-  (alloc-type [this]))
-
-(defmacro extend-diamond-factory [classname eps alloc-key alloc-type]
-  (if (load-class classname)
-    `(extend-type ~(Class/forName classname)
-       OnnxProvider
-       (execution-providers [_#]
-         ~eps)
-       (alloc-key [_#]
-         ~alloc-key)
-       (alloc-type [_#]
-         ~alloc-type))
-    (println "Nothing loaded: " classname)));;TODO
-
-(extend-diamond-factory "uncomplicate.diamond.internal.dnnl.factory.DnnlFactory" [:dnnl :coreml] :cpu :arena)
-(extend-diamond-factory "uncomplicate.diamond.internal.bnns.factory.BnnsFactory" [:coreml] :cpu :arena)
-(extend-diamond-factory "uncomplicate.diamond.internal.cudnn.factory.CUDnnFactory" [:cuda] :cuda :device)
-
 (def ^:dynamic *session-options*
   {:logging-level :warning
    :log-name (name (gensym "diamond_onnxrt_"))
    :graph-optimization :extended
-   :base-ep [:dnnl]
+   :ep nil
    :dnnl nil
    :cuda nil
    :coreml nil})
@@ -180,13 +160,14 @@
      (let-release [env (environment (:logging-level args) (:log-name args))]
        (fn onnx-fn
          ([fact src-desc]
-          (let [eproviders (op (:base-ep args)
-                               (get args :ep (filter available-ep (execution-providers fact))))]
+          (let [dev (device (neanderthal-factory fact :float))
+                alloc-type (if (= :cuda dev) :device :arena)
+                eproviders (get args :ep (filter available-ep (if (= :cuda dev) [:cuda] [:coreml :dnnl])))]
             (with-release [opt (-> (options)
                                    (graph-optimization! (:graph-optimization args)))]
               (let-release [sess (session env model-path opt)
-                            mem-info (memory-info (alloc-key fact) (alloc-type fact))]
-                (doseq [ep eproviders]
+                            mem-info (memory-info dev alloc-type)]
+                (doseq [ep (reverse eproviders)]
                   (append-provider! opt
                                     (or (available-ep ep)
                                         (dragan-says-ex (format "Execution provider %s is not available." ep)
