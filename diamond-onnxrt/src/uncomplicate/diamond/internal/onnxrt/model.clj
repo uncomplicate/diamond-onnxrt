@@ -137,13 +137,6 @@
   ([fact sess mem-info]
    (onnx-straight-model fact sess nil mem-info)))
 
-;;TODO move to commons.
-(defn load-class [^String classname]
-  (try (.loadClass (clojure.lang.DynamicClassLoader.) classname)
-       (catch Exception e
-         (info (format "Class %s is not available." classname))
-         nil)))
-
 (def ^:dynamic *session-options*
   {:logging-level :warning
    :log-name (name (gensym "diamond_onnxrt_"))
@@ -162,7 +155,9 @@
          ([fact src-desc]
           (let [dev (device (neanderthal-factory fact :float))
                 alloc-type (if (= :cuda dev) :device :arena)
-                eproviders (get args :ep (filter available-ep (if (= :cuda dev) [:cuda] [:coreml :dnnl])))]
+                eproviders (get args :ep (filter available-ep (if (= :cuda dev)
+                                                                [:cuda]
+                                                                [:coreml :dnnl])))]
             (with-release [opt (-> (options)
                                    (graph-optimization! (:graph-optimization args)))]
               (let-release [sess (session env model-path opt)
