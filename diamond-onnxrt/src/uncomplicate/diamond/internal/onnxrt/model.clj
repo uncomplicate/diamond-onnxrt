@@ -160,7 +160,7 @@
          ~alloc-type))
     (println "Nothing loaded: " classname)));;TODO
 
-(extend-diamond-factory "uncomplicate.diamond.internal.dnnl.factory.DnnlFactory" [:dnnl] :cpu :arena)
+(extend-diamond-factory "uncomplicate.diamond.internal.dnnl.factory.DnnlFactory" [:dnnl :coreml] :cpu :arena)
 (extend-diamond-factory "uncomplicate.diamond.internal.bnns.factory.BnnsFactory" [:coreml] :cpu :arena)
 (extend-diamond-factory "uncomplicate.diamond.internal.cudnn.factory.CUDnnFactory" [:cuda] :cuda :device)
 
@@ -180,7 +180,8 @@
      (let-release [env (environment (:logging-level args) (:log-name args))]
        (fn onnx-fn
          ([fact src-desc]
-          (let [eproviders (op (:base-ep args) (get args :ep (execution-providers fact)))]
+          (let [eproviders (op (:base-ep args)
+                               (get args :ep (filter available-ep (execution-providers fact))))]
             (with-release [opt (-> (options)
                                    (graph-optimization! (:graph-optimization args)))]
               (let-release [sess (session env model-path opt)
