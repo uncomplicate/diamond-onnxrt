@@ -154,14 +154,20 @@
        (fn onnx-fn
          ([fact src-desc]
           (let [dev (device (neanderthal-factory fact :float))
-                alloc-type (if (= :cuda dev) :device :arena)
                 eproviders (get args :ep (filter available-ep (if (= :cuda dev)
                                                                 [:cuda]
-                                                                [:coreml :dnnl])))]
+                                                                [:coreml :dnnl])))
+                uses-device (some #{:cuda} eproviders)
+                alloc-type (if (or uses-device (= :cuda dev))
+                             :device
+                             :arena)
+                mem-type (if (and (= :device alloc-type) (= :cpu dev))
+                           :cpu
+                           :default)]
             (with-release [opt (-> (options)
                                    (graph-optimization! (:graph-optimization args)))]
               (let-release [sess (session env model-path opt)
-                            mem-info (memory-info dev alloc-type)]
+                            mem-info (memory-info dev alloc-type mem-type)]
                 (doseq [ep (reverse eproviders)]
                   (append-provider! opt
                                     (or (available-ep ep)
