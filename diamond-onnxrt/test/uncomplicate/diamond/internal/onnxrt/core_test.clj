@@ -23,7 +23,7 @@
 (facts
   "Test system."
   (version) => {:major 1 :minor 22 :update 2}
-  (filter #{:dnnl :cpu} (available-providers) => [:dnnl :cpu])
+  (filter #{:dnnl :cpu} (available-providers)) => [:dnnl :cpu]
   (type (build-info)) => String)
 
 (facts

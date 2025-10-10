@@ -618,7 +618,8 @@
 
 (defn denotation* [^OrtApi ort-api ^OrtTypeInfo info]
   (with-release [res (pointer-pointer 1)]
-    (limit! (.get res BytePointer 0) (max 0 (dec (call-size-t ort-api GetDenotationFromTypeInfo info res))))))
+    (let [actual-size (max 0 (dec (call-size-t ort-api GetDenotationFromTypeInfo info res)))]
+      (limit! (.get res BytePointer 0) actual-size))))
 
 ;; ==================== OrtTensorTypeAndShapeinfo ==================================================
 
