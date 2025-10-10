@@ -12,7 +12,7 @@
              [core :refer [Releaseable release with-release let-release Info info]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.clojure-cpp :refer [pointer-pointer pointer-vec]]
-            [uncomplicate.neanderthal.block :refer [buffer]];;TODO
+            [uncomplicate.neanderthal.block :refer [buffer]]
             [uncomplicate.neanderthal.internal.api :refer [device]]
             [uncomplicate.diamond.tensor
              :refer [*diamond-factory* default-desc Transfer input output connector revert shape
@@ -28,7 +28,7 @@
             [uncomplicate.diamond.internal.onnxrt.core :as onnx
              :refer [onnx-tensor runner* cast-type input-type-info output-type-info tensor-type
                      environment session options graph-optimization! available-providers
-                     memory-info append-provider!]])
+                     memory-info append-provider! run-options]])
   (:import [clojure.lang IFn AFn]))
 
 ;; ================================ Activation =============================================
@@ -73,12 +73,10 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-;;TODO run options should probably be tied to the instance, not to the blueprint.
 (deftype StraightInferenceBlueprint [fact sess run-opt mem-info src-desc dst-desc]
   Releaseable
   (release [_]
     (release sess)
-    (release run-opt)
     (release mem-info)
     (release src-desc)
     (release dst-desc))
@@ -144,7 +142,8 @@
    :ep nil
    :dnnl nil
    :cuda nil
-   :coreml nil})
+   :coreml nil
+   :run-options nil})
 
 (defn onnx
   ([model-path args]
@@ -174,7 +173,7 @@
                                         (dragan-says-ex (format "Execution provider %s is not available." ep)
                                                         {:requested ep :available available-ep}))
                                     (args ep)))
-                (onnx-straight-model fact sess nil mem-info))))) ;;TODO add run-options later
+                (onnx-straight-model fact sess (:run-options args) mem-info)))))
          ([src-desc]
           (onnx-fn *diamond-factory*))))))
   ([model-path]

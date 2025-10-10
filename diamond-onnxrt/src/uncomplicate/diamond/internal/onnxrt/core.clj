@@ -250,8 +250,6 @@
   (with-release [init-name (byte-pointer (name init-name))]
     (initializer* *ort-api* (safe opt!) init-name)))
 
-;;TODO EnableOrtCustomOps for now, we do not support loading ort custom extensions. When we come to it, we will implement all related to this.
-
 (defn append-dnnl! [opt! opt-map]
   (with-release [dnnl (dnnl-options* *ort-api*)]
     (.use_arena dnnl (get :arena opt-map 0))
@@ -277,7 +275,8 @@
   ([opt!]
    (append-provider! opt! :dnnl nil)))
 
-(defn user-logging-fn! [opt! logging-fn param] ;;TODO create a mechanism to wrap any clojure function into OrtLoggingFunction
+;;TODO create a mechanism to wrap any clojure function into OrtLoggingFunction
+(defn user-logging-fn! [opt! logging-fn param]
   (user-logging-function* *ort-api* (safe opt!) (safe logging-fn) (safe2 param))
   opt!)
 
@@ -840,6 +839,9 @@
 
 ;; ======================== Run Options ============================================================
 
+(defn run-options []
+  (run-options* *ort-api*))
+
 (defn run-tag! [run-opt! tag]
   (with-release [tag-name (byte-pointer tag)]
     (run-tag* *ort-api* (safe run-opt!) (safe tag-name))))
@@ -910,6 +912,8 @@
     (let-release [out (pointer-pointer (repeat out-cnt nil))]
       (.invoke this in out)
       out))
+  (invoke [this]
+    run-opt)
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 

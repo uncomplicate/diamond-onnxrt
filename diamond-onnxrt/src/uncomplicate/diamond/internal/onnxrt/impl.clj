@@ -109,7 +109,7 @@
            (.deallocate this#)
            (.setNull this#))
          true))))
-;;TODO add other provider options here
+
 (extend-ort-call OrtDnnlProviderOptions ReleaseDnnlProviderOptions)
 (extend-ort-call OrtCUDAProviderOptionsV2 ReleaseCUDAProviderOptions)
 
@@ -558,7 +558,7 @@
 
 ;; =================== Run Options =================================================================
 
-(defn run-options [^OrtApi ort-api]
+(defn run-options* [^OrtApi ort-api]
   (call-pointer-pointer ort-api OrtRunOptions CreateRunOptions))
 
 (defn run-severity*
