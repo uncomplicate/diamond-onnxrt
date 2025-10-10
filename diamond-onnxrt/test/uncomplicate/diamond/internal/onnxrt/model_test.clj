@@ -9,13 +9,11 @@
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.diamond.internal.onnxrt.model-test
   (:require [midje.sweet :refer [facts =>]]
-            [uncomplicate.commons [core :refer [with-release release]]]
+            [uncomplicate.commons [core :refer [with-release]]]
             [uncomplicate.neanderthal
              [core :refer [iamax transfer! asum scal!]]
              [vect-math :refer [exp!]]]
-            [uncomplicate.diamond
-             [tensor :refer [tensor]]
-             [dnn :refer [network activation]]]
+            [uncomplicate.diamond.tensor :refer [tensor]]
             [uncomplicate.diamond.internal.onnxrt
              [core :refer :all]
              [model :refer :all]
@@ -49,19 +47,3 @@
 ;; TODO timings: opts with settings: 30 microseconds
 ;; TODO timings: session loading: 2 milliseconds
 ;; TODO timings: mem-info: 25 microseconds
-
-(defn test-onnx-network [fact]
-  (with-release [src-tz (tensor fact [1 1 28 28] :float :nchw)
-                 mnist-bp (network fact src-tz
-                                   [(onnx "data/mnist-12.onnx")
-                                    (activation :softmax)])
-                 mnist-infer! (mnist-bp src-tz)]
-
-    (transfer! test-image-0 src-tz)
-
-    (facts
-      "ONNX MNIST network inference test."
-      (iamax (mnist-infer!)) => 7)))
-
-(with-release [fact (dnnl-factory)]
-  (test-onnx-network fact))

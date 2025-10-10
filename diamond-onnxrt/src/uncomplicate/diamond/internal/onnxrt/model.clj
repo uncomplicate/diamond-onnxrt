@@ -9,13 +9,12 @@
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.diamond.internal.onnxrt.model
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release with-release let-release Info info]]
+             [core :refer [Releaseable release let-release Info info]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.clojure-cpp :refer [pointer-pointer pointer-vec]]
             [uncomplicate.neanderthal.block :refer [buffer]]
-            [uncomplicate.neanderthal.internal.api :refer [device]]
             [uncomplicate.diamond.tensor
-             :refer [*diamond-factory* default-desc Transfer input output connector revert shape
+             :refer [default-desc Transfer input output connector revert shape
                      data-type layout TensorDescriptor view-tz]]
             [uncomplicate.diamond.internal
              [protocols
@@ -23,12 +22,11 @@
                       DiamondFactoryProvider DiffParameters diff-weights Backprop forward backward
                       DiffTransfer diff-input diff-output diff-z LinearBackprop backward-diff
                       inf-desc train-desc diff-desc Initializable init batch-index create-tensor
-                      create-tensor-desc neanderthal-factory]]
-             [utils :refer [default-strides transfer-weights-bias! concat-strides concat-dst-shape direction-count]]]
+                      create-tensor-desc]]
+             [utils :refer [default-strides transfer-weights-bias! concat-strides
+                            concat-dst-shape direction-count]]]
             [uncomplicate.diamond.internal.onnxrt.core :as onnx
-             :refer [onnx-tensor runner* cast-type input-type-info output-type-info tensor-type
-                     environment session options graph-optimization! available-providers
-                     memory-info append-provider! run-options]])
+             :refer [onnx-tensor runner* cast-type input-type-info output-type-info tensor-type]])
   (:import [clojure.lang IFn AFn]))
 
 ;; ================================ Activation =============================================
@@ -134,47 +132,3 @@
        (->StraightInferenceBlueprint fact sess run-opt mem-info src-desc dst-desc))))
   ([fact sess mem-info]
    (onnx-straight-model fact sess nil mem-info)))
-
-(def ^:dynamic *session-options*
-  {:logging-level :warning
-   :log-name (name (gensym "diamond_onnxrt_"))
-   :graph-optimization :extended
-   :ep nil
-   :dnnl nil
-   :cuda nil
-   :coreml nil
-   :run-options nil})
-
-(defn onnx
-  ([model-path args]
-   (let [args (into *session-options* args)
-         available-ep (set (available-providers))]
-     (let-release [env (environment (:logging-level args) (:log-name args))]
-       (fn onnx-fn
-         ([fact src-desc]
-          (let [dev (device (neanderthal-factory fact :float))
-                eproviders (get args :ep (filter available-ep (if (= :cuda dev)
-                                                                [:cuda]
-                                                                [:coreml :dnnl])))
-                uses-device (some #{:cuda} eproviders)
-                alloc-type (if (or uses-device (= :cuda dev))
-                             :device
-                             :arena)
-                mem-type (if (and (= :device alloc-type) (= :cpu dev))
-                           :cpu
-                           :default)]
-            (with-release [opt (-> (options)
-                                   (graph-optimization! (:graph-optimization args)))]
-              (let-release [sess (session env model-path opt)
-                            mem-info (memory-info dev alloc-type mem-type)]
-                (doseq [ep (reverse eproviders)]
-                  (append-provider! opt
-                                    (or (available-ep ep)
-                                        (dragan-says-ex (format "Execution provider %s is not available." ep)
-                                                        {:requested ep :available available-ep}))
-                                    (args ep)))
-                (onnx-straight-model fact sess (:run-options args) mem-info)))))
-         ([src-desc]
-          (onnx-fn *diamond-factory*))))))
-  ([model-path]
-   (onnx model-path nil)))
