@@ -28,7 +28,7 @@
 
 (facts
   "Test DNNL execution provider."
-  (with-release [env (environment)
+  (with-release [env (environment nil)
                  opt (options)]
     (info opt) => truthy
     (append-provider! opt :random nil) => (throws ExceptionInfo)
@@ -50,7 +50,7 @@
 
 (facts
   "Test session and session options."
-  (let [env (environment)
+  (let [env (environment nil)
         opt (options)
         sess (session env "data/logreg_iris.onnx" opt)
         metamodel (session-model-metadata sess)]
@@ -84,7 +84,7 @@
 
 (facts
   "Test memory-info."
-  (with-release [env (environment)
+  (with-release [env (environment nil)
                  opt (options)
                  mem-info (memory-info :cpu :arena 0 :default)
                  mem-info1 (memory-info :cpu :arena 0 :default)
@@ -106,7 +106,7 @@
 
 (facts
   "Test tensor values."
-  (with-release [env (environment)
+  (with-release [env (environment nil)
                  opt (options)
                  mem-info (memory-info :cpu :arena 0 :default)
                  data (float-array 5)
@@ -137,7 +137,7 @@
   ;; The example comes from an older onnxruntime, though, and the shape [3 2] is indeed correct
   ;; That shape just dont' match the original [-1 4], but it doesn't matter here,
   ;; because we only test whether the api works as intended, not whether the model or data makes any sense.
-  (with-release [env (environment)
+  (with-release [env (environment nil)
                  opt (options)
                  sess (session env "data/logreg_iris.onnx" opt)
                  input-info (input-type-info sess 0)

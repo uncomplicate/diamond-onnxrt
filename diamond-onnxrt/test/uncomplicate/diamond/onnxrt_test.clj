@@ -9,7 +9,7 @@
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.diamond.onnxrt-test
   (:require [midje.sweet :refer [facts =>]]
-            [uncomplicate.commons [core :refer [with-release]]]
+            [uncomplicate.commons [core :refer [with-release release]]]
             [uncomplicate.neanderthal.core :refer [iamax transfer!]]
             [uncomplicate.diamond
              [tensor :refer [tensor]]
