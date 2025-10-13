@@ -15,7 +15,8 @@
   :dependencies [[org.clojure/clojure "1.12.2"]
                  [org.uncomplicate/deep-diamond-base "0.39.0"]
                  [org.uncomplicate/deep-diamond-dnnl "0.39.0"]
-                 [org.bytedeco/onnxruntime-platform "1.22.2-1.5.13-20250919.193005-2"]]
+                 [org.bytedeco/onnxruntime-platform "1.22.2-1.5.13-20250919.193005-2"]
+                 #_[org.bytedeco/onnxruntime-platform-gpu "1.22.2-1.5.13-SNAPSHOT"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {:plugins [[lein-midje "3.2.1"]]
@@ -28,9 +29,21 @@
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                             "--enable-native-access=ALL-UNNAMED"]}
              :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.1"]
-                                    [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]]}
+                                    ;; [org.uncomplicate/deep-diamond-cuda "0.39.0"]
+                                    ;;[org.bytedeco/onnxruntime "1.22.2-1.5.13-20250919.193018-16" :classifier "linux-x86_64-gpu"]
+                                    [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
+                                    ;; [org.bytedeco/cuda "12.9-9.10-1.5.13-20250913.041224-9" :classifier "linux-x86_64-redist"]
+                                    ;; [org.bytedeco/cuda "12.9-9.10-1.5.13-20250913.041224-9" :classifier "linux-x86_64-redist-cublas"]
+                                    ;; [org.bytedeco/cuda "12.9-9.10-1.5.13-20250913.041224-9" :classifier "linux-x86_64-redist-cudnn"]
+                                    ]}
              :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.1"]
-                                      [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]]}
+                                      ;; [org.uncomplicate/deep-diamond-cuda "0.39.0"]
+                                      ;;[org.bytedeco/onnxruntime "1.22.2-1.5.13-20250919.193018-16" :classifier "windows-x86_64-gpu"]
+                                      [org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]
+                                      ;; [org.bytedeco/cuda "12.9-9.10-1.5.13-20250913.041224-9" :classifier "windows-x86_64-redist"]
+                                      ;; [org.bytedeco/cuda "12.9-9.10-1.5.13-20250913.041224-9" :classifier "windows-x86_64-redist-cublas"]
+                                      ;; [org.bytedeco/cuda "12.9-9.10-1.5.13-20250913.041224-9" :classifier "windows-x86_64-redist-cudnn"]
+                                      ]}
              :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.57.0"]
                                      [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]}}
 

@@ -24,7 +24,7 @@
   (scal! (/ 1.0 (asum (exp! xs))) xs))
 
 (defn test-onnx-model [fact]
-  (with-release [env (environment :warning "test")
+  (with-release [env (environment :warning "test" nil)
                  opt (-> (options)
                          (append-provider! :dnnl)
                          (graph-optimization! :extended))

@@ -37,7 +37,7 @@
 
 (facts
   "Test session releasing."
-  (let [env (environment)
+  (let [env (environment nil)
         opt (options)
         sess (session env "data/logreg_iris.onnx" opt)]
     (null? opt) => false
@@ -191,7 +191,7 @@
 (facts
   "The correct logreg iris test."
   ;; This uses a logreg_iris.onnx model that matches the iris data as described in literature
-  (with-release [env (environment)
+  (with-release [env (environment nil)
                  opt (doto (options)
                        (append-provider! :dnnl)
                        (graph-optimization! :extended)
@@ -226,7 +226,7 @@
 
 (facts
   "Simple MNIST inference test."
-  (with-release [env (environment :warning "test")
+  (with-release [env (environment :warning "test" nil)
                  opt (-> (options)
                          (append-provider! :dnnl)
                          (graph-optimization! :extended))

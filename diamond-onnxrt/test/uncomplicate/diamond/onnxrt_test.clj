@@ -16,7 +16,8 @@
              [dnn :refer [network activation]]
              [onnxrt :refer [onnx]]]
             [uncomplicate.diamond.internal.onnxrt.core-test :refer [test-image-0]]
-            [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]))
+            [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
+            #_[uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
 
 (defn test-onnx-network [fact]
   (with-release [src-tz (tensor fact [1 1 28 28] :float :nchw)
@@ -33,3 +34,6 @@
 
 (with-release [fact (dnnl-factory)]
   (test-onnx-network fact))
+
+;; (with-release [fact (cudnn-factory)]
+;;   (test-onnx-network fact))
