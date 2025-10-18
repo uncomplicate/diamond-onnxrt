@@ -513,20 +513,38 @@
                          (safe (cond (map? inputs) (get-value inputs in-name)
                                      (sequential? inputs) (first inputs)
                                      :default inputs))))
-           (with-release [in-names (input-names* sess)]
-             (doseq [in-name (pointer-vec in-names)]
-               (bind-input res in-name (get-value inputs in-name)))))
+           (cond (map? inputs)
+                 (with-release [in-names (input-names* ort-api sess allo)]
+                   (doseq [in-name (pointer-vec in-names)]
+                     (bind-input res in-name (get-value inputs in-name))))
+                 (sequential? inputs)
+                 (let [inputs (vec inputs)]
+                   (dotimes [i (count inputs)]
+                     (with-release [in-name (input-name* ort-api sess allo i)]
+                       (bind-input res in-name (inputs i)))))
+                 :default (dragan-says-ex "Unsupported input typeu." {:inputs inputs})))
          (if (= 1 output-cnt)
            (with-release [out-name (safe (output-name* ort-api sess allo 0))]
              (bind-output res out-name
                           (safe (cond (map? outputs) (get-value outputs out-name)
                                       (sequential? outputs) (first outputs)
                                       :default outputs))))
-           (with-release [out-names (output-names* sess)]
-             (doseq [out-name (pointer-vec out-names)]
-               (if (instance? OrtMemoryInfo outputs)
-                 (bind-output-to-device* ort-api res out-name outputs)
-                 (bind-output* ort-api res out-name (get-value outputs out-name))))))
+           (cond (map? outputs)
+                 (with-release [out-names (output-names* ort-api sess allo)]
+                   (doseq [out-name (pointer-vec out-names)]
+                     (let [output (get-value outputs out-name)]
+                       (if (instance? OrtMemoryInfo output)
+                         (bind-output-to-device* ort-api res out-name output)
+                         (bind-output* ort-api res out-name output)))))
+                 (sequential? outputs)
+                 (let [outputs (vec outputs)]
+                   (dotimes [i (count outputs)]
+                     (with-release [out-name (output-name* ort-api sess allo i)]
+                       (let [output (outputs i)]
+                         (if (instance? OrtMemoryInfo output)
+                           (bind-output-to-device* ort-api res out-name output)
+                           (bind-output* ort-api res out-name output))))))
+                 :default (dragan-says-ex "Unsupported output type." {:outputs outputs})))
          res)))))
 
 (extend-type OrtIoBinding

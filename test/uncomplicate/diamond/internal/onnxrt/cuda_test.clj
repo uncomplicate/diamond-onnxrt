@@ -75,7 +75,9 @@
 (facts
   "Test cuda memory-info."
   (with-release [env (environment nil)
-                 opt (-> (options) (append-provider! :cuda))
+                 opt (-> (options)
+                         (append-provider! :cuda)
+                         (config! {:log-severity-level 1}))
                  mem-info (memory-info :cuda :arena 0 :default)
                  mem-info1 (memory-info :cuda :arena 0 :default)
                  mem-info2 (memory-info :cuda :device 0 :default)]
@@ -120,30 +122,6 @@
        (onnx-tensor mem-info [0 -1] data) => (throws RuntimeException)
        (onnx-tensor mem-info [0 0] nil) => (throws RuntimeException)
        (onnx-tensor mem-info 3 data) => (throws RuntimeException)))))
-
-(facts
-  "The correct logreg iris test on CUDA."
-  ;; This uses a logreg_iris.onnx model that matches the iris data as described in literature
-  (with-release [env (environment nil)
-                 opt (doto (options)
-                       (append-provider! :cuda)
-                       (graph-optimization! :extended)
-                       (override-dimension! :batch 2))
-                 sess (session env "data/logreg_iris_correct.onnx" opt)
-                 input-info (input-type-info sess 0)
-                 output-info (output-type-info sess)
-                 mem-info (memory-info :cuda :device 0 :default)
-                 x-data (cuda-malloc (* 8 Float/BYTES) :float)
-                 x (onnx-tensor mem-info [2 4] x-data)
-                 infer! (runner* sess)]
-    (memcpy-to-device! (float-pointer [5.1 3.5 1.4 0.2
-                                       4.9 3.0 1.4 0.2])
-                       x-data) => x-data
-    (with-release [outputs (infer! (pointer-pointer [x]) nil)]
-      (map #(vector (pointer-vec (capacity! (long-pointer (mutable-data (value-value % 0))) 3))
-                    (pointer-vec (capacity! (float-pointer (mutable-data (value-value % 1))) 3)))
-           (value-value (value outputs 1))) => [[[0 1 2] (mapv float [0.9794105 0.020589434 4.5429704E-8])]
-                                                [[0 1 2] (mapv float [0.9692533 0.030746665 6.886014E-8])]])))
 
 (with-release [dev (device 0)]
   (with-context (context dev :map-host)

@@ -560,7 +560,7 @@
 
 (defn bound-values* [^OrtApi ort-api ^OrtIoBinding binding ^OrtAllocator allo]
   (let-release [res (pointer-pointer nil)]
-    (capacity! res (call-size-t ort-api GetBoundOutputNames binding allo res))))
+    (capacity! res (call-size-t ort-api GetBoundOutputValues binding allo res))))
 
 ;; =================== Run Options =================================================================
 
