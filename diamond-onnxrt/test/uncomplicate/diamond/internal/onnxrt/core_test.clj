@@ -169,7 +169,7 @@
     (symbolic-shape (cast-type input-info)) => ["" ""]
     (info x) => {:value {:data-type :float :shape [3 2]}}
 
-    (with-release [outputs (infer! (pointer-pointer [x]))]
+    (with-release [outputs (infer! (pointer-pointer [x]) nil)]
       (tensor? (value outputs 0)) => true
       (pointer-vec (capacity! (long-pointer (mutable-data (value outputs 0))) 3)) => [0 0 0]
       (value-count (value outputs 1)) => 3
@@ -212,7 +212,7 @@
       (shape! x-info [2 4]) => x-info
       (tensor-count x-info) => 8)
 
-    (with-release [outputs (infer! (pointer-pointer [x]))]
+    (with-release [outputs (infer! (pointer-pointer [x]) nil)]
       (map #(vector (pointer-vec (capacity! (long-pointer (mutable-data (value-value % 0))) 3))
                     (pointer-vec (capacity! (float-pointer (mutable-data (value-value % 1))) 3)))
            (value-value (value outputs 1))) => [[[0 1 2] (mapv float [0.9794105 0.020589434 4.5429704E-8])]
@@ -238,7 +238,8 @@
                  x (onnx-tensor mem-info [1 1 28 28] x-data)
                  y-data! (fill! (float-pointer 10) 0)
                  y! (onnx-tensor mem-info [1 10] y-data!)
-                 classify! (runner* sess)]
+                 classify! (runner* sess)
+                 data-binding (io-binding sess [x] [y!])]
     (info input-info) => {:data-type :float :shape [1 1 28 28]}
     (info output-info) => {:data-type :float :shape [1 10]}
     (input-name sess 0) => "Input3"
@@ -248,6 +249,12 @@
     ;; This takes, more or less, 40 microseconds per one call (measured after init, with 100000 iterations)
     (get-entry (classify! (pointer-pointer [x]) (pointer-pointer [y!])))
     => (get-entry (pointer-pointer [y!]))
+    (let [res (pointer-vec (softmax y-data!))
+          seven (res 7)]
+      seven => 1.0
+      (apply max res) => seven)
+    (fill! y-data! 0)
+    (classify! data-binding) => data-binding
     (let [res (pointer-vec (softmax y-data!))
           seven (res 7)]
       seven => 1.0

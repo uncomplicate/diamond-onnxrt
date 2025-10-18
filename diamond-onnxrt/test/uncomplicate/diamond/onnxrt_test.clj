@@ -10,30 +10,29 @@
     uncomplicate.diamond.onnxrt-test
   (:require [midje.sweet :refer [facts =>]]
             [uncomplicate.commons [core :refer [with-release release]]]
-            [uncomplicate.neanderthal.core :refer [iamax transfer!]]
+            [uncomplicate.neanderthal.core :refer [iamax transfer! native]]
             [uncomplicate.diamond
-             [tensor :refer [tensor]]
+             [tensor :refer [tensor output]]
              [dnn :refer [network activation]]
              [onnxrt :refer [onnx]]]
             [uncomplicate.diamond.internal.onnxrt.core-test :refer [test-image-0]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
-            #_[uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
+            [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
 
 (defn test-onnx-network [fact]
   (with-release [src-tz (tensor fact [1 1 28 28] :float :nchw)
                  mnist-bp (network fact src-tz
                                    [(onnx "data/mnist-12.onnx")
-                                    (activation :softmax)])
+                                    (activation :relu)])
                  mnist-infer! (mnist-bp src-tz)]
 
     (transfer! test-image-0 src-tz)
-
     (facts
       "ONNX MNIST network inference test."
-      (iamax (mnist-infer!)) => 7)))
+      (iamax (native (mnist-infer!))) => 7)))
 
 (with-release [fact (dnnl-factory)]
   (test-onnx-network fact))
 
-;; (with-release [fact (cudnn-factory)]
-;;   (test-onnx-network fact))
+(with-release [fact (cudnn-factory)]
+  (test-onnx-network fact))

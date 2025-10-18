@@ -20,7 +20,7 @@
             OrtAllocator OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo
             OrtOptionalTypeInfo OrtStatus OrtArenaCfg OrtCustomOpDomain OrtIoBinding OrtKernelInfo
             OrtMemoryInfo OrtModelMetadata OrtOp OrtOpAttr OrtPrepackedWeightsContainer OrtRunOptions
-            OrtValue OrtDnnlProviderOptions OrtCUDAProviderOptionsV2 OrtLoggingFunction
+            OrtValue OrtDnnlProviderOptions OrtCUDAProviderOptions OrtCUDAProviderOptionsV2 OrtLoggingFunction
             OrtThreadingOptions OrtGraph OrtKeyValuePairs OrtLoraAdapter OrtModel OrtNode
             OrtCustomCreateThreadFn OrtCustomJoinThreadFn ;;TODO 1.23+ OrtSyncStream
             OrtAllocator$Free_OrtAllocator_Pointer]))
@@ -111,6 +111,7 @@
          true))))
 
 (extend-ort-call OrtDnnlProviderOptions ReleaseDnnlProviderOptions)
+;;TODO see about CUDA optionsV1
 (extend-ort-call OrtCUDAProviderOptionsV2 ReleaseCUDAProviderOptions)
 
 (defmacro call-pointer-pointer [ort-api type method & args]
@@ -357,7 +358,12 @@
 (defn cuda-options* [^OrtApi ort-api]
   (call-pointer-pointer ort-api OrtCUDAProviderOptionsV2 CreateCUDAProviderOptions))
 
-(defn append-cuda* [^OrtApi ort-api ^OrtSessionOptions opt ^OrtCUDAProviderOptionsV2 cuda-opt]
+(defn append-cuda* [^OrtApi ort-api ^OrtSessionOptions opt ^OrtCUDAProviderOptions cuda-opt];;TODO use V2
+  (with-check ort-api
+    (.SessionOptionsAppendExecutionProvider_CUDA ort-api opt cuda-opt)
+    opt))
+
+(defn append-cuda-v2* [^OrtApi ort-api ^OrtSessionOptions opt ^OrtCUDAProviderOptionsV2 cuda-opt]
   (with-check ort-api
     (.SessionOptionsAppendExecutionProvider_CUDA_V2 ort-api opt cuda-opt)
     opt))

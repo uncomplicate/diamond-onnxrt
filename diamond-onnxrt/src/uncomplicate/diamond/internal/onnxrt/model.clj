@@ -26,20 +26,20 @@
              [utils :refer [default-strides transfer-weights-bias! concat-strides
                             concat-dst-shape direction-count]]]
             [uncomplicate.diamond.internal.onnxrt.core :as onnx
-             :refer [onnx-tensor runner* cast-type input-type-info output-type-info tensor-type]])
+             :refer [onnx-tensor runner* cast-type input-type-info output-type-info tensor-type
+                     io-binding]])
   (:import [clojure.lang IFn AFn]))
 
 ;; ================================ Activation =============================================
 
-(deftype StraightInference [fact bluep src-conn dst-tz infer! in-pp out-pp]
+(deftype StraightInference [fact bluep src-conn dst-tz infer! bindings ins outs]
   Releaseable
   (release [_]
     (release src-conn)
     (release dst-tz)
-    (release (pointer-vec in-pp))
-    (release (pointer-vec out-pp))
-    (release in-pp)
-    (release out-pp)
+    (release bindings)
+    (release ins)
+    (release outs)
     (release infer!))
   Info
   (info [this]
@@ -66,7 +66,7 @@
   IFn
   (invoke [_]
     (src-conn)
-    (infer! in-pp out-pp)
+    (infer! bindings)
     dst-tz)
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
@@ -111,10 +111,9 @@
                   dst-tz (create-tensor fact dst-desc (batch-index src-tz) false)
                   infer! (runner* sess run-opt)
                   in-onnx (onnx-tensor mem-info onnx-in-shape (buffer (output src-conn)))
-                  in-pp (pointer-pointer [in-onnx])
                   out-onnx (onnx-tensor mem-info onnx-out-shape (buffer (output dst-tz)))
-                  out-pp (pointer-pointer [out-onnx])]
-      (->StraightInference fact this src-conn dst-tz infer! in-pp out-pp)))
+                  binding (io-binding sess [in-onnx] [out-onnx])]
+      (->StraightInference fact this src-conn dst-tz infer! binding [in-onnx] [out-onnx])))
   (invoke [this src-tz diff-tz]
     (dragan-says-ex "ONNX Runtime doesn't support training. (yet!)"))
   (applyTo [this xs]

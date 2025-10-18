@@ -24,7 +24,7 @@
            [org.bytedeco.onnxruntime OrtDnnlProviderOptions OrtTypeInfo OrtTensorTypeAndShapeInfo
             OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo OrtMemoryInfo OrtValue
             OrtThreadingOptions OrtModelMetadata OrtIoBinding OrtSessionOptions OrtRunOptions
-            OrtSession]))
+            OrtSession OrtCUDAProviderOptions]))
 
 (defprotocol OnnxType
   (onnx-type [this]))
@@ -257,8 +257,7 @@
     opt!))
 
 (defn append-cuda! [opt! opt-map]
-  (with-release [cuda (cuda-options* *ort-api*)]
-    (.use_arena cuda (get :arena opt-map 0))
+  (with-release [cuda (OrtCUDAProviderOptions.)];;TODO
     (append-cuda* *ort-api* opt! cuda)
     opt!))
 
@@ -539,6 +538,9 @@
      (case type-info
        :names (bound-names this)
        nil))))
+
+(defn binding? [this]
+  (instance? OrtIoBinding this))
 
 ;; ==================== OrtTypeInfo ================================================================
 
@@ -906,12 +908,11 @@
     true)
   IFn
   (invoke [this in out]
-    (run* ort-api (safe sess) (safe2 run-opt) in-names in out-names out)
-    out)
-  (invoke [this in]
-    (let-release [out (pointer-pointer (repeat out-cnt nil))]
-      (.invoke this in out)
+    (let-release [out (or out (pointer-pointer (repeat out-cnt nil)))]
+      (run* (safe ort-api) (safe sess) (safe2 run-opt) in-names in out-names out)
       out))
+  (invoke [this binding]
+    (run* (safe ort-api) (safe sess) (safe2 run-opt) binding))
   (invoke [this]
     run-opt)
   (applyTo [this xs]
@@ -931,16 +932,3 @@
                (output-names* ort-api sess allo))))
   ([sess]
    (runner* sess nil)))
-
-;;TODO
-#_(deftype BindingRunner [ort-api sess opt allo free binding]
-  IFn
-  (invoke [this _ _]
-    (run* ort-api (safe sess) (safe2 opt) (safe binding))
-    out)
-  (invoke [this binding]
-    (let-release [out (pointer-pointer (repeat out-cnt nil))]
-      (.invoke this in out)
-      out))
-  (applyTo [this xs]
-    (AFn/applyToHelper this xs)))
