@@ -17,7 +17,6 @@ hs_*.log
 *.so
 */nrepl-port
 */target
-data
 /network.trained
 /td1.tz
 /network.trained.2
