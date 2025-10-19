@@ -15,7 +15,7 @@
              :refer [null? pointer pointer-pointer int-pointer long-pointer byte-pointer char-pointer
                      size-t-pointer get-entry put-entry! get-string capacity! capacity get-pointer
                      limit!]])
-  (:import [org.bytedeco.javacpp Loader Pointer BytePointer PointerPointer LongPointer]
+  (:import [org.bytedeco.javacpp Loader Pointer BytePointer PointerPointer LongPointer SizeTPointer]
            [org.bytedeco.onnxruntime OrtApiBase OrtApi OrtEnv OrtSession OrtSessionOptions
             OrtAllocator OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo
             OrtOptionalTypeInfo OrtStatus OrtArenaCfg OrtCustomOpDomain OrtIoBinding OrtKernelInfo
@@ -23,10 +23,10 @@
             OrtValue OrtDnnlProviderOptions OrtCUDAProviderOptions OrtCUDAProviderOptionsV2 OrtLoggingFunction
             OrtThreadingOptions OrtGraph OrtKeyValuePairs OrtLoraAdapter OrtModel OrtNode
             OrtCustomCreateThreadFn OrtCustomJoinThreadFn ;;TODO 1.23+ OrtSyncStream
-            OrtAllocator$Free_OrtAllocator_Pointer]))
+            OrtAllocator$Free_OrtAllocator_Pointer OrtApi$MemoryInfoGetDeviceType_OrtMemoryInfo_IntPointer]))
 
-(def ^:dynamic *ort-api*)
-(def ^:dynamic *default-allocator*)
+(def ^{:dynamic true :tag OrtApi} *ort-api*)
+(def ^{:dynamic true :tag OrtAllocator} *default-allocator*)
 
 (defn api* [^OrtApiBase ort-api-base ^long version]
   (.call (.GetApi ort-api-base) version))
@@ -65,7 +65,7 @@
 (extend-ort OrtArenaCfg ReleaseArenaCfg)
 (extend-ort OrtCustomOpDomain ReleaseCustomOpDomain)
 (extend-ort OrtEnv ReleaseEnv)
-(extend-ort OrtGraph ReleaseOrtGraph)
+(extend-ort OrtGraph ReleaseGraph)
 (extend-ort OrtIoBinding ReleaseIoBinding)
 (extend-ort OrtKernelInfo ReleaseKernelInfo)
 (extend-ort OrtKeyValuePairs ReleaseKeyValuePairs)
@@ -122,25 +122,25 @@
          (.get res# ~type 0)))))
 
 (defmacro call-int [ort-api method & args]
-  `(let [ort-api# ~ort-api]
-     (with-release [res# (int-pointer 1)]
-       (with-check ort-api#
-         (. ort-api# (~method ~@args res#))
-         (get-entry res# 0)))))
+  `(int (let [ort-api# ~ort-api]
+          (with-release [res# (int-pointer 1)]
+            (with-check ort-api#
+              (. ort-api# (~method ~@args res#))
+              (get-entry res# 0))))))
 
 (defmacro call-long [ort-api method & args]
-  `(let [ort-api# ~ort-api]
-     (with-release [res# (long-pointer 1)]
-       (with-check ort-api#
-         (. ort-api# (~method ~@args res#))
-         (get-entry res# 0)))))
+  `(long (let [ort-api# ~ort-api]
+          (with-release [res# (long-pointer 1)]
+            (with-check ort-api#
+              (. ort-api# (~method ~@args res#))
+              (get-entry res# 0))))))
 
 (defmacro call-size-t [ort-api method & args]
-  `(let [ort-api# ~ort-api]
-     (with-release [res# (size-t-pointer 1)]
-       (with-check ort-api#
-         (. ort-api# (~method ~@args res#))
-         (get-entry res# 0)))))
+  `(long (let [ort-api# ~ort-api]
+          (with-release [res# (size-t-pointer 1)]
+            (with-check ort-api#
+              (. ort-api# (~method ~@args res#))
+              (get-entry res# 0))))))
 
 ;; ================= OrtApi ========================================================================
 
@@ -165,10 +165,10 @@
 
 (defn current-gpu-device-id*
   (^long [^OrtApi ort-api]
-   (call-int ort-api GetCurrentGPUDeviceId))
+   (call-int ort-api GetCurrentGpuDeviceId))
   ([^OrtApi ort-api ^long id]
    (with-check ort-api
-     (.SetCurrentGPUDeviceId ort-api (int-pointer [id]))
+     (.SetCurrentGpuDeviceId ort-api (int-pointer [id]))
      ort-api)))
 
 ;; ================= Allocators ================================================
@@ -202,9 +202,9 @@
 ;; ===================== OrtEnv ====================================================================
 
 (defn env*
-  ([^OrtApi ort-api ^long logging-level ^Pointer name]
+  ([^OrtApi ort-api ^long logging-level ^BytePointer name]
    (call-pointer-pointer ort-api OrtEnv CreateEnv logging-level name))
-  ([^OrtApi ort-api ^long logging-level ^Pointer name ^OrtThreadingOptions opts]
+  ([^OrtApi ort-api ^long logging-level ^BytePointer name ^OrtThreadingOptions opts]
    (call-pointer-pointer ort-api OrtEnv CreateEnvWithGlobalThreadPools logging-level name opts)))
 
 (defn enable-telemetry* [^OrtApi ort-api ^OrtEnv env]
@@ -281,9 +281,9 @@
     (.SetSessionExecutionMode ort-api opt mode)
     opt))
 
-(defn enable-profiling* [^OrtApi ort-api ^OrtSessionOptions opt]
+(defn enable-profiling* [^OrtApi ort-api ^OrtSessionOptions opt ^BytePointer path]
   (with-check ort-api
-    (.EnableProfiling ort-api opt)
+    (.EnableProfiling ort-api opt path)
     opt))
 
 (defn disable-profiling* [^OrtApi ort-api ^OrtSessionOptions opt]
@@ -303,12 +303,12 @@
 
 (defn enable-cpu-mem-arena* [^OrtApi ort-api ^OrtSessionOptions opt]
   (with-check ort-api
-    (.EnableMemArena ort-api opt)
+    (.EnableCpuMemArena ort-api opt)
     opt))
 
 (defn disable-cpu-mem-arena* [^OrtApi ort-api ^OrtSessionOptions opt]
   (with-check ort-api
-    (.DisableMemArena ort-api opt)
+    (.DisableCpuMemArena ort-api opt)
     opt))
 
 (defn session-log-id* [^OrtApi ort-api ^OrtSessionOptions opt ^BytePointer log-id]
@@ -318,12 +318,12 @@
 
 (defn session-severity* [^OrtApi ort-api ^OrtSessionOptions opt ^long level]
   (with-check ort-api
-    (.SetSessionSeverityLevel ort-api opt level)
+    (.SetSessionLogSeverityLevel ort-api opt level)
     opt))
 
 (defn session-verbosity* [^OrtApi ort-api ^OrtSessionOptions opt ^long level]
   (with-check ort-api
-    (.SetSessionVerbosityLevel ort-api opt level)
+    (.SetSessionLogVerbosityLevel ort-api opt level)
     opt))
 
 (defn intra-op-threads* [^OrtApi ort-api ^OrtSessionOptions opt ^long num-threads]
@@ -401,11 +401,11 @@
    (with-release [actual-size (size-t-pointer [(capacity res)])]
      (with-check ort-api
        (.GetSessionConfigEntry ort-api opt key res actual-size)
-       (limit! res (dec (get-entry actual-size 0)))))))
+       (limit! res (dec (long (get-entry actual-size 0))))))))
 
 (defn initializer* [^OrtApi ort-api ^OrtSessionOptions opt ^BytePointer name ^OrtValue val]
   (with-check ort-api
-    (.AddInitializer opt name val)
+    (.AddInitializer ort-api opt name val)
     opt))
 
 ;; ================================== Session ==================================
@@ -417,7 +417,7 @@
   ([^OrtApi ort-api ^OrtEnv env
     ^Pointer model-path ^OrtSessionOptions opt
     ^OrtPrepackedWeightsContainer prepacked-weihgts-container]
-   (call-pointer-pointer ort-api OrtSession CreateSessionFromPrepackedWeightsContainer env
+   (call-pointer-pointer ort-api OrtSession CreateSessionWithPrepackedWeightsContainer env
                          model-path opt prepacked-weihgts-container)))
 
 (defn session-from-array*
@@ -445,7 +445,7 @@
 
 (defn prepackaged-weights* [^OrtApi ort-api]
   (call-pointer-pointer ort-api
-      OrtPrepackedWeightsContainer CreatePrepackagedWeightsContainer))
+      OrtPrepackedWeightsContainer CreatePrepackedWeightsContainer))
 
 (defn overridable-initializer-count* ^long [^OrtApi ort-api ^OrtSession sess]
   (call-size-t ort-api SessionGetOverridableInitializerCount sess))
@@ -460,7 +460,7 @@
       OrtTypeInfo SessionGetOverridableInitializerTypeInfo sess i))
 
 (defn profiling-start-time* [^OrtApi ort-api ^OrtSession sess]
-  (call-size-t ort-api sess))
+  (call-long ort-api SessionGetProfilingStartTimeNs sess))
 
 (defn end-profiling* [^OrtApi ort-api ^OrtSession sess ^OrtAllocator allo]
   (call-pointer-pointer ort-api BytePointer SessionEndProfiling sess allo))
@@ -553,9 +553,10 @@
 
 (defn bound-names* [^OrtApi ort-api ^OrtIoBinding binding ^OrtAllocator allo]
   (let-release [res (pointer-pointer nil)
-                lengths (size-t-pointer nil)]
+                lengths (pointer-pointer nil)]
     (dotimes [i (call-size-t ort-api GetBoundOutputNames binding allo res lengths)]
-      (capacity! (.get res BytePointer i) (get-entry lengths i)))
+      (with-release [len (get-entry lengths i)]
+        (capacity! (.get res BytePointer i) (get-pointer len SizeTPointer 0))))
     res))
 
 (defn bound-values* [^OrtApi ort-api ^OrtIoBinding binding ^OrtAllocator allo]
@@ -671,7 +672,7 @@
      (with-check ort-api
        (.GetSymbolicDimensions ort-api info res cnt)
        res)))
-  ([^OrtApi ort-api ^OrtTensorTypeAndShapeInfo info ppnames]
+  ([^OrtApi ort-api ^OrtTensorTypeAndShapeInfo info ^PointerPointer ppnames]
    (with-check ort-api
      (.SetSymbolicDimensions ort-api info ppnames (size ppnames))
      info)))
@@ -689,7 +690,7 @@
 (defn device-type*
   ([^OrtApi ort-api]
    (.MemoryInfoGetDeviceType ort-api))
-  (^long [call ^OrtMemoryInfo mem-info]
+  (^long [^OrtApi$MemoryInfoGetDeviceType_OrtMemoryInfo_IntPointer call ^OrtMemoryInfo mem-info]
    (with-release [res (int-pointer 1)]
      (.call call mem-info res)
      (get-entry res 0))))
@@ -708,14 +709,14 @@
 
 ;; =================== OrtValue ====================================================================
 ;;TODO 1.23+
-(defn create-tensor* [^OrtApi ort-api ^OrtMemoryInfo mem-info ^Pointer data shape type]
+(defn create-tensor* [^OrtApi ort-api ^OrtMemoryInfo mem-info ^Pointer data ^LongPointer shape type]
   (call-pointer-pointer ort-api OrtValue CreateTensorWithDataAsOrtValue mem-info
                         data (bytesize data)
                         shape (size shape)
                         (int type)))
 
-(defn allocate-tensor* [^OrtApi ort-api ^OrtAllocator alloc shape type]
-  (call-pointer-pointer ort-api OrtValue CreateTensorWithOrtValue alloc
+(defn allocate-tensor* [^OrtApi ort-api ^OrtAllocator alloc ^LongPointer shape type]
+  (call-pointer-pointer ort-api OrtValue CreateTensorAsOrtValue alloc
                         shape (size shape) (int type)))
 
 (defn value-info* [^OrtApi ort-api ^OrtValue value]
@@ -737,7 +738,7 @@
   (call-int ort-api HasValue value))
 
 ;; TODO new in 1.23.
-(defn tensor-size-in-bytes* [^OrtApi ort-api ^OrtValue value]
+#_(defn tensor-size-in-bytes* [^OrtApi ort-api ^OrtValue value]
   (call-size-t ort-api GetTensoriSizeInBytes value))
 
 (defn tensor-mutable-data* [^OrtApi ort-api ^OrtValue value]

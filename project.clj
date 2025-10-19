@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject org.uncomplicate/diamond-onnxrt "0.10.0"
+(defproject org.uncomplicate/diamond-onnxrt "0.11.0-SNAPSHOT"
   :description "Fast Clojure Machine Learning Model Integration"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
@@ -20,10 +20,7 @@
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {:plugins [[lein-midje "3.2.1"]]
                        :resource-paths ["data"]
-                       :global-vars {*warn-on-reflection* true
-                                     *assert* false
-                                     *unchecked-math* :warn-on-boxed
-                                     *print-length* 128}
+
                        :dependencies [[midje "1.10.10"]]
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                             "--enable-native-access=ALL-UNNAMED"]}
@@ -46,5 +43,10 @@
                                      [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]}}
 
   :repositories [["maven-central-snapshots" "https://central.sonatype.com/repository/maven-snapshots"]]
+
+  :global-vars {*warn-on-reflection* true
+                *assert* false
+                *unchecked-math* :warn-on-boxed
+                *print-length* 128}
 
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"])

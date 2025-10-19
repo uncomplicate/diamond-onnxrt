@@ -164,9 +164,10 @@
   (execution-mode* *ort-api* (safe opt!) (enc-keyword ort-execution-mode mode)))
 
 (defn profiling!
-  ([opt! enable?]
-   (if enable?
-     (enable-profiling* *ort-api* (safe opt!))
+  ([opt! ^String path]
+   (if path
+     (with-release [ppath (byte-pointer path)]
+       (enable-profiling* *ort-api* (safe opt!) ppath))
      (disable-profiling* *ort-api* (safe opt!))))
   ([opt!]
    (enable-profiling* *ort-api* (safe opt!))))
@@ -251,7 +252,7 @@
     (initializer* *ort-api* (safe opt!) init-name)))
 
 (defn append-dnnl! [opt! opt-map]
-  (with-release [dnnl (dnnl-options* *ort-api*)]
+  (with-release [dnnl ^OrtDnnlProviderOptions (dnnl-options* *ort-api*)]
     (.use_arena dnnl (get :arena opt-map 0))
     (append-dnnl* *ort-api* (safe opt!) dnnl)
     opt!))
@@ -723,9 +724,8 @@
   ([]
    (device-type* *ort-api*))
   ([mem-info]
-   (device-type (device-type* *ort-api*) mem-info))
-  ([call mem-info]
-   (dec-ort-memory-info-device-type (device-type* (safe call) (safe mem-info)))))
+   (dec-ort-memory-info-device-type
+    (device-type* (safe (device-type* (safe *ort-api*))) (safe mem-info)))))
 
 (defn device-id [mem-info]
   (device-id* *ort-api* (safe mem-info)))
