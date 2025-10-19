@@ -29,6 +29,7 @@
     (transfer! test-image-0 src-tz)
     (facts
       "ONNX MNIST network inference test."
+      ;;TODO it seems cuda tensor engine can also support this.
       (iamax (native (mnist-infer!))) => 7)))
 
 (with-release [fact (dnnl-factory)]

@@ -478,7 +478,7 @@
 (defn bind-output [binding name value-or-mem-info]
   (with-release [name (byte-pointer name)]
     (if (instance? OrtValue value-or-mem-info)
-      (bind-output* *ort-api* (safe binding) name (safe value-or-mem-info))
+      (bind-output* *ort-api* (safe binding) name (safe value-or-mem-info));;TODO this can be a protocol.
       (bind-output-to-device* *ort-api* (safe binding) name (safe value-or-mem-info)))))
 
 (defn bound-names [binding]

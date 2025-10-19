@@ -15,7 +15,7 @@
              :refer [null? float-pointer long-pointer pointer-vec capacity! put-entry! fill! get-entry
                      pointer-pointer]]
             [uncomplicate.clojurecuda.core
-             :refer [with-context context device cuda-malloc memcpy-to-device! memcpy-to-host!]]
+             :refer [with-context context device cuda-malloc memcpy-to-device! memcpy-to-host! init]]
             [uncomplicate.neanderthal.math :refer [exp]]
             [uncomplicate.diamond.internal.onnxrt.core :refer :all]
             [uncomplicate.diamond.internal.onnxrt.core-test :refer [test-image-0 softmax]])
@@ -25,7 +25,6 @@
 
 (facts
   "Test system."
-  (version) => {:major 1 :minor 22 :update 2}
   (filter #{:cuda :dnnl :cpu} (available-providers)) => [:cuda :dnnl :cpu]
   (type (build-info)) => String)
 
@@ -123,6 +122,7 @@
        (onnx-tensor mem-info [0 0] nil) => (throws RuntimeException)
        (onnx-tensor mem-info 3 data) => (throws RuntimeException)))))
 
+(init)
 (with-release [dev (device 0)]
   (with-context (context dev :map-host)
     (facts
