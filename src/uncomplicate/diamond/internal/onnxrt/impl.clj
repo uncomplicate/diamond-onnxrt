@@ -357,12 +357,12 @@
 (defn cuda-options* [^OrtApi ort-api]
   (call-pointer-pointer ort-api OrtCUDAProviderOptionsV2 CreateCUDAProviderOptions))
 
-(defn update-cuda-options* [^OrtApi ort-api ^OrtSessionOptions opt ^PointerPointer keys ^PointerPointer values]
+(defn update-cuda-options* [^OrtApi ort-api ^OrtCUDAProviderOptionsV2 opt ^PointerPointer keys ^PointerPointer values]
   (with-check ort-api
     (.UpdateCUDAProviderOptions ort-api opt keys values (size keys))
     opt))
 
-(defn update-cuda-options-with-value* [^OrtApi ort-api ^OrtSessionOptions opt ^BytePointer key ^Pointer value]
+(defn update-cuda-options-with-value* [^OrtApi ort-api ^OrtCUDAProviderOptionsV2 opt ^BytePointer key ^Pointer value]
   (with-check ort-api
     (.UpdateCUDAProviderOptionsWithValue ort-api opt key value)
     opt))

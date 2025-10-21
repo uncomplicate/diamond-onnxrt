@@ -274,7 +274,8 @@
                      ppvalues (safe (pointer-pointer config-values))]
         (update-cuda-options* ort-api cuda ppkeys ppvalues)
         (when stream
-          (update-cuda-options-with-value* ort-api cuda "user_compute_stream" stream)))
+          (let [key (byte-pointer "user_compute_stream")]
+            (update-cuda-options-with-value* ort-api cuda key stream))))
       (append-cuda* ort-api opt! cuda)
       opt!)))
 

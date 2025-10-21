@@ -37,3 +37,10 @@
 
 (with-release [fact (cudnn-factory)]
   (test-onnx-network fact))
+
+;; TODO continue here. MInd cudaV2.
+;; there's also SynchronizeBoundInputs and Outputs that mentions synchronization with other streams.
+;; TODO ClearBoundInputs and Outputs
+;; TODO support all session configurations and related functions in onnx. After V2!
+;; the second important feature is to cover sequences and maps, but this should be relatively straightforward since we already support clojure sequences.
+;; After that, it's mostly cosmetics, and trying out available models.

@@ -80,7 +80,8 @@
                          (config! {:log-severity-level 1}))
                  mem-info (memory-info :cuda :arena 0 :default)
                  mem-info1 (memory-info :cuda :arena 0 :default)
-                 mem-info2 (memory-info :cuda :device 0 :default)]
+                 mem-info2 (memory-info :cuda :device 0 :default)
+                 mem-info3 (memory-info :cuda :device 0 :default)]
     (allocator-key mem-info) => nil
     (allocator-key mem-info1) => nil
     (allocator-key mem-info2) => nil
@@ -92,7 +93,8 @@
     (equal-memory-info? mem-info nil) => false
     (equal-memory-info? mem-info mem-info) => true
     (equal-memory-info? mem-info mem-info1) => false
-    (equal-memory-info? mem-info mem-info2) => false))
+    (equal-memory-info? mem-info mem-info2) => false
+    (equal-memory-info? mem-info2 mem-info3) => true))
 
 (with-release [dev (device 0)]
   (with-context (context dev :map-host)
@@ -124,7 +126,6 @@
        (onnx-tensor mem-info 3 data) => (throws RuntimeException)))))
 
 (init)
-
 (facts
   "Simple MNIST inference test."
   (with-release [env (environment :warning "test" nil)
