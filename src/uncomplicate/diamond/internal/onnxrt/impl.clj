@@ -111,7 +111,6 @@
          true))))
 
 (extend-ort-call OrtDnnlProviderOptions ReleaseDnnlProviderOptions)
-;;TODO see about CUDA optionsV1
 (extend-ort-call OrtCUDAProviderOptionsV2 ReleaseCUDAProviderOptions)
 
 (defmacro call-pointer-pointer [ort-api type method & args]
@@ -358,12 +357,17 @@
 (defn cuda-options* [^OrtApi ort-api]
   (call-pointer-pointer ort-api OrtCUDAProviderOptionsV2 CreateCUDAProviderOptions))
 
-(defn append-cuda* [^OrtApi ort-api ^OrtSessionOptions opt ^OrtCUDAProviderOptions cuda-opt];;TODO use V2
+(defn update-cuda-options* [^OrtApi ort-api ^OrtSessionOptions opt ^PointerPointer keys ^PointerPointer values]
   (with-check ort-api
-    (.SessionOptionsAppendExecutionProvider_CUDA ort-api opt cuda-opt)
+    (.UpdateCUDAProviderOptions ort-api opt keys values (size keys))
     opt))
 
-(defn append-cuda-v2* [^OrtApi ort-api ^OrtSessionOptions opt ^OrtCUDAProviderOptionsV2 cuda-opt]
+(defn update-cuda-options-with-value* [^OrtApi ort-api ^OrtSessionOptions opt ^BytePointer key ^Pointer value]
+  (with-check ort-api
+    (.UpdateCUDAProviderOptionsWithValue ort-api opt key value)
+    opt))
+
+(defn append-cuda* [^OrtApi ort-api ^OrtSessionOptions opt ^OrtCUDAProviderOptionsV2 cuda-opt]
   (with-check ort-api
     (.SessionOptionsAppendExecutionProvider_CUDA_V2 ort-api opt cuda-opt)
     opt))

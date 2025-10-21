@@ -11,7 +11,7 @@
   (:require [uncomplicate.commons
              [core :refer [with-release let-release]]
              [utils :refer [dragan-says-ex]]]
-            [uncomplicate.neanderthal.internal.api :refer [device]]
+            [uncomplicate.neanderthal.internal.api :refer [device flow]]
             [uncomplicate.diamond.tensor :refer [*diamond-factory*]]
             [uncomplicate.diamond.internal.protocols :refer [neanderthal-factory]]
             [uncomplicate.diamond.internal.onnxrt
@@ -19,6 +19,7 @@
                            graph-optimization! available-providers append-provider!
                            disable-per-session-threads!]]
              [model :refer [onnx-straight-model]]]))
+
 (def ^:dynamic *onnx-options*
   {:env nil
    :env-options nil
@@ -27,41 +28,61 @@
    :graph-optimization :extended
    :options nil
    :ep nil
-   :dnnl nil
-   :cuda nil
+   :dnnl {:arena true}
+   :cuda {:device-id 0
+          :copy-in-default-stream true
+          ;;:conv-algo-search :exhaustive ;;TODO
+          :conv-use-max-workspace true
+          :enable-cuda-graph false
+          :conv1d-pad-to-nc1d false
+          :tunable-op-enable false
+          :tunable-op-tuning-enable false
+          :tunable-op-max-tuning-duration-ms 0
+          :skip-layer-norm-strict-mode false
+          :prefer-nhwc false
+          :use-ep-level-unified-stream false
+          :ep-level-unified-stream false
+          :tf32 true
+          :fuse-conv-bias false
+          :sdpa-kernel false}
    :coreml nil
    :run-options nil})
 
 (defn onnx
   ([model-path args]
-   (let [args (into *onnx-options* args)
+   (let [merged-args (into *onnx-options* args)
          available-ep (set (available-providers))]
-     (with-release [env-options (threading-options (:env-options args))]
-       (let-release [env (or (:env args) (environment (:logging-level args) (:log-name args) env-options))]
+     (with-release [env-options (threading-options (:env-options merged-args))]
+       (let-release [env (or (:env merged-args)
+                             (environment (:logging-level merged-args)
+                                          (:log-name merged-args)
+                                          env-options))]
          (fn onnx-fn
            ([fact src-desc]
             (let [dev (device (neanderthal-factory fact :float))
-                  eproviders (or (:ep args) (filter available-ep (if (= :cuda dev)
-                                                                   [:cuda]
-                                                                   [:coreml :dnnl])))
+                  eproviders (or (:ep merged-args)
+                                 (filter available-ep (if (= :cuda dev) [:cuda] [:coreml :dnnl])))
                   uses-device (some #{:cuda} eproviders)
                   alloc-type (if (or uses-device (= :cuda dev))
                                :device
                                :arena)
                   mem-type (if (and (= :device alloc-type) (= :cpu dev))
                              :cpu
-                             :default)]
-              (with-release [opt (-> (if-let [opt (:options args)]
+                             :default)
+                  merged-args (if uses-device
+                                (assoc-in merged-args [:cuda :stream] (flow fact))
+                                merged-args)]
+              (with-release [opt (-> (if-let [opt (:options merged-args)]
                                        (options opt)
                                        (options))
                                      (disable-per-session-threads!)
-                                     (graph-optimization! (:graph-optimization args)))]
+                                     (graph-optimization! (:graph-optimization merged-args)))]
                 (doseq [ep (reverse eproviders)]
                   (append-provider! opt
                                     (or (available-ep ep)
                                         (dragan-says-ex (format "Execution provider %s is not available." ep)
                                                         {:requested ep :available available-ep}))
-                                    (args ep)))
+                                    (into (*onnx-options* ep) (merged-args ep))))
                 (let-release [sess (session env model-path opt)
                               mem-info (memory-info dev alloc-type mem-type)]
                   (onnx-straight-model fact sess (:run-options args) mem-info)))))

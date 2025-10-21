@@ -13,9 +13,10 @@
             [uncomplicate.fluokitten.core :refer [fold fmap!]]
             [uncomplicate.clojure-cpp
              :refer [null? float-pointer long-pointer pointer-vec capacity! put-entry! fill! get-entry
-                     pointer-pointer]]
+                     pointer-pointer pointer]]
             [uncomplicate.clojurecuda.core
-             :refer [with-context context device cuda-malloc memcpy-to-device! memcpy-to-host! init]]
+             :refer [with-context context device cuda-malloc memcpy-to-device! memcpy-to-host! init
+                     stream]]
             [uncomplicate.neanderthal.math :refer [exp]]
             [uncomplicate.diamond.internal.onnxrt.core :refer :all]
             [uncomplicate.diamond.internal.onnxrt.core-test :refer [test-image-0 softmax]])
@@ -90,7 +91,7 @@
     (memory-type mem-info) => :default
     (equal-memory-info? mem-info nil) => false
     (equal-memory-info? mem-info mem-info) => true
-    (equal-memory-info? mem-info mem-info1) => true
+    (equal-memory-info? mem-info mem-info1) => false
     (equal-memory-info? mem-info mem-info2) => false))
 
 (with-release [dev (device 0)]
@@ -123,25 +124,25 @@
        (onnx-tensor mem-info 3 data) => (throws RuntimeException)))))
 
 (init)
-(with-release [dev (device 0)]
-  (with-context (context dev :map-host)
-    (facts
-      "Simple MNIST inference test."
-      (with-release [env (environment :warning "test" nil)
-                     opt (-> (options)
-                             (append-provider! :cuda)
-                             (graph-optimization! :extended))
-                     sess (session env "data/mnist-12.onnx" opt)
-                     mem-info (memory-info :cuda :device 0 :default)
-                     x-data (cuda-malloc (* 784 Float/BYTES) :float)
-                     x (onnx-tensor mem-info [1 1 28 28] x-data)
-                     y-data! (cuda-malloc (* 10 Float/BYTES) :float)
-                     y! (onnx-tensor mem-info [1 10] y-data!)
-                     classify! (runner* sess)
-                     data-binding (io-binding sess [x] [y!])]
-        (memcpy-to-device! (float-pointer test-image-0) x-data) => x-data
-        (classify! data-binding) => data-binding
-        (let [res (pointer-vec (softmax (memcpy-to-host! y-data! (float-pointer 10))))
-              seven (res 7)]
-          seven => 1.0
-          (apply max res) => seven)))))
+
+(facts
+  "Simple MNIST inference test."
+  (with-release [env (environment :warning "test" nil)
+                 hstream (stream)
+                 opt (-> (options)
+                         (append-provider! :cuda {:stream hstream})
+                         (graph-optimization! :extended))
+                 sess (session env "data/mnist-12.onnx" opt)
+                 mem-info (memory-info :cuda :device 0 :default)
+                 x-data (cuda-malloc (* 784 Float/BYTES) :float)
+                 x (onnx-tensor mem-info [1 1 28 28] x-data)
+                 y-data! (cuda-malloc (* 10 Float/BYTES) :float)
+                 y! (onnx-tensor mem-info [1 10] y-data!)
+                 classify! (runner* sess)
+                 data-binding (io-binding sess [x] [y!])]
+    (memcpy-to-device! (float-pointer test-image-0) x-data) => x-data
+    (classify! data-binding) => data-binding
+    (let [res (pointer-vec (softmax (memcpy-to-host! y-data! (float-pointer 10))))
+          seven (res 7)]
+      seven => 1.0
+      (apply max res) => seven)))

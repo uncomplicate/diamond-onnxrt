@@ -24,7 +24,7 @@
            [org.bytedeco.onnxruntime OrtDnnlProviderOptions OrtTypeInfo OrtTensorTypeAndShapeInfo
             OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo OrtMemoryInfo OrtValue
             OrtThreadingOptions OrtModelMetadata OrtIoBinding OrtSessionOptions OrtRunOptions
-            OrtSession OrtCUDAProviderOptions]))
+            OrtSession OrtCUDAProviderOptionsV2]))
 
 (defprotocol OnnxType
   (onnx-type [this]))
@@ -79,7 +79,7 @@
   (current-gpu-device-id* *ort-api*))
 
 (defn current-gpu-device-id! [^long id]
- (current-gpu-device-id* *ort-api* id))
+  (current-gpu-device-id* *ort-api* id))
 
 ;; ===================== Threading Options =========================================================
 
@@ -253,14 +253,30 @@
 
 (defn append-dnnl! [opt! opt-map]
   (with-release [dnnl ^OrtDnnlProviderOptions (dnnl-options* *ort-api*)]
-    (.use_arena dnnl (get :arena opt-map 0))
+    (.use_arena dnnl (if (get :arena opt-map true) 1 0))
     (append-dnnl* *ort-api* (safe opt!) dnnl)
     opt!))
 
 (defn append-cuda! [opt! opt-map]
-  (with-release [cuda (OrtCUDAProviderOptions.)];;TODO
-    (append-cuda* *ort-api* opt! cuda)
-    opt!))
+  (let [ort-api (safe *ort-api*)
+        stream (:stream opt-map)
+        opt-map (dissoc opt-map :stream)]
+    (with-release [cuda (safe (cuda-options* ort-api))]
+      (with-release [config-keys (map #(byte-pointer (or (ort-cuda-provider-options-keys %)
+                                                         (dragan-says-ex "Unknown CUDA option."
+                                                                         {:requested %
+                                                                          :available (keys ort-cuda-provider-options-keys)})))
+                                      (keys opt-map))
+                     config-values (map (fn [[k v]]
+                                          (byte-pointer ((get ort-cuda-provider-options-encoders k identity) v)))
+                                        opt-map)
+                     ppkeys (safe (pointer-pointer config-keys))
+                     ppvalues (safe (pointer-pointer config-values))]
+        (update-cuda-options* ort-api cuda ppkeys ppvalues)
+        (when stream
+          (update-cuda-options-with-value* ort-api cuda "user_compute_stream" stream)))
+      (append-cuda* ort-api opt! cuda)
+      opt!)))
 
 (defn append-provider!
   ([opt! provider opt-map]
@@ -321,8 +337,8 @@
   ([sess]
    (let [allo (safe *default-allocator*)
          free (free* allo)]
-     (doall (mapv #(get-string* allo free (overridable-initializer-name*
-                                           *ort-api* (safe sess) allo %))
+     (doall (mapv #(get-string* allo free
+                                (overridable-initializer-name* *ort-api* (safe sess) allo %))
                   (range (initializer-count sess)))))))
 
 (defn initializer-type-info
@@ -504,9 +520,9 @@
          output-cnt (output-count sess)]
      (letfn [(get-value [values in-name]
                (let [name-string (getter in-name)]
-                 (get inputs name-string
-                      (dragan-says-ex "You have to provide names that match session model's specification."
-                                      {:requested (keys values) :expected name-string}))))]
+                 (or (inputs name-string)
+                     (dragan-says-ex "You have to provide names that match session model's specification."
+                                     {:requested (keys values) :expected name-string}))))]
        (let-release [res (safe (io-binding* ort-api (safe sess)))]
          (if (= 1 input-cnt)
            (with-release [in-name (safe (input-name* ort-api sess allo 0))]

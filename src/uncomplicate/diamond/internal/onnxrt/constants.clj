@@ -8,7 +8,8 @@
 
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.diamond.internal.onnxrt.constants
-  (:require [uncomplicate.commons.utils :refer [dragan-says-ex]])
+  (:require [uncomplicate.commons.utils :refer [dragan-says-ex]]
+            [uncomplicate.clojure-cpp :refer [pointer]])
   (:import org.bytedeco.onnxruntime.global.onnxruntime))
 
 (def ^:const onnx-data-type
@@ -207,7 +208,7 @@
     (dragan-says-ex "Unknown device type." {:type type})))
 
 (def ^:const ort-cudnn-conv
-  {:exaustive onnxruntime/OrtCudnnConvAlgoSearchExhaustive
+  {:exhaustive onnxruntime/OrtCudnnConvAlgoSearchExhaustive
    :heuristic onnxruntime/OrtCudnnConvAlgoSearchHeuristic
    :default onnxruntime/OrtCudnnConvAlgoSearchDefault})
 
@@ -344,7 +345,7 @@
    :disable-model-compile "session.disable_model_compile"
    :model-compile "session.disable_model_compile"})
 
-(defn true-one [entry]
+(defn true->one [entry]
   (case entry
     "0" "0"
     "1" "1"
@@ -352,7 +353,7 @@
       "1"
       "0")))
 
-(defn true-zero [entry]
+(defn true->zero [entry]
   (case entry
     "1" "0"
     "0" "1"
@@ -360,13 +361,13 @@
       "0"
       "1")))
 
-(defn one-true [entry]
+(defn one->true [entry]
   (case entry
     "1" true
     "0" false
     entry))
 
-(defn zero-true [entry]
+(defn zero->true [entry]
   (case entry
     "1" false
     "0" true
@@ -378,65 +379,68 @@
 (defn lower-case-keyword [value]
   (clojure.string/lower-case (keyword (str value))))
 
+(defn long->str [^long x]
+  (str x))
+
 (def ^:const ort-session-options-config-encoders
-  {:disable-prepacking true-one
-   :prepacking true-zero
-   :use-env-allocators true-one
-   :env-allocators true-one
-   :use-session-allocators true-zero
-   :session-allocators true-zero
+  {:disable-prepacking true->one
+   :prepacking true->zero
+   :use-env-allocators true->one
+   :env-allocators true->one
+   :use-session-allocators true->zero
+   :session-allocators true->zero
    :load-model-format identity
    :load-format identity
    :save-model-format identity
    :save-format identity
-   :denormal-as-zero true-one
-   :disable-quant-qdq true-one
-   :quant-qdq true-zero
-   :disable-double-qdq-remover true-one
-   :double-qdq-remover true-zero
-   :quant-qdq-cleanup true-one
-   :gelu-approximation true-one
-   :disable-aot-function-inlining true-one
-   :aot-function-inlining true-zero
-   :disable-aot-inlining true-one
-   :aot-inlining true-zero
-   :disable-function-inlining true-one
-   :function-inlining true-zero
+   :denormal-as-zero true->one
+   :disable-quant-qdq true->one
+   :quant-qdq true->zero
+   :disable-double-qdq-remover true->one
+   :double-qdq-remover true->zero
+   :quant-qdq-cleanup true->one
+   :gelu-approximation true->one
+   :disable-aot-function-inlining true->one
+   :aot-function-inlining true->zero
+   :disable-aot-inlining true->one
+   :aot-inlining true->zero
+   :disable-function-inlining true->one
+   :function-inlining true->zero
    :memory-optimizer-config identity
    :memory-optimizer identity
    :memory-probe-recompute-config identity
    :memory-probe-recompute identity
    :disable-specified-optimizers identity
-   :use-device-allocator-for-initializers true-one
-   :use-device-initializers true-one
-   :use-device-allocator true-one
-   :inter-op-allow-spinning true-one
-   :inter-op-spinning true-one
-   :intra-op-allow-spinning true-one
-   :intra-op-spinning true-one
-   :use-ort-model-bytes-directly true-one
-   :use-ort-model-bytes true-one
-   :use-model-bytes-directly true-one
-   :use-ort-model-bytes-for-initializers true-one
-   :use-ort-bytes-for-initializers true-one
-   :use-ort-for-initializers true-one
-   :use-ort-initializers true-one
-   :qdq-is-int8-allowed true-one
-   :qdq-is-int8 true-one
+   :use-device-allocator-for-initializers true->one
+   :use-device-initializers true->one
+   :use-device-allocator true->one
+   :inter-op-allow-spinning true->one
+   :inter-op-spinning true->one
+   :intra-op-allow-spinning true->one
+   :intra-op-spinning true->one
+   :use-ort-model-bytes-directly true->one
+   :use-ort-model-bytes true->one
+   :use-model-bytes-directly true->one
+   :use-ort-model-bytes-for-initializers true->one
+   :use-ort-bytes-for-initializers true->one
+   :use-ort-for-initializers true->one
+   :use-ort-initializers true->one
+   :qdq-is-int8-allowed true->one
+   :qdq-is-int8 true->one
    :x64quantprecision identity
    :minimal-build-optimizations name
    :minimal-optimizations name
    :partitioning-stop-ops identity
    :dynamic-block-base str
    :force-spinning-stop identity
-   :strict-shape-type-inference true-one
-   :allow-released-opsets-only true-one
-   :released-opsets-only true-one
+   :strict-shape-type-inference true->one
+   :allow-released-opsets-only true->one
+   :released-opsets-only true->one
    :node-partition-config-file identity
    :intra-op-thread-affinities identity
-   :debug-layout-transformation true-one
-   :disable-cpu-ep-fallback true-one
-   :cpu-ep-fallback true-zero
+   :debug-layout-transformation true->one
+   :disable-cpu-ep-fallback true->one
+   :cpu-ep-fallback true->zero
    :optimized-model-external-initializers-file-name identity
    :external-initializers-file-name identity
    :optimized-modelexternal-initializers-min-size-in-bytes str
@@ -444,82 +448,82 @@
    :external-initializers-min-size-in-bytes str
    :model-external-initializers-file-folder-path identity
    :external-initializers-file-folder-path identity
-   :save-external-prepacked-constant-initializers true-one
-   :save-external-prepacked-initializers true-one
-   :save-prepacked-initializers true-one
+   :save-external-prepacked-constant-initializers true->one
+   :save-external-prepacked-initializers true->one
+   :save-prepacked-initializers true->one
    :collect-node-memory-stats-to-file identity
    :resource-cuda-partitioning-settings identity
-   :ep-context true-one
+   :ep-context true->one
    :ep-context-file-path identity
-   :ep-context-embed-mode true-one
+   :ep-context-embed-mode true->one
    :ep-context-node-name-prefix identity
-   :ep-share-ep-contexts true-one
-   :ep-stop-share-ep-contexts true-one
+   :ep-share-ep-contexts true->one
+   :ep-stop-share-ep-contexts true->one
    :ep-context-model-external-initializers-file-name identity
-   :enable-gemm-fastmath-arm64-bloat16 true-one
+   :enable-gemm-fastmath-arm64-bloat16 true->one
    :qdq-matmultnbits-accuracy-level str
-   :disable-model-compile true-one
-   :model-compile true-zero})
+   :disable-model-compile true->one
+   :model-compile true->zero})
 
 (def ^:const ort-session-options-config-decoders
-  {:disable-prepacking one-true
-   :prepacking zero-true
-   :use-env-allocators one-true
-   :env-allocators one-true
-   :use-session-allocators zero-true
-   :session-allocators zero-true
+  {:disable-prepacking one->true
+   :prepacking zero->true
+   :use-env-allocators one->true
+   :env-allocators one->true
+   :use-session-allocators zero->true
+   :session-allocators zero->true
    :load-model-format identity
    :load-format identity
    :save-model-format identity
    :save-format identity
-   :denormal-as-zero one-true
-   :disable-quant-qdq one-true
-   :quant-qdq zero-true
-   :disable-double-qdq-remover one-true
-   :double-qdq-remover zero-true
-   :quant-qdq-cleanup one-true
-   :gelu-approximation one-true
-   :disable-aot-function-inlining one-true
-   :aot-function-inlining zero-true
-   :disable-aot-inlining one-true
-   :aot-inlining zero-true
-   :disable-function-inlining one-true
-   :function-inlining zero-true
+   :denormal-as-zero one->true
+   :disable-quant-qdq one->true
+   :quant-qdq zero->true
+   :disable-double-qdq-remover one->true
+   :double-qdq-remover zero->true
+   :quant-qdq-cleanup one->true
+   :gelu-approximation one->true
+   :disable-aot-function-inlining one->true
+   :aot-function-inlining zero->true
+   :disable-aot-inlining one->true
+   :aot-inlining zero->true
+   :disable-function-inlining one->true
+   :function-inlining zero->true
    :memory-optimizer-config identity
    :memory-optimizer identity
    :memory-probe-recompute-config identity
    :memory-probe-recompute identity
    :disable-specified-optimizers identity
-   :use-device-allocator-for-initializers one-true
-   :use-device-initializers one-true
-   :use-device-allocator one-true
-   :inter-op-allow-spinning one-true
-   :inter-op-spinning one-true
-   :intra-op-allow-spinning one-true
-   :intra-op-spinning one-true
-   :use-ort-model-bytes-directly one-true
-   :use-ort-model-bytes one-true
-   :use-model-bytes-directly one-true
-   :use-ort-model-bytes-for-initializers one-true
-   :use-ort-bytes-for-initializers one-true
-   :use-ort-for-initializers one-true
-   :use-ort-initializers one-true
-   :qdq-is-int8-allowed one-true
-   :qdq-is-int8 one-true
+   :use-device-allocator-for-initializers one->true
+   :use-device-initializers one->true
+   :use-device-allocator one->true
+   :inter-op-allow-spinning one->true
+   :inter-op-spinning one->true
+   :intra-op-allow-spinning one->true
+   :intra-op-spinning one->true
+   :use-ort-model-bytes-directly one->true
+   :use-ort-model-bytes one->true
+   :use-model-bytes-directly one->true
+   :use-ort-model-bytes-for-initializers one->true
+   :use-ort-bytes-for-initializers one->true
+   :use-ort-for-initializers one->true
+   :use-ort-initializers one->true
+   :qdq-is-int8-allowed one->true
+   :qdq-is-int8 one->true
    :x64quantprecision identity
    :minimal-build-optimizations name
    :minimal-optimizations name
    :partitioning-stop-ops identity
    :dynamic-block-base read-string
    :force-spinning-stop identity
-   :strict-shape-type-inference one-true
-   :allow-released-opsets-only one-true
-   :released-opsets-only one-true
+   :strict-shape-type-inference one->true
+   :allow-released-opsets-only one->true
+   :released-opsets-only one->true
    :node-partition-config-file identity
    :intra-op-thread-affinities identity
-   :debug-layout-transformation one-true
-   :disable-cpu-ep-fallback one-true
-   :cpu-ep-fallback zero-true
+   :debug-layout-transformation one->true
+   :disable-cpu-ep-fallback one->true
+   :cpu-ep-fallback zero->true
    :optimized-model-external-initializers-file-name identity
    :external-initializers-file-name identity
    :optimized-modelexternal-initializers-min-size-in-bytes read-string
@@ -527,22 +531,22 @@
    :external-initializers-min-size-in-bytes read-string
    :model-external-initializers-file-folder-path identity
    :external-initializers-file-folder-path identity
-   :save-external-prepacked-constant-initializers one-true
-   :save-external-prepacked-initializers one-true
-   :save-prepacked-initializers one-true
+   :save-external-prepacked-constant-initializers one->true
+   :save-external-prepacked-initializers one->true
+   :save-prepacked-initializers one->true
    :collect-node-memory-stats-to-file identity
    :resource-cuda-partitioning-settings identity
-   :ep-context one-true
+   :ep-context one->true
    :ep-context-file-path identity
-   :ep-context-embed-mode one-true
+   :ep-context-embed-mode one->true
    :ep-context-node-name-prefix identity
-   :ep-share-ep-contexts one-true
-   :ep-stop-share-ep-contexts one-true
+   :ep-share-ep-contexts one->true
+   :ep-stop-share-ep-contexts one->true
    :ep-context-model-external-initializers-file-name identity
-   :enable-gemm-fastmath-arm64-bloat16 one-true
+   :enable-gemm-fastmath-arm64-bloat16 one->true
    :qdq-matmultnbits-accuracy-level read-string
-   :disable-model-compile one-true
-   :model-compile zero-true})
+   :disable-model-compile one->true
+   :model-compile zero->true})
 
 (def ^:const ort-ep-dynamic-options-keys
   {:ep-dynamic-workload-type "ep.dynamic.workload_type"
@@ -551,3 +555,63 @@
 (def ^:const ort-ep-dynamic-options-encoders
   {:ep-dynamic-workload-type capitalized-name
    :ep-dynamic-workload capitalized-name})
+
+(def ^:const ort-cuda-provider-options-keys
+  {:device-id "device_id"
+   :copy-in-default-stream "do_copy_in_default_stream"
+   ;; :cudnn-conv-algo-search "cudnn_conv_algo_search"
+   ;; :conv-algo-search "cudnn_conv_algo_search"
+   :gpu-mem-limit "gpu_mem_limit"
+   :arena-extend-strategy "arena_extend_strategy"
+   :default-memory-arena-cfg "default_memory_arena_cfg"
+   :cudnn-conv-use-max-workspace "cudnn_conv_use_max_workspace"
+   :conv-use-max-workspace "cudnn_conv_use_max_workspace"
+   :enable-cuda-graph "enable_cuda_graph"
+   :cudnn-conv1d-pad-to-nc1d "cudnn_conv1d_pad_to_nc1d"
+   :conv1d-pad-to-nc1d "cudnn_conv1d_pad_to_nc1d"
+   :tunable-op-enable "tunable_op_enable"
+   :tunable-op-tuning-enable "tunable_op_tuning_enable"
+   :tunable-op-max-tuning-duration-ms "tunable_op_max_tuning_duration_ms"
+   :enable-skip-layer-norm-strict-mode "enable_skip_layer_norm_strict_mode"
+   :skip-layer-norm-strict-mode "enable_skip_layer_norm_strict_mode"
+   :prefer-nhwc "prefer_nhwc"
+   :use-ep-level-unified-stream "use_ep_level_unified_stream"
+   :ep-level-unified-stream "use_ep_level_unified_stream"
+   :use-tf32 "use_tf32"
+   :tf32 "use_tf32"
+   :fuse-conv-bias "fuse_conv_bias"
+   :sdpa-kernel "sdpa_kernel"})
+
+(def ^:const ort-arena-extend-strategy
+  {:default "-1"
+   :next-pow2 "0"
+   :requested "1"
+   "-1" "-1"
+   "0" "0"
+   "1" "1"})
+
+(def ^:const ort-cuda-provider-options-encoders
+  {:device-id long->str
+   :copy-in-default-stream true->one
+   ;; :cudnn-conv-algo-search #(str (ort-cudnn-conv %))
+   ;; :conv-algo-search #(str (ort-cudnn-conv %))
+   :gpu-mem-limit long->str
+   :arena-extend-strategy ort-arena-extend-strategy
+   :default-memory-arena-cfg identity
+   :cudnn-conv-use-max-workspace true->one
+   :conv-use-max-workspace true->one
+   :enable-cuda-graph true->one
+   :cudnn-conv1d-pad-to-nc1d true->one
+   :conv1d-pad-to-nc1d true->one
+   :tunable-op-enable true->one
+   :tunable-op-tuning-enable true->one
+   :tunable-op-max-tuning-duration-ms long->str
+   :enable-skip-layer-norm-strict-mode true->one
+   :skip-layer-norm-strict-mode true->one
+   :prefer-nhwc true->one
+   :use-ep-level-unified-stream true->one
+   :ep-level-unified-stream true->one
+   :use-tf32 true->one
+   :tf32 true->one
+   :fuse-conv-bias true->one
+   :sdpa-kernel true->one})
