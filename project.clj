@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject org.uncomplicate/diamond-onnxrt "0.13.0"
+(defproject org.uncomplicate/diamond-onnxrt "0.14.0-SNAPSHOT"
   :description "Fast Clojure Machine Learning Model Integration"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
@@ -31,10 +31,10 @@
                                     [org.uncomplicate/neanderthal-mkl "0.57.1"]
                                     [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
                                     [org.uncomplicate/deep-diamond-cuda "0.39.2"]
-                                    #_[org.bytedeco/cuda-redist "12.9-9.10-1.5.12" :classifier "linux-x86_64"]
-                                    #_[org.bytedeco/cuda-redist-cublas "12.9-9.10-1.5.12" :classifier "linux-x86_64"]
-                                    #_[org.bytedeco/cuda-redist-cudnn "12.9-9.10-1.5.12" :classifier "linux-x86_64"]
-                                    #_[org.bytedeco/cuda-redist-nccl "12.9-9.10-1.5.12" :classifier "linux-x86_64"]]}
+                                    [org.bytedeco/cuda-redist "12.9-9.10-1.5.12" :classifier "linux-x86_64"]
+                                    [org.bytedeco/cuda-redist-cublas "12.9-9.10-1.5.12" :classifier "linux-x86_64"]
+                                    [org.bytedeco/cuda-redist-cudnn "12.9-9.10-1.5.12" :classifier "linux-x86_64"]
+                                    [org.bytedeco/cuda-redist-nccl "12.9-9.10-1.5.12" :classifier "linux-x86_64"]]}
              :windows {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.22.2-1.5.13-20250919.192912-2"]
                                       [org.uncomplicate/neanderthal-mkl "0.57.1"]
                                       [org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]

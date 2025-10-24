@@ -13,7 +13,7 @@
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.clojure-cpp
              :refer [null? pointer pointer-pointer int-pointer long-pointer byte-pointer char-pointer
-                     size-t-pointer get-entry put-entry! get-string capacity! capacity get-pointer
+                     size-t-pointer get-entry put-entry! capacity! capacity get-pointer
                      limit!]])
   (:import [org.bytedeco.javacpp Loader Pointer BytePointer PointerPointer LongPointer SizeTPointer]
            [org.bytedeco.onnxruntime OrtApiBase OrtApi OrtEnv OrtSession OrtSessionOptions
@@ -23,10 +23,18 @@
             OrtValue OrtDnnlProviderOptions OrtCUDAProviderOptions OrtCUDAProviderOptionsV2 OrtLoggingFunction
             OrtThreadingOptions OrtGraph OrtKeyValuePairs OrtLoraAdapter OrtModel OrtNode
             OrtCustomCreateThreadFn OrtCustomJoinThreadFn ;;TODO 1.23+ OrtSyncStream
-            OrtAllocator$Free_OrtAllocator_Pointer OrtApi$MemoryInfoGetDeviceType_OrtMemoryInfo_IntPointer]))
+            OrtAllocator$Free_OrtAllocator_Pointer OrtApi$MemoryInfoGetDeviceType_OrtMemoryInfo_IntPointer
+            OrtApi$ClearBoundInputs_OrtIoBinding OrtApi$ClearBoundOutputs_OrtIoBinding]))
 
 (def ^{:dynamic true :tag OrtApi} *ort-api*)
 (def ^{:dynamic true :tag OrtAllocator} *default-allocator*)
+(def ^{:dynamic true
+       :tag OrtApi$ClearBoundInputs_OrtIoBinding}
+  *clear-bound-inputs*)
+
+(def ^{:dynamic true
+       :tag OrtApi$ClearBoundOutputs_OrtIoBinding}
+  *clear-bound-outputs*)
 
 (defn api* [^OrtApiBase ort-api-base ^long version]
   (.call (.GetApi ort-api-base) version))
@@ -180,23 +188,17 @@
 
 (defn free*
   ([^OrtAllocator allo ^OrtAllocator$Free_OrtAllocator_Pointer free ^Pointer ptr]
-   (.call (.Free allo) allo ptr))
+   (when-not (null? ptr)
+     (.call free allo ptr))
+   allo)
   ([^OrtAllocator allo ^Pointer ptr]
-   (.call (.Free allo) allo ptr))
+   (free* allo (.Free allo) ptr))
   ([^OrtAllocator allo]
-   (.Free allo)))
-
-(defn get-string*
-  ([ptr]
-   (get-string (get-pointer ptr BytePointer 0)))
-  ([allo ptr]
-   (try
-     (get-string (get-pointer ptr BytePointer 0))
-     (finally (free* allo ptr))))
-  ([allo free ptr]
-   (try
-     (get-string (get-pointer ptr BytePointer 0))
-     (finally (free* allo free ptr)))))
+   (let [free (.Free allo)]
+     (fn [^Pointer ptr]
+       (when-not (null? ptr)
+         (free* allo free ptr))
+       free))))
 
 ;; ===================== OrtEnv ====================================================================
 
@@ -556,16 +558,24 @@
     binding))
 
 (defn bound-names* [^OrtApi ort-api ^OrtIoBinding binding ^OrtAllocator allo]
-  (let-release [res (pointer-pointer nil)
-                lengths (pointer-pointer nil)]
-    (dotimes [i (call-size-t ort-api GetBoundOutputNames binding allo res lengths)]
-      (with-release [len (get-entry lengths i)]
-        (capacity! (.get res BytePointer i) (get-pointer len SizeTPointer 0))))
-    res))
+  (let [res-cnt (with-release [pp (pointer-pointer nil)]
+                  (call-size-t ort-api GetBoundOutputValues binding allo pp))]
+    (let-release [res (pointer-pointer res-cnt)
+                  lengths (pointer-pointer res-cnt)]
+      (let [cnt (call-size-t ort-api GetBoundOutputNames binding allo res lengths)]
+        (capacity! res cnt)
+        (capacity! lengths cnt)
+        [res lengths]))))
 
 (defn bound-values* [^OrtApi ort-api ^OrtIoBinding binding ^OrtAllocator allo]
   (let-release [res (pointer-pointer nil)]
     (capacity! res (call-size-t ort-api GetBoundOutputValues binding allo res))))
+
+(defn clear-bound-inputs* [^OrtApi ort-api]
+  (.ClearBoundInputs ort-api))
+
+(defn clear-bound-outputs* [^OrtApi ort-api]
+  (.ClearBoundOutputs ort-api))
 
 ;; =================== Run Options =================================================================
 

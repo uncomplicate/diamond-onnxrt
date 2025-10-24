@@ -14,7 +14,7 @@
              [utils :refer [enc-keyword dragan-says-ex mask]]]
             [uncomplicate.clojure-cpp
              :refer [get-string get-entry byte-pointer long-pointer null? pointer pointer-pointer
-                     pointer-type pointer-vec safe safe2 get-pointer capacity!]]
+                     pointer-type pointer-vec safe safe2 get-pointer capacity! limit size-t-pointer]]
             [uncomplicate.diamond.internal.onnxrt
              [constants :refer :all]
              [impl :refer :all]])
@@ -24,7 +24,8 @@
            [org.bytedeco.onnxruntime OrtDnnlProviderOptions OrtTypeInfo OrtTensorTypeAndShapeInfo
             OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo OrtMemoryInfo OrtValue
             OrtThreadingOptions OrtModelMetadata OrtIoBinding OrtSessionOptions OrtRunOptions
-            OrtSession OrtCUDAProviderOptionsV2]))
+            OrtSession OrtCUDAProviderOptionsV2
+            OrtApi$ClearBoundInputs_OrtIoBinding OrtApi$ClearBoundOutputs_OrtIoBinding]))
 
 (defprotocol OnnxType
   (onnx-type [this]))
@@ -35,10 +36,12 @@
   (config! [this config])
   (config [this] [this key]))
 
+(defprotocol ClearBinding
+  (clear-binding [this binding]))
+
 (defn check-index [^long i ^long cnt object]
   (when-not (< -1 i cnt)
     (throw (IndexOutOfBoundsException. (format "The requested %s name is out of bounds of this %s pointer." object object)))))
-
 ;; ================= API ===========================================================================
 
 (defn init-ort-api!
@@ -46,9 +49,15 @@
    (alter-var-root (var *ort-api*)
                    (constantly (api* (onnxruntime/OrtGetApiBase) ort-api-version)))
    (alter-var-root (var *default-allocator*)
-                   (constantly (default-allocator* *ort-api*))))
+                   (constantly (default-allocator* (safe *ort-api*))))
+   (alter-var-root (var *clear-bound-inputs*)
+                   (constantly (clear-bound-inputs* (safe *ort-api*))))
+   (alter-var-root (var *clear-bound-outputs*)
+                   (constantly (clear-bound-outputs* (safe *ort-api*)))))
   ([]
    (init-ort-api! onnxruntime/ORT_API_VERSION)))
+
+(init-ort-api!)
 
 (defn version []
   (with-release [p (version* (onnxruntime/OrtGetApiBase))]
@@ -60,6 +69,20 @@
 (defn build-info []
   (with-release [p (build-info* *ort-api*)]
     (get-string p)))
+
+;; =================== Allocator ===================================================================
+
+(def free (free* (safe *default-allocator*)))
+
+(defn get-string*
+  ([ptr]
+   (get-string* free ptr))
+  ([free ptr]
+   (if-not (null? ptr)
+     (try
+       (get-string (byte-pointer ptr))
+       (finally (free ptr)))
+     nil)))
 
 ;; =================== Misc ========================================================================
 
@@ -192,7 +215,6 @@
   (with-release [id (byte-pointer (name id))]
     (session-log-id* *ort-api* (safe opt!) id)
     opt!))
-
 
 (defn graph-optimization! [opt! level]
   (graph-optimization* *ort-api* (safe opt!) (enc-keyword ort-graph-optimization level))
@@ -332,14 +354,12 @@
 
 (defn initializer-name
   ([sess ^long i]
-   (let [allo (safe *default-allocator*)]
-     (check-index i (initializer-count sess) "input")
-     (get-string* allo (overridable-initializer-name* *ort-api* (safe sess) allo i))))
+   (check-index i (initializer-count sess) "input")
+   (get-string* (overridable-initializer-name* *ort-api* (safe sess) (safe *default-allocator*) i)))
   ([sess]
-   (let [allo (safe *default-allocator*)
-         free (free* allo)]
-     (doall (mapv #(get-string* allo free
-                                (overridable-initializer-name* *ort-api* (safe sess) allo %))
+   (let [ort-api *ort-api*
+         allo (safe *default-allocator*)]
+     (doall (mapv #(get-string* (overridable-initializer-name* ort-api (safe sess) allo %))
                   (range (initializer-count sess)))))))
 
 (defn initializer-type-info
@@ -358,21 +378,20 @@
   (profiling-start-time* *ort-api* (safe sess)))
 
 (defn end-profiling [sess]
-  (let [allo (safe *default-allocator*)]
-    (get-string* allo (end-profiling* *ort-api* (safe sess) allo))))
+  (get-string* (end-profiling* *ort-api* (safe sess) (safe *default-allocator*))))
 
 (defn input-count ^long [sess]
   (input-count* *ort-api* (safe sess)))
 
 (defn input-name
   ([sess ^long i]
-   (let [allo (safe *default-allocator*)]
-     (check-index i (input-count sess) "input")
-     (get-string* allo (input-name* *ort-api* (safe sess) allo i))))
+   (check-index i (input-count sess) "input")
+   (get-string* (input-name* *ort-api* (safe sess) (safe *default-allocator*) i)))
   ([sess]
-   (let [allo (safe *default-allocator*)
-         free (free* allo)]
-     (doall (mapv #(get-string* allo free (input-name* *ort-api* (safe sess) allo %))
+   (let [ort-api (safe *ort-api*)
+         allo (safe *default-allocator*)
+         sess (safe sess)]
+     (doall (mapv #(get-string* (input-name* ort-api sess allo %))
                   (range (input-count sess)))))))
 
 (defn output-count ^long [sess]
@@ -380,13 +399,13 @@
 
 (defn output-name
   ([sess ^long i]
-   (let [allo (safe *default-allocator*)]
-     (check-index i (output-count sess) "output")
-     (get-string* allo (output-name* *ort-api* (safe sess) allo i))))
+   (check-index i (output-count sess) "output")
+   (get-string* (output-name* (safe *ort-api*) (safe sess) (safe *default-allocator*) i)))
   ([sess]
-   (let [allo (safe *default-allocator*)
-         free (free* allo)]
-     (doall (mapv #(get-string* allo free (output-name* *ort-api* (safe sess) allo %))
+   (let [ort-api *ort-api*
+         allo (safe *default-allocator*)
+         sess (safe sess)]
+     (doall (mapv #(get-string* (output-name* ort-api sess allo %))
                   (range (output-count sess)))))))
 
 (defn input-type-info
@@ -437,30 +456,24 @@
   (session-model-metadata* *ort-api* (safe sess)))
 
 (defn producer-name [metadata]
-  (let [allo (safe *default-allocator*)]
-    (get-string* allo (producer-name* *ort-api* (safe metadata) allo))))
+  (get-string* (producer-name* *ort-api* (safe metadata) (safe *default-allocator*))))
 
 (defn graph-name [metadata]
-  (let [allo (safe *default-allocator*)]
-    (get-string* allo (graph-name* *ort-api* (safe metadata) allo))))
+  (get-string* (graph-name* *ort-api* (safe metadata) (safe *default-allocator*))))
 
 (defn domain [metadata]
-  (let [allo (safe *default-allocator*)]
-    (get-string* allo (domain* *ort-api* (safe metadata) allo))))
+  (get-string* (domain* *ort-api* (safe metadata) (safe *default-allocator*))))
 
 (defn description [metadata]
-  (let [allo (safe *default-allocator*)]
-    (get-string* allo (description* *ort-api* (safe metadata) allo))))
+  (get-string* (description* *ort-api* (safe metadata) (safe *default-allocator*))))
 
 (defn graph-description [metadata]
-  (let [allo (safe *default-allocator*)]
-    (get-string* allo (graph-description* *ort-api* (safe metadata) allo))))
+  (get-string* (graph-description* *ort-api* (safe metadata) (safe *default-allocator*))))
 
 (defn custom-map-keys [metadata]
-  (let [allo (safe *default-allocator*)
-        free (free* allo)]
+  (let [allo (safe *default-allocator*)]
     (with-release [map-keys (custom-map-keys* *ort-api* (safe metadata) allo)]
-      (doall (mapv #(get-string* allo free (byte-pointer %)) (pointer-vec map-keys))))))
+      (doall (mapv get-string* (pointer-vec map-keys))))))
 
 (extend-type OrtModelMetadata
   Info
@@ -499,28 +512,55 @@
       (bind-output-to-device* *ort-api* (safe binding) name (safe value-or-mem-info)))))
 
 (defn bound-names [binding]
-  (let [allo (safe *default-allocator*)
-        free (free* allo)]
-    (with-release [ppnames (bound-names* *ort-api* (safe binding) allo)]
-      (mapv #(get-string* allo free (byte-pointer %)) (pointer-vec ppnames)))))
+  (let [allo (safe *default-allocator*)]
+    (with-release [ppnames (bound-names* (safe *ort-api*) (safe binding) allo)
+                   lengths (mapv #(capacity! (size-t-pointer %) 1) (pointer-vec (second ppnames)))]
+      (mapv (fn [pname plength]
+              (if-not (null? pname)
+                (get-string* (capacity! pname (get-entry plength 0)))
+                nil))
+            (pointer-vec (first ppnames)) lengths))))
 
 (defn bound-values [binding]
   (with-release [ppvalues (bound-values* *ort-api* (safe binding) *default-allocator*)]
     (mapv #(get-pointer % OrtValue 0) (pointer-vec ppvalues))))
 
+(extend-type OrtApi$ClearBoundInputs_OrtIoBinding
+  ClearBinding
+  (clear-binding [this binding]
+    (.call (safe this) ^OrtIoBinding (safe binding))))
+
+(extend-type OrtApi$ClearBoundOutputs_OrtIoBinding
+  ClearBinding
+  (clear-binding [this binding]
+    (.call (safe this) ^OrtIoBinding (safe binding))))
+
+(defn clear-bound-inputs
+  ([]
+   (.ClearBoundInputs (safe *ort-api*)))
+  ([binding]
+   (.call (safe *clear-bound-inputs*) ^OrtIoBinding (safe binding))
+   binding))
+
+(defn clear-bound-outputs
+  ([]
+   (.ClearBoundOutputs (safe *ort-api*)))
+  ([binding]
+   (.call (safe *clear-bound-outputs*) ^OrtIoBinding (safe binding))
+   binding))
+
 (defn io-binding
   ([sess]
-   (io-binding* *ort-api* (safe sess)))
+   (io-binding* (safe *ort-api*) (safe sess)))
   ([sess bindings]
    (io-binding bindings bindings))
   ([sess inputs outputs]
    (let [ort-api (safe *ort-api*)
          allo (safe *default-allocator*)
-         getter (partial get-string* allo (free* allo))
          input-cnt (input-count sess)
          output-cnt (output-count sess)]
      (letfn [(get-value [values in-name]
-               (let [name-string (getter in-name)]
+               (let [name-string (get-string* in-name)]
                  (or (inputs name-string)
                      (dragan-says-ex "You have to provide names that match session model's specification."
                                      {:requested (keys values) :expected name-string}))))]
@@ -636,7 +676,7 @@
 (defn symbolic-shape [tensor-info]
   (let [allo (safe *default-allocator*)]
     (with-release [symbolic-dims (symbolic-dimensions* *ort-api* (safe tensor-info))]
-      (doall (mapv get-string* (pointer-vec symbolic-dims))))))
+      (doall (mapv #(get-string (byte-pointer %)) (pointer-vec symbolic-dims))))))
 
 (defn symbolic-shape! [tensor-info names]
   (let [ort-api *ort-api*
@@ -931,14 +971,14 @@
 
 ;; ========================== Runner ===============================================================
 
-(deftype Runner [ort-api sess run-opt allo free in-cnt out-cnt in-names out-names]
+(deftype Runner [ort-api free sess run-opt in-cnt out-cnt in-names out-names]
   Releaseable
   (release [_]
     (dotimes [i in-cnt]
-      (free* (safe allo) free (get-entry in-names i)))
+      (free (get-entry in-names i)))
     (release in-names)
     (dotimes [i out-cnt]
-      (free* (safe allo) free (get-entry out-names i)))
+      (free (get-entry out-names i)))
     (release out-names)
     true)
   IFn
@@ -957,12 +997,11 @@
   ([sess run-opt]
    (let [ort-api (safe *ort-api*)
          allo (safe *default-allocator*)
-         free (free* allo)
          sess (safe sess)
          run-opt (safe2 run-opt)
          in-cnt (input-count* ort-api sess)
          out-cnt (output-count* ort-api sess)]
-     (->Runner ort-api sess run-opt allo free in-cnt out-cnt
+     (->Runner ort-api (free* allo) sess run-opt in-cnt out-cnt
                (input-names* ort-api sess allo)
                (output-names* ort-api sess allo))))
   ([sess]
