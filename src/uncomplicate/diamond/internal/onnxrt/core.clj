@@ -308,8 +308,8 @@
     (with-release [config-keys (config-keys ort-coreml-provider-options-keys opt-map)
                    config-values (config-vals ort-coreml-provider-options-encoders opt-map)
                    pname (safe (byte-pointer ep-name))
-                   ppkeys(pointer-pointer 0)
-                   ppvals (pointer-pointer 0)]
+                   ppkeys (pointer-pointer config-keys)
+                   ppvals (pointer-pointer config-values)]
       (append-ep* (safe *ort-api*) (safe opt!) pname ppkeys ppvals)))
   opt!)
 

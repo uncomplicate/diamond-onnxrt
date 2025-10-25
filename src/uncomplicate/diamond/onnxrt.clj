@@ -74,7 +74,7 @@
                   eproviders (or (:ep merged-args)
                                  (filter available-ep (if (= :cuda dev) [:cuda] [:coreml :dnnl])))
                   uses-device (some #{:cuda} eproviders)
-                  alloc-type (if (or uses-device (= :cuda dev))
+                  alloc-type (if (or uses-device (= :cuda dev));;TODO I have to check what's the case on MacOS.
                                :device
                                :arena)
                   mem-type (if (and (= :device alloc-type) (= :cpu dev))
