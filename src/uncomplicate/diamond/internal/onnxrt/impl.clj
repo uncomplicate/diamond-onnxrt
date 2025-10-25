@@ -359,12 +359,14 @@
 (defn cuda-options* [^OrtApi ort-api]
   (call-pointer-pointer ort-api OrtCUDAProviderOptionsV2 CreateCUDAProviderOptions))
 
-(defn update-cuda-options* [^OrtApi ort-api ^OrtCUDAProviderOptionsV2 opt ^PointerPointer keys ^PointerPointer values]
+(defn update-cuda-options* [^OrtApi ort-api ^OrtCUDAProviderOptionsV2 opt
+                            ^PointerPointer keys ^PointerPointer values]
   (with-check ort-api
     (.UpdateCUDAProviderOptions ort-api opt keys values (size keys))
     opt))
 
-(defn update-cuda-options-with-value* [^OrtApi ort-api ^OrtCUDAProviderOptionsV2 opt ^BytePointer key ^Pointer value]
+(defn update-cuda-options-with-value* [^OrtApi ort-api ^OrtCUDAProviderOptionsV2 opt
+                                       ^BytePointer key ^Pointer value]
   (with-check ort-api
     (.UpdateCUDAProviderOptionsWithValue ort-api opt key value)
     opt))
@@ -374,12 +376,20 @@
     (.SessionOptionsAppendExecutionProvider_CUDA_V2 ort-api opt cuda-opt)
     opt))
 
-(defn free-dimension-override-by-name* [^OrtApi ort-api ^OrtSessionOptions opt ^BytePointer name ^long value]
+(defn append-ep* [^OrtApi ort-api ^OrtSessionOptions opt ^BytePointer provider-name
+                  ^PointerPointer keys ^PointerPointer values]
+  (with-check ort-api
+    (.SessionOptionsAppendExecutionProvider ort-api opt provider-name keys values (size keys))
+    opt))
+
+(defn free-dimension-override-by-name* [^OrtApi ort-api ^OrtSessionOptions opt
+                                        ^BytePointer name ^long value]
   (with-check ort-api
     (.AddFreeDimensionOverrideByName ort-api opt name value)
     opt))
 
-(defn free-dimension-override-by-denotation* [^OrtApi ort-api ^OrtSessionOptions opt ^BytePointer denotation ^long value]
+(defn free-dimension-override-by-denotation* [^OrtApi ort-api ^OrtSessionOptions opt
+                                              ^BytePointer denotation ^long value]
   (with-check ort-api
     (.AddFreeDimensionOverride ort-api opt denotation value)
     opt))
@@ -389,7 +399,8 @@
     (.DisablePerSessionThreads ort-api opt)
     opt))
 
-(defn add-session-config-entry* [^OrtApi ort-api ^OrtSessionOptions opt ^BytePointer key ^BytePointer value]
+(defn add-session-config-entry* [^OrtApi ort-api ^OrtSessionOptions opt
+                                 ^BytePointer key ^BytePointer value]
   (with-check ort-api
     (.AddSessionConfigEntry ort-api opt key value)
     opt))

@@ -301,11 +301,19 @@
       (append-cuda* ort-api opt! cuda)
       opt!)))
 
+(defn append-coreml! [opt! opt-map]
+  (with-release [pname (safe (byte-pointer "CoreMLExecutionProvider"))
+                 config-keys (pointer-pointer 0)
+                 config-values (pointer-pointer 0)]
+    (append-ep* (safe *ort-api*) (safe opt!) pname config-keys config-values))
+  opt!)
+
 (defn append-provider!
   ([opt! provider opt-map]
    (case provider
      :dnnl (append-dnnl! opt! opt-map)
      :cuda (append-cuda! opt! opt-map)
+     :coreml (append-coreml! opt! opt-map)
      (dragan-says-ex "Unknown provider. Please use DNNL, CUDA, or one of supported execution providers."
                      {:requested provider :available [:dnnl :cuda]}))
    opt!)
