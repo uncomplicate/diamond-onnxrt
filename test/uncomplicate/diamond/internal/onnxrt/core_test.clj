@@ -219,7 +219,7 @@
           [[0 1 2] (mapv float [0.9692533 0.030746665 6.886014E-8])]])))
 
 (facts
-  "Test io-bindings."
+  "Test io-bindings and run options."
   (with-release [env (environment nil)
                  opt (doto (options)
                        (append-provider! :dnnl)
@@ -232,7 +232,8 @@
                  x-data (float-pointer [5.1 3.5 1.4 0.2
                                         4.9 3.0	1.4 0.2])
                  x (onnx-tensor mem-info [2 4] x-data)
-                 infer! (runner* sess)
+                 run-opt (config! (run-options) {:htp-perf-mode :default})
+                 infer! (runner* sess run-opt)
                  binding (io-binding sess [x] [mem-info mem-info])]
     (let [x-info (cast-type input-info)]
       (shape x-info) => [-1 4]

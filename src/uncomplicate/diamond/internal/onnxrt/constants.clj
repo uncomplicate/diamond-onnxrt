@@ -593,7 +593,7 @@
 (def ^:const ort-cuda-provider-options-encoders
   {:device-id long->str
    :copy-in-default-stream true->one
-   ;; :cudnn-conv-algo-search #(str (ort-cudnn-conv %))
+   ;; :cudnn-conv-algo-search #(str (ort-cudnn-conv %)) ;;TODO
    ;; :conv-algo-search #(str (ort-cudnn-conv %))
    :gpu-mem-limit long->str
    :arena-extend-strategy ort-arena-extend-strategy
@@ -615,3 +615,70 @@
    :tf32 true->one
    :fuse-conv-bias true->one
    :sdpa-kernel true->one})
+
+(def ^:const ort-run-options-config-keys
+  {;; Key for enabling shrinkages of user listed device memory arenas.
+   ;; Expects a list of semi-colon separated key value pairs separated by colon in the following format:
+   ;; "device_0:device_id_0;device_1:device_id_1"
+   ;; No white-spaces allowed in the provided list string.
+   ;; Currently, the only supported devices are : "cpu", "gpu" (case sensitive).
+   ;; If "cpu" is included in the list, DisableCpuMemArena() API must not be called (i.e.) arena for cpu should be enabled.
+   ;; Example usage: "cpu:0;gpu:0" (or) "gpu:0"
+   ;; By default, the value for this key is empty (i.e.) no memory arenas are shrunk
+   :memory-arena-shrinkage "memory.enable_memory_arena_shrinkage"
+
+   ;; Set to '1' to not synchronize execution providers with CPU at the end of session run.
+   ;; Per default it will be set to '0'
+   ;; Taking CUDA EP as an example, it omit triggering cudaStreamSynchronize on the compute stream.
+   :synchronize-execution-providers "disable_synchronize_execution_providers"
+
+   ;; Set HTP performance mode for QNN HTP backend before session run.
+   ;; options for HTP performance mode: "burst", "balanced", "default", "high_performance",
+   ;; "high_power_saver", "low_balanced", "extreme_power_saver", "low_power_saver", "power_saver",
+   ;; "sustained_high_performance". Default to "default".
+   :qnn.htp-perf-mode "qnn.htp_perf_mode"
+   :htp-perf-mode "qnn.htp_perf_mode"
+
+   ;; Set HTP performance mode for QNN HTP backend post session run.
+   :qnn.htp-perf-mode-post-run "qnn.htp_perf_mode_post_run"
+   :htp-perf-mode-post-run "qnn.htp_perf_mode_post_run"
+
+   ;; Set RPC control latency for QNN HTP backend
+   :qnn.rpc-control-latency "qnn.rpc_control_latency"
+   :rpc-control-latency "qnn.rpc_control_latency"
+
+   ;; Set QNN Lora Config File for apply Lora in QNN context binary
+   :qnn.lora-config "qnn.lora_config";
+   :lora-config "qnn.lora_config";
+
+   ;; Set graph annotation id for CUDA EP. Use with enable_cuda_graph=true.
+   ;; The value should be an integer. If the value is not set, the default value is 0 and
+   ;; ORT session only captures one cuda graph before another capture is requested.
+   ;; If the value is set to -1, cuda graph capture/replay is disabled in that run.
+   ;; User are not expected to set the value to 0 as it is reserved for internal use.
+   :gpu-graph-id "gpu_graph_id"})
+
+(def ^:const qnn-htp-perf-mode
+  {:burst "burst"
+   :balanced "balanced"
+   :default "default"
+   :high-performance "high_performance"
+   :high-power-saver "high_power_saver"
+   :low-balanced "low_balanced"
+   :extreme-power-saver "extreme_power_saver"
+   :low-power-saver "low_power_saver"
+   :power-saver "power_saver"
+   :sustained-high-performance "sustained_high_performance"})
+
+(def ^:const ort-run-options-config-encoders
+  {:memory-arena-shrinkage str
+   :synchronize-execution-providers true->zero
+   :qnn.htp-perf-mode qnn-htp-perf-mode
+   :htp-perf-mode qnn-htp-perf-mode
+   :qnn.htp-perf-mode-post-run qnn-htp-perf-mode
+   :htp-perf-mode-post-run qnn-htp-perf-mode
+   :qnn.rpc-control-latency str
+   :rpc-control-latency str
+   :qnn.lora-config str
+   :lora-config str
+   :gpu-graph-id long->str})

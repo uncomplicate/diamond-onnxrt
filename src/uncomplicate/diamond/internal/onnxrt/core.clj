@@ -936,15 +936,14 @@
 
 (extend-type OrtRunOptions
   Options
-  ;; TODO version 1.23+
-  ;; (config! [opt! config]
-  ;;   (let [ort-api *ort-api*]
-  ;;     (doseq [[key value] (seq config)]
-  ;;       (with-release [config-key (byte-pointer (get ort-run-options-config-keys key (name key)))
-  ;;                      config-value (byte-pointer ((get ort-run-options-config-encoders key identity) value))]
-  ;;         (add-run-config-entry* ort-api opt! config-key config-value)))
-  ;;     opt!))
-  ;; (config
+  (config! [run-opt! config]
+    (let [ort-api *ort-api*]
+      (doseq [[key value] (seq config)]
+        (with-release [config-key (byte-pointer (get ort-run-options-config-keys key (name key)))
+                       config-value (byte-pointer ((get ort-run-options-config-encoders key identity) value))]
+          (add-run-config-entry* ort-api (safe run-opt!) config-key config-value)))
+      run-opt!))
+  ;; (config ;;TODO 1.23+
   ;;   ([opt key]
   ;;    (let [ort-api (safe *ort-api*)
   ;;          opt (safe opt)]
@@ -984,10 +983,10 @@
   IFn
   (invoke [this in out]
     (let-release [out (or out (pointer-pointer (repeat out-cnt nil)))]
-      (run* (safe ort-api) (safe sess) (safe2 run-opt) in-names in out-names out)
+      (run* (safe ort-api) (safe sess) (safe2 run-opt) in-names (safe in) out-names (safe out))
       out))
   (invoke [this binding]
-    (run* (safe ort-api) (safe sess) (safe2 run-opt) binding))
+    (run* (safe ort-api) (safe sess) (safe2 run-opt) (safe binding)))
   (invoke [this]
     run-opt)
   (applyTo [this xs]

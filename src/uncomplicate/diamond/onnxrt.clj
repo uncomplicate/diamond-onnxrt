@@ -17,7 +17,7 @@
             [uncomplicate.diamond.internal.onnxrt
              [core :refer [environment options session  memory-info threading-options
                            graph-optimization! available-providers append-provider!
-                           disable-per-session-threads!]]
+                           disable-per-session-threads! run-options config!]]
              [model :refer [onnx-straight-model]]]))
 
 (def ^:dynamic *onnx-options*
@@ -48,8 +48,13 @@
    :coreml nil
    :run-options nil})
 
+;; TODO use spec for detailed args validation.
 (defn onnx
   ([model-path args]
+   (doseq [s [args (:run-options args) (:dnnl args) (:cuda args) (:coreml args)]]
+     (when-not (or (nil? s) (map? s))
+       (dragan-says-ex "This configuration must be either nil or a map."
+                       :config s)))
    (let [merged-args (into *onnx-options* args)
          available-ep (set (available-providers))]
      (with-release [env-options (threading-options (:env-options merged-args))]
@@ -84,8 +89,11 @@
                                                         {:requested ep :available available-ep}))
                                     (into (*onnx-options* ep) (merged-args ep))))
                 (let-release [sess (session env model-path opt)
+                              run-opt (if-let [run-opts (:run-options merged-args)]
+                                        (config! (run-options) run-opts)
+                                        nil)
                               mem-info (memory-info dev alloc-type mem-type)]
-                  (onnx-straight-model fact sess (:run-options args) mem-info)))))
+                  (onnx-straight-model fact sess run-opt mem-info)))))
            ([src-desc]
             (onnx-fn *diamond-factory*)))))))
   ([model-path]

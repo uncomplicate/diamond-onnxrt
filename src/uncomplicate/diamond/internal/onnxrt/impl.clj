@@ -614,6 +614,13 @@
   (with-check ort-api
     (.RunOptionsUnsetTerminate ort-api run-opt)))
 
+(defn add-run-config-entry* [^OrtApi ort-api ^OrtRunOptions run-opt ^BytePointer key ^BytePointer value]
+  (with-check ort-api
+    (.AddRunConfigEntry ort-api run-opt key value)
+    run-opt))
+
+;; TODO 1.23+ get-run-config-entry*
+
 ;; ==================== OrtTypeInfo ================================================================
 
 (defn tensor-info*
