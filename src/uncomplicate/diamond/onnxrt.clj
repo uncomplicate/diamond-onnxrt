@@ -88,7 +88,7 @@
                                        (options))
                                      (disable-per-session-threads!)
                                      (graph-optimization! (:graph-optimization merged-args)))]
-                (doseq [ep (reverse eproviders)]
+                (doseq [ep eproviders]
                   (append-provider! opt
                                     (or (available-ep ep)
                                         (dragan-says-ex (format "Execution provider %s is not available." ep)

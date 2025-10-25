@@ -694,6 +694,7 @@
 
 (def ^:const coreml-model-format
   {:ml-program "MLProgram"
+   :ml "MLProgram"
    :neural-network "NeuralNetwork"})
 
 (def ^:const coreml-specialization-strategy
