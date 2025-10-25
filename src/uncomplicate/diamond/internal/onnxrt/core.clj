@@ -271,7 +271,7 @@
 
 (defn append-dnnl! [opt! opt-map]
   (with-release [dnnl ^OrtDnnlProviderOptions (dnnl-options* *ort-api*)]
-    (.use_arena dnnl (if (get :arena opt-map true) 1 0))
+    (.use_arena dnnl (if (:arena opt-map) 1 0))
     (append-dnnl* *ort-api* (safe opt!) dnnl)
     opt!))
 
