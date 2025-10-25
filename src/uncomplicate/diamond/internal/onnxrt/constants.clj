@@ -685,10 +685,7 @@
 
 (def ^:const coreml-compute-units
   {:cpu-neural "MLComputeUnitsCPUAndNeuralEngine"
-   :neural "MLComputeUnitsCPUAndNeuralEngine"
-   :ne "MLComputeUnitsCPUAndNeuralEngine"
    :cpu-gpu "MLComputeUnitsCPUAndGPU"
-   :gpu "MLComputeUnitsCPUAndGPU"
    :cpu "MLComputeUnitsCPUOnly"
    :all "MLComputeUnitsAll"})
 
