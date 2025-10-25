@@ -582,11 +582,19 @@
   (let-release [res (pointer-pointer nil)]
     (capacity! res (call-size-t ort-api GetBoundOutputValues binding allo res))))
 
-(defn clear-bound-inputs* [^OrtApi ort-api]
-  (.ClearBoundInputs ort-api))
+(defn clear-bound-inputs*
+  ([^OrtApi ort-api]
+   (.ClearBoundInputs ort-api))
+  ([^OrtApi$ClearBoundInputs_OrtIoBinding clear ^OrtIoBinding binding]
+   (.call clear ^OrtIoBinding binding)
+   binding))
 
-(defn clear-bound-outputs* [^OrtApi ort-api]
-  (.ClearBoundOutputs ort-api))
+(defn clear-bound-outputs*
+  ([^OrtApi ort-api]
+   (.ClearBoundOutputs ort-api))
+  ([^OrtApi$ClearBoundOutputs_OrtIoBinding clear ^OrtIoBinding binding]
+   (.call clear ^OrtIoBinding binding)
+   binding))
 
 ;; =================== Run Options =================================================================
 

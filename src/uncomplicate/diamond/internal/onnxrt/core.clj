@@ -24,8 +24,7 @@
            [org.bytedeco.onnxruntime OrtDnnlProviderOptions OrtTypeInfo OrtTensorTypeAndShapeInfo
             OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo OrtMemoryInfo OrtValue
             OrtThreadingOptions OrtModelMetadata OrtIoBinding OrtSessionOptions OrtRunOptions
-            OrtSession OrtCUDAProviderOptionsV2
-            OrtApi$ClearBoundInputs_OrtIoBinding OrtApi$ClearBoundOutputs_OrtIoBinding]))
+            OrtSession OrtCUDAProviderOptionsV2]))
 
 (defprotocol OnnxType
   (onnx-type [this]))
@@ -35,9 +34,6 @@
   (severity! [this level])
   (config! [this config])
   (config [this] [this key]))
-
-(defprotocol ClearBinding
-  (clear-binding [this binding]))
 
 (defn check-index [^long i ^long cnt object]
   (when-not (< -1 i cnt)
@@ -540,29 +536,17 @@
   (with-release [ppvalues (bound-values* *ort-api* (safe binding) *default-allocator*)]
     (mapv #(get-pointer % OrtValue 0) (pointer-vec ppvalues))))
 
-(extend-type OrtApi$ClearBoundInputs_OrtIoBinding
-  ClearBinding
-  (clear-binding [this binding]
-    (.call (safe this) ^OrtIoBinding (safe binding))))
-
-(extend-type OrtApi$ClearBoundOutputs_OrtIoBinding
-  ClearBinding
-  (clear-binding [this binding]
-    (.call (safe this) ^OrtIoBinding (safe binding))))
-
 (defn clear-bound-inputs
   ([]
-   (.ClearBoundInputs (safe *ort-api*)))
+   (clear-bound-inputs* (safe *ort-api*)))
   ([binding]
-   (.call (safe *clear-bound-inputs*) ^OrtIoBinding (safe binding))
-   binding))
+   (clear-bound-inputs* (safe *clear-bound-inputs*) (safe binding))))
 
 (defn clear-bound-outputs
   ([]
-   (.ClearBoundOutputs (safe *ort-api*)))
+   (clear-bound-outputs* (safe *ort-api*)))
   ([binding]
-   (.call (safe *clear-bound-outputs*) ^OrtIoBinding (safe binding))
-   binding))
+   (clear-bound-outputs* (safe *clear-bound-outputs*) (safe binding))))
 
 (defn io-binding
   ([sess]
