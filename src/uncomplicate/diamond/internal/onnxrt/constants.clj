@@ -682,3 +682,55 @@
    :qnn.lora-config str
    :lora-config str
    :gpu-graph-id long->str})
+
+(def ^:const coreml-compute-units
+  {:cpu-neural "MLComputeUnitsCPUAndNeuralEngine"
+   :neural "MLComputeUnitsCPUAndNeuralEngine"
+   :ne "MLComputeUnitsCPUAndNeuralEngine"
+   :cpu-gpu "MLComputeUnitsCPUAndGPU"
+   :gpu "MLComputeUnitsCPUAndGPU"
+   :cpu "MLComputeUnitsCPUOnly"
+   :all "MLComputeUnitsAll"})
+
+(def ^:const coreml-model-format
+  {:ml-program "MLProgram"
+   :neural-network "NeuralNetwork"})
+
+(def ^:const coreml-specialization-strategy
+  {:default "Default"
+   :fast-prediction "FastPrediction"})
+
+(def ^:const ort-coreml-provider-options-keys
+  {:compute-units "MLComputeUnits"
+   :model-format "ModelFormat"
+   :require-static-input-shapes "RequireStaticInputShapes"
+   :static-input-shapes "RequireStaticInputShapes"
+   :static-input "RequireStaticInputShapes"
+   :enable-on-subgraphs "EnableOnSubgraphs"
+   :specialization-strategy "SpecializationStrategy"
+   :profile-compute-plan "ProfileComputePlan"
+   :allow-low-precision-accumulation-on-gpu "AllowLowPrecisionAccumulationOnGPU"
+   :low-precision-accumulation-gpu "AllowLowPrecisionAccumulationOnGPU"
+   :low-precision-accumulation "AllowLowPrecisionAccumulationOnGPU"
+   :model-cache-directory "ModelCacheDirectory"
+   :model-cache "ModelCacheDirectory"
+   :cache-key "COREML_CACHE_KEY"})
+
+(def ^:const ort-coreml-provider-options-encoders
+  {:compute-units coreml-compute-units
+   :model-format coreml-model-format
+   :require-static-input-shapes true->one
+   :static-input-shapes true->one
+   :static-input true->one
+   :enable-on-subgraphs true->one
+   :specialization-strategy coreml-specialization-strategy
+   :profile-compute-plan true->one
+   :allow-low-precision-accumulation-on-gpu true->one
+   :low-precision-accumulation-gpu true->one
+   :low-precision-accumulation true->one
+   :model-cache-directory str
+   :model-cache str
+   :cache-key str})
+
+(def ^:const ort-execution-provider
+  {:coreml "CoreMLExecutionProvider"})

@@ -45,7 +45,13 @@
           :tf32 true
           :fuse-conv-bias false
           :sdpa-kernel false}
-   :coreml nil
+   :coreml {:compute-units :all
+            :model-format :ml-program
+            :static-input true
+            :enable-on-subgraphs true
+            :specialization-strategy :fast-prediction
+            :profile-compute-plan false
+            :low-precision-accumulation false}
    :run-options nil})
 
 ;; TODO use spec for detailed args validation.

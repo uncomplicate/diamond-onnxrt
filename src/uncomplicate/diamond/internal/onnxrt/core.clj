@@ -279,19 +279,25 @@
     (append-dnnl* *ort-api* (safe opt!) dnnl)
     opt!))
 
+(defn config-keys [provider-options-keys opt-map]
+  (map #(byte-pointer (or (provider-options-keys %)
+                          (dragan-says-ex "Unknown provider option."
+                                          {:requested %
+                                           :available (keys provider-options-keys)})))
+       (keys opt-map)))
+
+(defn config-vals [provider-options-encoders opt-map]
+  (map (fn [[k v]]
+         (byte-pointer ((get provider-options-encoders k identity) v)))
+       opt-map))
+
 (defn append-cuda! [opt! opt-map]
   (let [ort-api (safe *ort-api*)
         stream (:stream opt-map)
         opt-map (dissoc opt-map :stream)]
     (with-release [cuda (safe (cuda-options* ort-api))]
-      (with-release [config-keys (map #(byte-pointer (or (ort-cuda-provider-options-keys %)
-                                                         (dragan-says-ex "Unknown CUDA option."
-                                                                         {:requested %
-                                                                          :available (keys ort-cuda-provider-options-keys)})))
-                                      (keys opt-map))
-                     config-values (map (fn [[k v]]
-                                          (byte-pointer ((get ort-cuda-provider-options-encoders k identity) v)))
-                                        opt-map)
+      (with-release [config-keys (config-keys ort-cuda-provider-options-keys opt-map)
+                     config-values (config-vals ort-cuda-provider-options-encoders opt-map)
                      ppkeys (safe (pointer-pointer config-keys))
                      ppvalues (safe (pointer-pointer config-values))]
         (update-cuda-options* ort-api cuda ppkeys ppvalues)
@@ -301,11 +307,14 @@
       (append-cuda* ort-api opt! cuda)
       opt!)))
 
-(defn append-coreml! [opt! opt-map]
-  (with-release [pname (safe (byte-pointer "CoreMLExecutionProvider"))
-                 config-keys (pointer-pointer 0)
-                 config-values (pointer-pointer 0)]
-    (append-ep* (safe *ort-api*) (safe opt!) pname config-keys config-values))
+(defn append-ep! [opt! ep-name opt-map]
+  (let [ep-name (enc-keyword ort-execution-provider ep-name)]
+    (with-release [config-keys (config-keys ort-coreml-provider-options-keys opt-map)
+                   config-values (config-vals ort-coreml-provider-options-encoders opt-map)
+                   pname (safe (byte-pointer ep-name))
+                   ppkeys(pointer-pointer 0)
+                   ppvals (pointer-pointer 0)]
+      (append-ep* (safe *ort-api*) (safe opt!) pname ppkeys ppvals)))
   opt!)
 
 (defn append-provider!
@@ -313,9 +322,7 @@
    (case provider
      :dnnl (append-dnnl! opt! opt-map)
      :cuda (append-cuda! opt! opt-map)
-     :coreml (append-coreml! opt! opt-map)
-     (dragan-says-ex "Unknown provider. Please use DNNL, CUDA, or one of supported execution providers."
-                     {:requested provider :available [:dnnl :cuda]}))
+     (append-ep! opt! provider opt-map))
    opt!)
   ([opt! provider]
    (append-provider! opt! provider nil))
