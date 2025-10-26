@@ -83,23 +83,23 @@
                   merged-args (if uses-device
                                 (assoc-in merged-args [:cuda :stream] (flow fact))
                                 merged-args)]
-              (with-release [opt (-> (if-let [opt (:options merged-args)]
+              (let-release [opt (-> (if-let [opt (:options merged-args)]
                                        (options opt)
                                        (options))
                                      (disable-per-session-threads!)
-                                     (graph-optimization! (:graph-optimization merged-args)))]
+                                     (graph-optimization! (:graph-optimization merged-args)))
+                            run-opt (if-let [run-opts (:run-options merged-args)]
+                                      (config! (run-options) run-opts)
+                                      nil)
+                            mem-info (memory-info dev alloc-type mem-type)]
                 (doseq [ep eproviders]
                   (append-provider! opt
                                     (or (available-ep ep)
                                         (dragan-says-ex (format "Execution provider %s is not available." ep)
                                                         {:requested ep :available available-ep}))
                                     (into (*onnx-options* ep) (merged-args ep))))
-                (let-release [sess (session env model-path opt)
-                              run-opt (if-let [run-opts (:run-options merged-args)]
-                                        (config! (run-options) run-opts)
-                                        nil)
-                              mem-info (memory-info dev alloc-type mem-type)]
-                  (onnx-straight-model fact sess run-opt mem-info)))))
+                (let-release [sess (session env model-path opt)]
+                  (onnx-straight-model fact sess opt run-opt mem-info)))))
            ([src-desc]
             (onnx-fn *diamond-factory*)))))))
   ([model-path]

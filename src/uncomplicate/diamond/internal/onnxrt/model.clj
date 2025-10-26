@@ -71,11 +71,12 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(deftype StraightInferenceBlueprint [fact sess run-opt mem-info src-desc dst-desc
+(deftype StraightInferenceBlueprint [fact sess opt run-opt mem-info src-desc dst-desc
                                      onnx-in-shape onnx-out-shape]
   Releaseable
   (release [_]
     (release sess)
+    (release opt)
     (release mem-info)
     (release src-desc)
     (release dst-desc))
@@ -120,7 +121,7 @@
     (AFn/applyToHelper this xs)))
 
 (defn onnx-straight-model
-  ([fact sess run-opt mem-info]
+  ([fact sess opt run-opt mem-info]
    (let [in-info (cast-type (input-type-info sess 0))
          in-shape (onnx/shape in-info)
          in-type (tensor-type in-info)
@@ -129,6 +130,6 @@
          out-type (tensor-type out-info)]
      (let-release [src-desc (create-tensor-desc fact in-shape in-type (default-strides in-shape))
                    dst-desc (create-tensor-desc fact out-shape out-type (default-strides out-shape))]
-       (->StraightInferenceBlueprint fact sess run-opt mem-info src-desc dst-desc in-shape out-shape))))
+       (->StraightInferenceBlueprint fact sess opt run-opt mem-info src-desc dst-desc in-shape out-shape))))
   ([fact sess mem-info]
    (onnx-straight-model fact sess nil mem-info)))
