@@ -12,12 +12,8 @@
                  [uncomplicate/deep-diamond "0.39.2"]
                  [org.uncomplicate/diamond-onnxrt "0.16.0"]]
 
-  ;; If you'd like AOT compiled Deep Diamond for fast namespace loading (1-2 seconds instead of 20),
-  ;; see hello-world-aot example for reference.
-
-  ;; Practically, all platform specific dependencies are optional.
-  ;; You can use either MKL, OpenBLAS, or Accelerate for CPU computing as you wish (when your hardware supports them)
-  ;; For the GPU, choose between CUDA (PC) or OpenCL (PC or MacOS x86_64)
+  ;; Most of the following dependencies can be left out if you already have compatible binaries
+  ;; installed globally through your operating system's package manager.
   :profiles {:default [:default/all ~(leiningen.core.utils/get-os)]
              :linux {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.22.2-1.5.13-20250919.192912-2"]
                                     [org.uncomplicate/neanderthal-mkl "0.57.1"]
