@@ -35,7 +35,7 @@
 (def mnist (network input-desc [mnist-onnx (activation :relu)]))
 
 ;; Or, alternatively, without the redundant activation:
-;; (def mnist (network input-descriptor [mnist-onnx]))
+;; (def mnist (network input-desc [mnist-onnx]))
 
 ;; We create a tensor in main memory that will be the input to the real network. It should
 ;; be filled with each image (28x28 pixels) that we want to classify, one at a time.
