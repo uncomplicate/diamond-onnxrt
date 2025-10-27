@@ -684,10 +684,10 @@
    :gpu-graph-id long->str})
 
 (def ^:const coreml-compute-units
-  {:cpu-neural "MLComputeUnitsCPUAndNeuralEngine"
-   :cpu-gpu "MLComputeUnitsCPUAndGPU"
-   :cpu "MLComputeUnitsCPUOnly"
-   :all "MLComputeUnitsAll"})
+  {:cpu-neural "CPUAndNeuralEngine"
+   :cpu-gpu "CPUAndGPU"
+   :cpu "CPUOnly"
+   :all "ALL"})
 
 (def ^:const coreml-model-format
   {:ml-program "MLProgram"

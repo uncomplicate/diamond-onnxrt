@@ -1,4 +1,4 @@
-(defproject hello-world "0.16.0"
+(defproject hello-world "0.17.0"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.3"]
@@ -10,7 +10,7 @@
                  ;; If you want to try the Hello World without AOT, just comment out the uncomplicate/deep-diamond
                  ;; dependency!
                  [uncomplicate/deep-diamond "0.39.2"]
-                 [org.uncomplicate/diamond-onnxrt "0.16.0"]]
+                 [org.uncomplicate/diamond-onnxrt "0.17.0"]]
 
   ;; Most of the following dependencies can be left out if you already have compatible binaries
   ;; installed globally through your operating system's package manager.
