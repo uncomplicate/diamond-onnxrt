@@ -41,14 +41,14 @@
       (iamax (softmax! (mnist-infer!))) => 7)))
 
 (with-release [fact (dnnl-factory)]
-  (test-onnx-model fact))
+  (test-single-io-onnx-model fact))
 
 ;; TODO timings: env: 30 microseconds
 ;; TODO timings: opts with settings: 30 microseconds
 ;; TODO timings: session loading: 2 milliseconds
 ;; TODO timings: mem-info: 25 microseconds
 
-(defn test-single-io-onnx-model [fact]
+(defn test-multi-io-onnx-model [fact]
   (with-release [env (environment :warning "test" nil)
                  opt (options)
                  sess (session env "data/mnist-12.onnx" opt)
@@ -64,4 +64,4 @@
       (iamax (softmax! (first (mnist-infer!)))) => 7)))
 
 (with-release [fact (dnnl-factory)]
-  (test-onnx-model fact))
+  (test-multi-io-onnx-model fact))
