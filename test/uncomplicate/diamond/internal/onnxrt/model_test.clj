@@ -23,14 +23,14 @@
 (defn softmax! [xs]
   (scal! (/ 1.0 (asum (exp! xs))) xs))
 
-(defn test-onnx-model [fact]
+(defn test-single-io-onnx-model [fact]
   (with-release [env (environment :warning "test" nil)
                  opt (-> (options)
                          (append-provider! :dnnl)
                          (graph-optimization! :extended))
                  sess (session env "data/mnist-12.onnx" opt)
                  mem-info (memory-info :cpu :arena 0 :default)
-                 mnist-bluep (onnx-straight-model fact sess mem-info)
+                 mnist-bluep (onnx-single-io-model fact sess mem-info)
                  src-tz (tensor fact [1 1 28 28] :float :nchw)
                  mnist-infer! (mnist-bluep src-tz)]
 
@@ -47,3 +47,21 @@
 ;; TODO timings: opts with settings: 30 microseconds
 ;; TODO timings: session loading: 2 milliseconds
 ;; TODO timings: mem-info: 25 microseconds
+
+(defn test-single-io-onnx-model [fact]
+  (with-release [env (environment :warning "test" nil)
+                 opt (options)
+                 sess (session env "data/mnist-12.onnx" opt)
+                 mem-info (memory-info :cpu :arena 0 :default)
+                 mnist-bluep (onnx-multi-io-model fact sess opt nil mem-info)
+                 src-tz (tensor fact [1 1 28 28] :float :nchw)
+                 mnist-infer! (mnist-bluep [src-tz])]
+
+    (transfer! test-image-0 src-tz)
+
+    (facts
+      "ONNX MNIST inference test."
+      (iamax (softmax! (first (mnist-infer!)))) => 7)))
+
+(with-release [fact (dnnl-factory)]
+  (test-onnx-model fact))

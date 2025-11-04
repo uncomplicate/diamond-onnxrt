@@ -17,8 +17,8 @@
             [uncomplicate.diamond.internal.onnxrt
              [core :refer [environment options session  memory-info threading-options
                            graph-optimization! available-providers append-provider!
-                           disable-per-session-threads! run-options config!]]
-             [model :refer [onnx-straight-model]]]))
+                           disable-per-session-threads! run-options config! input-count output-count]]
+             [model :refer [onnx-single-io-model onnx-multi-io-model]]]))
 
 (def ^:dynamic *onnx-options*
   {:env nil
@@ -99,8 +99,10 @@
                                                         {:requested ep :available available-ep}))
                                     (into (*onnx-options* ep) (merged-args ep))))
                 (let-release [sess (session env model-path opt)]
-                  (onnx-straight-model fact sess opt run-opt mem-info)))))
+                  (if (and (not (sequential? src-desc)) (= 1 (input-count sess) (output-count sess)) )
+                    (onnx-single-io-model fact sess opt run-opt mem-info)
+                    (onnx-multi-io-model fact sess opt run-opt mem-info))))))
            ([src-desc]
-            (onnx-fn *diamond-factory*)))))))
+            (onnx-fn *diamond-factory* src-desc)))))))
   ([model-path]
    (onnx model-path nil)))

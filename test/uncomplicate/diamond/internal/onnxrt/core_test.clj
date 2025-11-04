@@ -143,6 +143,7 @@
                  output-info-0 (output-type-info sess 0)
                  output-info-1 (output-type-info sess 1)
                  inputs-info (input-type-info sess)
+                 outputs-info (output-type-info sess)
                  output-1-element (sequence-type (cast-type output-info-1))
                  output-1-val (val-type (cast-type output-1-element))
                  mem-info (memory-info :cpu :arena 0 :default)
@@ -160,6 +161,7 @@
     (info input-info) => {:data-type :float :shape [3 2]}
     (input-type-info sess 1) => (throws IndexOutOfBoundsException)
     (map info inputs-info) => [{:data-type :float :shape [3 2]}]
+    (map info outputs-info) => [{:data-type :long :shape [3]} {:structure [[:long :float]]}]
     (info output-info-0) => {:data-type :long :shape [3]}
     (scalar? (cast-type output-1-val)) => true
     (info output-info-1) => {:structure [[:long :float]]}

@@ -9,8 +9,9 @@
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.diamond.internal.onnxrt.model
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release Info info]]
+             [core :refer [Releaseable release let-release Info info view]]
              [utils :refer [dragan-says-ex]]]
+            [uncomplicate.fluokitten.core :refer [fmap]]
             [uncomplicate.clojure-cpp :refer [pointer-pointer pointer-vec]]
             [uncomplicate.neanderthal.block :refer [buffer]]
             [uncomplicate.diamond.tensor
@@ -27,12 +28,12 @@
                             concat-dst-shape direction-count]]]
             [uncomplicate.diamond.internal.onnxrt.core :as onnx
              :refer [onnx-tensor runner* cast-type input-type-info output-type-info tensor-type
-                     io-binding]])
+                     io-binding options]])
   (:import [clojure.lang IFn AFn]))
 
-;; ================================ Activation =============================================
+;; ================================ One input, one output ==========================================
 
-(deftype StraightInference [fact bluep src-conn dst-tz infer! bindings ins outs]
+(deftype SingleIOInference [fact bluep src-conn dst-tz infer! bindings ins outs]
   Releaseable
   (release [_]
     (release src-conn)
@@ -71,7 +72,7 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(deftype StraightInferenceBlueprint [fact sess opt run-opt mem-info src-desc dst-desc
+(deftype SingleIOInferenceBlueprint [fact sess opt run-opt mem-info src-desc dst-desc
                                      onnx-in-shape onnx-out-shape]
   Releaseable
   (release [_]
@@ -114,13 +115,13 @@
                   in-onnx (onnx-tensor mem-info onnx-in-shape (buffer (output src-conn)))
                   out-onnx (onnx-tensor mem-info onnx-out-shape (buffer (output dst-tz)))
                   binding (io-binding sess [in-onnx] [out-onnx])]
-      (->StraightInference fact this src-conn dst-tz infer! binding [in-onnx] [out-onnx])))
-  (invoke [this src-tz diff-tz]
+      (->SingleIOInference fact this src-conn dst-tz infer! binding [in-onnx] [out-onnx])))
+  (invoke [this _ _]
     (dragan-says-ex "ONNX Runtime doesn't support training. (yet!)"))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(defn onnx-straight-model
+(defn onnx-single-io-model
   ([fact sess opt run-opt mem-info]
    (let [in-info (cast-type (input-type-info sess 0))
          in-shape (onnx/shape in-info)
@@ -130,6 +131,121 @@
          out-type (tensor-type out-info)]
      (let-release [src-desc (create-tensor-desc fact in-shape in-type (default-strides in-shape))
                    dst-desc (create-tensor-desc fact out-shape out-type (default-strides out-shape))]
-       (->StraightInferenceBlueprint fact sess opt run-opt mem-info src-desc dst-desc in-shape out-shape))))
+       (->SingleIOInferenceBlueprint fact sess opt run-opt mem-info src-desc dst-desc in-shape out-shape))))
   ([fact sess mem-info]
-   (onnx-straight-model fact sess nil mem-info)))
+   (let-release [opt (options)]
+     (onnx-single-io-model fact sess opt nil mem-info))))
+
+;; ================================ Multiple inputs, Multiple outputs ==========================================
+
+(deftype MultiIOInference [fact bluep src-conns dst-tzs infer! bindings ins outs]
+  Releaseable
+  (release [_]
+    (doseq [sc src-conns] (release sc))
+    (doseq [dt dst-tzs] (release dt))
+    (release bindings)
+    (release ins)
+    (release outs)
+    (release infer!))
+  Info
+  (info [this]
+    {:onnx (info bluep :onnx)
+     :src (fmap info src-conns)
+     :dst (fmap info dst-tzs)})
+  (info [this info-type]
+    (case info-type
+      :onnx (info bluep :onnx)
+      :src (fmap info src-conns)
+      :dst (fmap info dst-tzs)
+      (info bluep info-type)))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  Transfer
+  (input [_]
+    (fmap input src-conns))
+  (output [_]
+    dst-tzs)
+  Initializable
+  (init [this _]
+    this)
+  IFn
+  (invoke [_]
+    (doseq [sc src-conns] (sc))
+    (infer! bindings)
+    dst-tzs)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(deftype MultiIOInferenceBlueprint [fact sess opt run-opt mem-info src-descs dst-descs
+                                    onnx-in-shapes onnx-out-shapes]
+  Releaseable
+  (release [_]
+    (release sess)
+    (release opt)
+    (release mem-info)
+    (doseq [sd src-descs] (release sd))
+    (doseq [dd dst-descs] (release dd)))
+  Info
+  (info [this]
+    {:session (info sess)
+     :options (info run-opt)})
+  (info [this info-type]
+    (case info-type
+      :session (info sess)
+      :options (info run-opt)
+      nil))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  DescriptorProvider
+  (inf-desc [_]
+    dst-descs)
+  (train-desc [_]
+    dst-descs)
+  (diff-desc [_]
+    dst-descs)
+  TensorDescriptor
+  (shape [this]
+    (fmap shape dst-descs))
+  (data-type [this]
+    (fmap data-type dst-descs))
+  (layout [this]
+    (fmap layout dst-descs))
+  IFn
+  (invoke [this prev-layer]
+    (let [src-tzs (fmap (comp view output) prev-layer)]
+      (let-release [src-conns (fmap connector src-tzs src-descs)
+                    dst-tzs (fmap #(create-tensor fact % false) dst-descs)
+                    infer! (runner* sess run-opt)
+                    in-onnx-s (fmap (fn [onnx-in-shape src-conn]
+                                      (onnx-tensor mem-info onnx-in-shape (buffer (output src-conn))))
+                                    onnx-in-shapes src-conns)
+                    out-onnx-s (fmap (fn [onnx-out-shape dst-tz]
+                                       (onnx-tensor mem-info onnx-out-shape (buffer (output dst-tz))))
+                                     onnx-out-shapes dst-tzs)
+                    binding (io-binding sess in-onnx-s out-onnx-s)]
+        (->MultiIOInference fact this src-conns dst-tzs infer! binding in-onnx-s out-onnx-s))))
+  (invoke [this _ _]
+    (dragan-says-ex "ONNX Runtime doesn't support training. (yet!)"))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defn onnx-multi-io-model
+  ([fact sess opt run-opt mem-info]
+   (let [ins-info (mapv cast-type (input-type-info sess))
+         ins-shape (mapv onnx/shape ins-info)
+         ins-type (mapv tensor-type ins-info)
+         outs-info (mapv cast-type (output-type-info sess))
+         outs-shape (mapv onnx/shape outs-info)
+         outs-type (mapv tensor-type outs-info)]
+     (let-release [src-descs (mapv (fn [in-shape in-type]
+                                     (create-tensor-desc fact in-shape in-type (default-strides in-shape)))
+                                   ins-shape ins-type)
+                   dst-descs (mapv (fn [out-shape out-type]
+                                     (create-tensor-desc fact out-shape out-type (default-strides out-shape)))
+                                   outs-shape outs-type)]
+       (->MultiIOInferenceBlueprint fact sess opt run-opt mem-info src-descs dst-descs ins-shape outs-shape))))
+  ([fact sess mem-info]
+   (let-release [opt (options)]
+     (onnx-multi-io-model fact sess opt nil mem-info))))
