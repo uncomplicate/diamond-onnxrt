@@ -19,6 +19,33 @@
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
             [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
 
+(defn test-onnx-layer-single-io [fact]
+  (with-release [src-tz (tensor fact [1 1 28 28] :float :nchw)
+                 onnx-bp (onnx fact "data/mnist-12.onnx" nil)
+                 mnist-infer! (onnx-bp src-tz)]
+
+    (transfer! test-image-0 src-tz)
+    (facts
+      "ONNX MNIST network inference test."
+      ;;TODO it seems cuda tensor engine can also support this.
+      (iamax (native (mnist-infer!))) => 7)))
+
+
+(defn test-onnx-layer-multi-io [fact]
+  (with-release [src-tz (tensor fact [1 1 28 28] :float :nchw)
+                 onnx-bp (onnx fact "data/mnist-12.onnx" {:multi-io true})
+                 mnist-infer! (onnx-bp [src-tz])]
+
+    (transfer! test-image-0 src-tz)
+    (facts
+      "ONNX MNIST network inference test."
+      ;;TODO it seems cuda tensor engine can also support this.
+      (iamax (native (first (mnist-infer!)))) => 7)))
+
+(with-release [fact (dnnl-factory)]
+  (test-onnx-layer-single-io fact)
+  (test-onnx-layer-multi-io fact))
+
 (defn test-onnx-network-single-io [fact]
   (with-release [src-tz (tensor fact [1 1 28 28] :float :nchw)
                  mnist-bp (network fact src-tz
@@ -32,13 +59,7 @@
       ;;TODO it seems cuda tensor engine can also support this.
       (iamax (native (mnist-infer!))) => 7)))
 
-(with-release [fact (dnnl-factory)]
-  (test-onnx-network-single-io fact))
-
-(with-release [fact (cudnn-factory)]
-  (test-onnx-network-single-io fact))
-
-(defn test-onnx-network-many-io [fact]
+(defn test-onnx-network-multi-io [fact]
   (with-release [src-tz (tensor fact [1 1 28 28] :float :nchw)
                  mnist-bp (network fact [src-tz]
                                    [(onnx "data/mnist-12.onnx")])
@@ -51,4 +72,9 @@
       (iamax (native (first (mnist-infer!)))) => 7)))
 
 (with-release [fact (dnnl-factory)]
-  (test-onnx-network-many-io fact))
+  (test-onnx-network-single-io fact)
+  (test-onnx-network-multi-io fact))
+
+(with-release [fact (cudnn-factory)]
+  (test-onnx-network-single-io fact)
+  (test-onnx-network-multi-io fact))

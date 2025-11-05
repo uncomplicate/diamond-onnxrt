@@ -13,7 +13,7 @@
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal.internal.api :refer [device flow]]
             [uncomplicate.diamond.tensor :refer [*diamond-factory*]]
-            [uncomplicate.diamond.internal.protocols :refer [neanderthal-factory]]
+            [uncomplicate.diamond.internal.protocols :refer [neanderthal-factory diamond-factory]]
             [uncomplicate.diamond.internal.onnxrt
              [core :refer [environment options session  memory-info threading-options
                            graph-optimization! available-providers append-provider!
@@ -56,53 +56,56 @@
 
 ;; TODO use spec for detailed args validation.
 (defn onnx
-  ([model-path args]
+  ([fact model-path args]
    (doseq [s [args (:run-options args) (:dnnl args) (:cuda args) (:coreml args)]]
      (when-not (or (nil? s) (map? s))
        (dragan-says-ex "This configuration must be either nil or a map."
                        :config s)))
-   (let [merged-args (into *onnx-options* args)
-         available-ep (set (available-providers))]
+   (let [fact (diamond-factory fact)
+         dev (device (neanderthal-factory fact :float))
+         merged-args (into *onnx-options* args)]
      (with-release [env-options (threading-options (:env-options merged-args))]
        (let-release [env (or (:env merged-args)
                              (environment (:logging-level merged-args)
                                           (:log-name merged-args)
                                           env-options))]
-         (fn onnx-fn
-           ([fact src-desc]
-            (let [dev (device (neanderthal-factory fact :float))
-                  eproviders (or (:ep merged-args)
-                                 (filter available-ep (if (= :cuda dev) [:cuda] [:coreml :dnnl])))
-                  uses-device (some #{:cuda} eproviders)
-                  alloc-type (if (or uses-device (= :cuda dev));;TODO I have to check what's the case on MacOS.
-                               :device
-                               :arena)
-                  mem-type (if (and (= :device alloc-type) (= :cpu dev))
-                             :cpu
-                             :default)
-                  merged-args (if uses-device
-                                (assoc-in merged-args [:cuda :stream] (flow fact))
-                                merged-args)]
-              (let-release [opt (-> (if-let [opt (:options merged-args)]
-                                       (options opt)
-                                       (options))
-                                     (disable-per-session-threads!)
-                                     (graph-optimization! (:graph-optimization merged-args)))
-                            run-opt (if-let [run-opts (:run-options merged-args)]
-                                      (config! (run-options) run-opts)
-                                      nil)
-                            mem-info (memory-info dev alloc-type mem-type)]
-                (doseq [ep eproviders]
-                  (append-provider! opt
-                                    (or (available-ep ep)
-                                        (dragan-says-ex (format "Execution provider %s is not available." ep)
-                                                        {:requested ep :available available-ep}))
-                                    (into (*onnx-options* ep) (merged-args ep))))
-                (let-release [sess (session env model-path opt)]
-                  (if (and (not (sequential? src-desc)) (= 1 (input-count sess) (output-count sess)) )
-                    (onnx-single-io-model fact sess opt run-opt mem-info)
-                    (onnx-multi-io-model fact sess opt run-opt mem-info))))))
-           ([src-desc]
-            (onnx-fn *diamond-factory* src-desc)))))))
+         (let [available-ep (set (available-providers))
+               eproviders (or (:ep merged-args)
+                              (filter available-ep (if (= :cuda dev) [:cuda] [:coreml :dnnl])))
+               uses-device (some #{:cuda} eproviders)
+               alloc-type (if (or uses-device (= :cuda dev));;TODO I have to check what's the case on MacOS.
+                            :device
+                            :arena)
+               mem-type (if (and (= :device alloc-type) (= :cpu dev))
+                          :cpu
+                          :default)
+               merged-args (if uses-device
+                             (assoc-in merged-args [:cuda :stream] (flow fact))
+                             merged-args)]
+           (let-release [opt (-> (if-let [opt (:options merged-args)]
+                                   (options opt)
+                                   (options))
+                                 (disable-per-session-threads!)
+                                 (graph-optimization! (:graph-optimization merged-args)))
+                         run-opt (if-let [run-opts (:run-options merged-args)]
+                                   (config! (run-options) run-opts)
+                                   nil)
+                         mem-info (memory-info dev alloc-type mem-type)]
+             (doseq [ep eproviders]
+               (append-provider! opt
+                                 (or (available-ep ep)
+                                     (dragan-says-ex (format "Execution provider %s is not available." ep)
+                                                     {:requested ep :available available-ep}))
+                                 (into (*onnx-options* ep) (merged-args ep))))
+             (let-release [sess (session env model-path opt)]
+               (if (and (not (:multi-io merged-args)) (= 1 (input-count sess) (output-count sess)))
+                 (onnx-single-io-model fact sess opt run-opt mem-info)
+                 (onnx-multi-io-model fact sess opt run-opt mem-info)))))))))
+  ([model-path args]
+   (fn onnx-fn
+     ([fact src-desc]
+      (onnx fact model-path (if (sequential? src-desc) (assoc args :multi-io true))))
+     ([src-desc]
+      (onnx-fn *diamond-factory* src-desc))))
   ([model-path]
    (onnx model-path nil)))
