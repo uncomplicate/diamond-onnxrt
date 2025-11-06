@@ -230,6 +230,12 @@
   opt!)
 
 (extend-type OrtSessionOptions
+  Info
+  (info
+    ([this]
+     (config this))
+    ([this type-info]
+     (config this type-info)))
   Options
   (config! [opt! config]
     (let [ort-api *ort-api*]
@@ -276,16 +282,16 @@
     opt!))
 
 (defn config-keys [provider-options-keys opt-map]
-  (map #(byte-pointer (or (provider-options-keys %)
-                          (dragan-says-ex "Unknown provider option."
-                                          {:requested %
-                                           :available (keys provider-options-keys)})))
-       (keys opt-map)))
+  (mapv #(byte-pointer (or (provider-options-keys %)
+                           (dragan-says-ex "Unknown provider option."
+                                           {:requested %
+                                            :available (keys provider-options-keys)})))
+        (keys opt-map)))
 
 (defn config-vals [provider-options-encoders opt-map]
-  (map (fn [[k v]]
-         (byte-pointer ((get provider-options-encoders k identity) v)))
-       opt-map))
+  (mapv (fn [[k v]]
+          (byte-pointer ((get provider-options-encoders k identity) v)))
+        opt-map))
 
 (defn append-cuda! [opt! opt-map]
   (let [ort-api (safe *ort-api*)
@@ -348,13 +354,13 @@
 
 (defn dynamic-options! [sess! config]
   (let [ort-api *ort-api*]
-    (with-release [config-keys (map #(-> (get ort-ep-dynamic-options-keys % (name %))
-                                         (byte-pointer))
-                                    (keys config))
-                   config-values (map (fn [[k v]]
-                                        (-> ((get ort-ep-dynamic-options-encoders k identity) v)
-                                            (byte-pointer)))
-                                      config)
+    (with-release [config-keys (mapv #(-> (get ort-ep-dynamic-options-keys % (name %))
+                                          (byte-pointer))
+                                     (keys config))
+                   config-values (mapv (fn [[k v]]
+                                         (-> ((get ort-ep-dynamic-options-encoders k identity) v)
+                                             (byte-pointer)))
+                                       config)
                    ppkeys (pointer-pointer config-keys)
                    ppvalues (pointer-pointer config-values)]
       (ep-dynamic-options* ort-api (safe sess!) (safe ppkeys) (safe ppvalues)))
@@ -382,8 +388,8 @@
   ([sess]
    (let [ort-api *ort-api*
          sess (safe sess)]
-     (map #(overridable-initializer-type-info* ort-api sess %)
-          (range (overridable-initializer-count* ort-api sess))))))
+     (mapv #(overridable-initializer-type-info* ort-api sess %)
+           (range (overridable-initializer-count* ort-api sess))))))
 
 (defn profiling-start-time ^long [sess]
   (profiling-start-time* *ort-api* (safe sess)))
@@ -428,8 +434,8 @@
   ([sess]
    (let [ort-api *ort-api*
          sess (safe sess)]
-     (map #(input-type-info* ort-api sess %)
-          (range (input-count* ort-api sess))))))
+     (mapv #(input-type-info* ort-api sess %)
+           (range (input-count* ort-api sess))))))
 
 (defn output-type-info
   ([sess ^long i]
@@ -440,8 +446,8 @@
   ([sess]
    (let [ort-api *ort-api*
          sess (safe sess)]
-     (map #(output-type-info* ort-api sess %)
-          (range (output-count* ort-api sess))))))
+     (mapv #(output-type-info* ort-api sess %)
+           (range (output-count* ort-api sess))))))
 
 (extend-type OrtSession
   Info
@@ -934,6 +940,12 @@
      (unset-terminate* *ort-api* (safe run-opt)))))
 
 (extend-type OrtRunOptions
+  Info
+  (info
+    ([this]
+     {})
+    ([this type-info]
+     nil))
   Options
   (config! [run-opt! config]
     (let [ort-api *ort-api*]

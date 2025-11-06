@@ -22,3 +22,4 @@ hs_*.log
 /network.trained.2
 /network2.trained
 .nrepl-port
+/data/gpt2-lm-head-bs-12.onnx

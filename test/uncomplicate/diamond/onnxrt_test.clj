@@ -9,7 +9,7 @@
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.diamond.onnxrt-test
   (:require [midje.sweet :refer [facts =>]]
-            [uncomplicate.commons [core :refer [with-release release]]]
+            [uncomplicate.commons [core :refer [with-release]]]
             [uncomplicate.neanderthal.core :refer [iamax transfer! native]]
             [uncomplicate.diamond
              [tensor :refer [tensor output]]
@@ -27,7 +27,6 @@
     (transfer! test-image-0 src-tz)
     (facts
       "ONNX MNIST network inference test."
-      ;;TODO it seems cuda tensor engine can also support this.
       (iamax (native (mnist-infer!))) => 7)))
 
 
@@ -39,7 +38,6 @@
     (transfer! test-image-0 src-tz)
     (facts
       "ONNX MNIST network inference test."
-      ;;TODO it seems cuda tensor engine can also support this.
       (iamax (native (first (mnist-infer!)))) => 7)))
 
 (with-release [fact (dnnl-factory)]
@@ -56,7 +54,6 @@
     (transfer! test-image-0 src-tz)
     (facts
       "ONNX MNIST network inference test."
-      ;;TODO it seems cuda tensor engine can also support this.
       (iamax (native (mnist-infer!))) => 7)))
 
 (defn test-onnx-network-multi-io [fact]

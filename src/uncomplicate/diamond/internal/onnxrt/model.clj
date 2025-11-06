@@ -28,7 +28,7 @@
                             concat-dst-shape direction-count]]]
             [uncomplicate.diamond.internal.onnxrt.core :as onnx
              :refer [onnx-tensor runner* cast-type input-type-info output-type-info tensor-type
-                     io-binding options]])
+                     io-binding options config]])
   (:import [clojure.lang IFn AFn]))
 
 ;; ================================ One input, one output ==========================================
@@ -83,13 +83,18 @@
     (release dst-desc))
   Info
   (info [this]
-    {:session (info sess)
-     :options (info run-opt)})
+    (into (info sess)
+          {:src (info src-desc)
+           :dst (info dst-desc)
+           :in-shape (info onnx-in-shape)
+           :out-shape (info onnx-out-shape)
+           :run-options (info run-opt)}))
   (info [this info-type]
     (case info-type
-      :session (info sess)
-      :options (info run-opt)
-      nil))
+      :src (info src-desc)
+      :dst (info dst-desc)
+      :run-options (info run-opt)
+      (info sess info-type)))
   DiamondFactoryProvider
   (diamond-factory [_]
     fact)
@@ -188,13 +193,20 @@
     (doseq [dd dst-descs] (release dd)))
   Info
   (info [this]
-    {:session (info sess)
-     :options (info run-opt)})
+    (into (info sess)
+          {:src (fmap info src-descs)
+           :dst (fmap info dst-descs)
+           :in-shapes (fmap info onnx-in-shapes)
+           :out-shapes (fmap info onnx-out-shapes)
+           :run-options (info run-opt)}))
   (info [this info-type]
     (case info-type
-      :session (info sess)
-      :options (info run-opt)
-      nil))
+      :src (fmap info src-descs)
+      :dst (fmap info dst-descs)
+      :in-shapes (fmap info onnx-in-shapes)
+      :out-shapes (fmap info onnx-out-shapes)
+      :run-options (info run-opt)
+      (info sess info-type)))
   DiamondFactoryProvider
   (diamond-factory [_]
     fact)
