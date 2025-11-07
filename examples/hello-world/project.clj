@@ -10,7 +10,7 @@
                  ;; If you want to try the Hello World without AOT, just comment out the uncomplicate/deep-diamond
                  ;; dependency!
                  [uncomplicate/deep-diamond "0.41.0"]
-                 [org.uncomplicate/diamond-onnxrt "0.17.0"]]
+                 [org.uncomplicate/diamond-onnxrt "0.19.0-SNAPSHOT"]]
 
   ;; Most of the following dependencies can be left out if you already have compatible binaries
   ;; installed globally through your operating system's package manager.
