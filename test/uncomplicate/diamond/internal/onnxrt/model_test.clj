@@ -30,29 +30,29 @@
                          (graph-optimization! :extended))
                  sess (session env "data/mnist-12.onnx" opt)
                  mem-info (memory-info :cpu :arena 0 :default)
-                 mnist-bluep (onnx-single-io-model fact sess mem-info)
+                 mnist-bp (onnx-single-io-model fact sess mem-info)
                  src-tz (tensor fact [1 1 28 28] :float :nchw)
-                 mnist-infer! (mnist-bluep src-tz)]
+                 mnist-infer! (mnist-bp src-tz)]
 
     (transfer! test-image-0 src-tz)
 
     (facts
       "ONNX MNIST inference test."
-      (info mnist-bluep) => {:dst {:class "uncomplicate.diamond.internal.dnnl.impl.MemoryDescImpl"
-                                   :data-type :float
-                                   :device :cpu
-                                   :shape [1 10]
-                                   :strides [10 1]}
-                             :in-shape [1 1 28 28]
-                             :input {"Input3" {:data-type :float :shape [1 1 28 28]}}
-                             :out-shape [1 10]
-                             :output {"Plus214_Output_0" {:data-type :float :shape [1 10]}}
-                             :run-options nil
-                             :src {:class "uncomplicate.diamond.internal.dnnl.impl.MemoryDescImpl"
-                                   :data-type :float
-                                   :device :cpu
-                                   :shape [1 1 28 28]
-                                   :strides [784 784 28 1]}}
+      (info mnist-bp) => {:dst {:class "uncomplicate.diamond.internal.dnnl.impl.MemoryDescImpl"
+                                :data-type :float
+                                :device :cpu
+                                :shape [1 10]
+                                :strides [10 1]}
+                          :in-shape [1 1 28 28]
+                          :input {"Input3" {:data-type :float :shape [1 1 28 28]}}
+                          :out-shape [1 10]
+                          :output {"Plus214_Output_0" {:data-type :float :shape [1 10]}}
+                          :run-options nil
+                          :src {:class "uncomplicate.diamond.internal.dnnl.impl.MemoryDescImpl"
+                                :data-type :float
+                                :device :cpu
+                                :shape [1 1 28 28]
+                                :strides [784 784 28 1]}}
       (iamax (softmax! (mnist-infer!))) => 7)))
 
 (with-release [fact (dnnl-factory)]
@@ -68,33 +68,53 @@
                  opt (options)
                  sess (session env "data/mnist-12.onnx" opt)
                  mem-info (memory-info :cpu :arena 0 :default)
-                 mnist-bluep (onnx-multi-io-model fact sess opt nil mem-info)
+                 mnist-bp (onnx-multi-io-model fact sess opt nil mem-info)
                  src-tz (tensor fact [1 1 28 28] :float :nchw)
-                 mnist-infer! (mnist-bluep [src-tz])]
+                 mnist-infer! (mnist-bp [src-tz])]
 
     (transfer! test-image-0 src-tz)
 
     (facts
       "ONNX MNIST inference test."
-      (info mnist-bluep) => {:dst [{:class "uncomplicate.diamond.internal.dnnl.impl.MemoryDescImpl"
-                                    :data-type :float
-                                    :device :cpu
-                                    :shape [1 10]
-                                    :strides [10 1]}]
-                             :in-shapes [[1 1 28 28]]
-                             :input {"Input3" {:data-type :float :shape [1 1 28 28]}}
-                             :out-shapes [[1 10]]
-                             :output {"Plus214_Output_0" {:data-type :float :shape [1 10]}}
-                             :run-options nil
-                             :src [{:class "uncomplicate.diamond.internal.dnnl.impl.MemoryDescImpl"
-                                    :data-type :float
-                                    :device :cpu
-                                    :shape [1 1 28 28]
-                                    :strides [784 784 28 1]}]}
+      (info mnist-bp) => {:dst [{:class "uncomplicate.diamond.internal.dnnl.impl.MemoryDescImpl"
+                                 :data-type :float
+                                 :device :cpu
+                                 :shape [1 10]
+                                 :strides [10 1]}]
+                          :in-shapes [[1 1 28 28]]
+                          :input {"Input3" {:data-type :float :shape [1 1 28 28]}}
+                          :out-shapes [[1 10]]
+                          :output {"Plus214_Output_0" {:data-type :float :shape [1 10]}}
+                          :run-options nil
+                          :src [{:class "uncomplicate.diamond.internal.dnnl.impl.MemoryDescImpl"
+                                 :data-type :float
+                                 :device :cpu
+                                 :shape [1 1 28 28]
+                                 :strides [784 784 28 1]}]}
       (iamax (softmax! (first (mnist-infer!)))) => 7)))
 
 (with-release [fact (dnnl-factory)]
   (test-multi-io-onnx-model fact))
 
-;; gpt2-lm-head-bs-12
+;; Loads gpt2-lm-head-bs-12 model from Hugging Face.
+;; Due to its large size (651 MB) it is not included in the GitHub repository, and you need to download it
+;; from the following link first.
 ;; https://huggingface.co/onnxmodelzoo/gpt2-lm-head-bs-12/resolve/main/gpt2-lm-head-bs-12.onnx?download=true
+(defn test-gpt2-model [fact]
+  (with-release [env (environment :warning "test" nil)
+                 opt (options)
+                 sess (session env "data/gpt2-lm-head-bs-12.onnx" opt)
+                 mem-info (memory-info :cpu :arena 0 :default)]
+
+    (facts
+      "ONNX GPT2 inference test."
+
+      (info sess) => {:input {"attention_mask" {:data-type :float :shape [-1 -1]}
+                              "input_ids" {:data-type :long :shape [-1 -1]}
+                              "out_token_num" :long}
+                      :output {"lp_v0_2866" {:data-type :long :shape [4 36]}}}
+      ;;TODO :long is not supported by DNNL yet. This model will be supported later.
+      )))
+
+(with-release [fact (dnnl-factory)]
+  (test-gpt2-model fact))

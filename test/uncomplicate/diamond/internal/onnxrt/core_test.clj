@@ -208,8 +208,8 @@
     (let [x-info (cast-type input-info)]
       (shape x-info) => [-1 4]
       (symbolic-shape x-info) => ["" ""]
-      (symbolic-shape! x-info ["free_dimension" "2"])
-      (symbolic-shape x-info) => ["free_dimension" "2"]
+      (symbolic-shape! x-info [:batch nil])
+      (symbolic-shape x-info) => [:batch ""]
       (shape! x-info [2 4]) => x-info
       (tensor-count x-info) => 8)
 
@@ -240,8 +240,8 @@
     (let [x-info (cast-type input-info)]
       (shape x-info) => [-1 4]
       (symbolic-shape x-info) => ["" ""]
-      (symbolic-shape! x-info ["free_dimension" "2"])
-      (symbolic-shape x-info) => ["free_dimension" "2"]
+      (symbolic-shape! x-info [:batch nil])
+      (symbolic-shape x-info) => [:batch ""]
       (shape! x-info [2 4]) => x-info)
     (output-name sess) => ["output_label" "output_probability"]
     (bound-names (infer! binding)) => ["output_label" nil]
@@ -296,3 +296,33 @@
       (apply max res) => seven)
     (mutable-data (first (bound-values data-binding))) => y-data!
     (bound-names data-binding) => ["Plus214_Output_0"]))
+
+(facts
+  "GPT inference test."
+  (with-release [env (environment :warning "test" nil)
+                 opt (-> (options)
+                         (append-provider! :dnnl)
+                         (override-dimension! "batch_size" 1) ;;optional
+                         ;; (override-dimension! "seq_len" 3) ;;optional
+                         (graph-optimization! :extended))
+                 sess (session env "data/gpt2-lm-head-bs-12.onnx" opt)
+                 mem-info (memory-info :cpu :arena 0 :default)
+                 input-info (input-type-info sess)
+                 output-info (output-type-info sess)
+                 input-ids (onnx-tensor mem-info [1 3] (long-pointer [8642, 562, 318])) ;; Grass is
+                 attention-mask (onnx-tensor mem-info [1 3] (fill! (float-pointer 3) 1.0))
+                 out-token-num (onnx-tensor mem-info [1] (long-pointer [5]))
+                 ;; lp-v0-2866-data (long-pointer (* 4 36))
+                 ;; lp-v0-2866 (onnx-tensor mem-info [4 36] lp-v0-2866-data);; The ORT itself complains about the shape whatever I put. Only mem-info works
+                 data-binding (io-binding sess [input-ids attention-mask out-token-num] [mem-info])
+                 answer! (runner* sess)]
+    (map (comp symbolic-shape cast-type) input-info) => [["" "seq_len"] ["" "seq_len"] []]
+    (input-name sess) => ["input_ids" "attention_mask" "out_token_num"]
+    (output-name sess) => ["lp_v0_2866"]
+    (info sess) => {:input {"attention_mask" {:data-type :float :shape [1 -1]}
+                            "input_ids" {:data-type :long :shape [1 -1]}
+                            "out_token_num" :long}
+                    :output {"lp_v0_2866" {:data-type :long :shape [4 36]}}}
+    (answer! data-binding) => data-binding
+    (pointer-vec (capacity! (long-pointer (mutable-data (first (bound-values data-binding)))) 14))
+    => [8642 562 318 407 262 691 835 284 8642 562 318 407 262 691])) ;; Grass is not the only way to Grass is not the only way to

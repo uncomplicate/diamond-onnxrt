@@ -268,6 +268,15 @@
    :filter-spatial "FILTER_SPATIAL"
    :spatial "FILTER_SPATIAL"})
 
+(def ^:const onnx-dimension-denotation-dec
+  {"DATA_BATCH" :batch
+   "DATA_CHANNEL" :channel
+   "DATA_TIME" :time
+   "DATA_FEATURE" :feature
+   "FILTER_IN_CHANNEL" :in-channel
+   "FILTER_OUT_CHANNEL" :out-channel
+   "FILTER_SPATIAL" :spatial})
+
 (def ^:const ort-session-options-config-keys
   {:disable-prepacking "session.disable_prepacking"
    :prepacking "session.disable_prepacking"

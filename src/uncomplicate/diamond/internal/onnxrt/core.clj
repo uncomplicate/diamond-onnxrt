@@ -518,11 +518,11 @@
 
 ;; ==================== IO Binding =================================================================
 
-(defn bind-input [binding name value]
+(defn bind-input! [binding name value]
   (with-release [name (byte-pointer name)]
     (bind-input* *ort-api* (safe binding) name (safe value))))
 
-(defn bind-output [binding name value-or-mem-info]
+(defn bind-output! [binding name value-or-mem-info]
   (with-release [name (byte-pointer name)]
     (if (instance? OrtValue value-or-mem-info)
       (bind-output* *ort-api* (safe binding) name (safe value-or-mem-info));;TODO this can be a protocol.
@@ -572,23 +572,23 @@
        (let-release [res (safe (io-binding* ort-api (safe sess)))]
          (if (= 1 input-cnt)
            (with-release [in-name (safe (input-name* ort-api sess allo 0))]
-             (bind-input res in-name
+             (bind-input! res in-name
                          (safe (cond (map? inputs) (get-value inputs in-name)
                                      (sequential? inputs) (first inputs)
                                      :default inputs))))
            (cond (map? inputs)
                  (with-release [in-names (input-names* ort-api sess allo)]
                    (doseq [in-name (pointer-vec in-names)]
-                     (bind-input res in-name (get-value inputs in-name))))
+                     (bind-input! res in-name (get-value inputs in-name))))
                  (sequential? inputs)
                  (let [inputs (vec inputs)]
                    (dotimes [i (count inputs)]
                      (with-release [in-name (input-name* ort-api sess allo i)]
-                       (bind-input res in-name (inputs i)))))
+                       (bind-input! res in-name (inputs i)))))
                  :default (dragan-says-ex "Unsupported input typeu." {:inputs inputs})))
          (if (= 1 output-cnt)
            (with-release [out-name (safe (output-name* ort-api sess allo 0))]
-             (bind-output res out-name
+             (bind-output! res out-name
                           (safe (cond (map? outputs) (get-value outputs out-name)
                                       (sequential? outputs) (first outputs)
                                       :default outputs))))
@@ -676,21 +676,24 @@
       (with-release [values (long-pointer (seq values))]
         (tensor-dimensions* ort-api tensor-info! values))
       (dragan-says-ex "You have to provide value for each dimension."
-                      {:required cnt :provided (cnt values)}))))
+                      {:required cnt :provided (count values)}))))
 
 (defn symbolic-shape [tensor-info]
   (let [allo (safe *default-allocator*)]
     (with-release [symbolic-dims (symbolic-dimensions* *ort-api* (safe tensor-info))]
-      (doall (mapv #(get-string (byte-pointer %)) (pointer-vec symbolic-dims))))))
+      (doall (mapv #(let [s (get-string (byte-pointer %))]
+                      (get onnx-dimension-denotation-dec s s))
+                   (pointer-vec symbolic-dims))))))
 
 (defn symbolic-shape! [tensor-info names]
   (let [ort-api *ort-api*
         cnt (dimensions-count* ort-api tensor-info)]
     (if (= (count names) cnt)
-      (with-release [ppnames (pointer-pointer (seq names))]
+      (with-release [pnames (map #(byte-pointer (get onnx-dimension-denotation % (str %))) names)
+                     ppnames (pointer-pointer pnames)]
         (symbolic-dimensions* *ort-api* (safe tensor-info) ppnames))
       (dragan-says-ex "You have to provide name for each dimension."
-                      {:required cnt :provided (cnt names)}))))
+                      {:required cnt :provided (count names)}))))
 
 (defn tensor-type [tensor-info]
   (dec-onnx-data-type (tensor-type* *ort-api* (safe tensor-info))))

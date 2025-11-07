@@ -15,7 +15,7 @@
   :dependencies [[org.clojure/clojure "1.12.3"]
                  [uncomplicate/commons "0.19.0"]
                  [org.uncomplicate/deep-diamond-base "0.39.0"]
-                 [org.uncomplicate/deep-diamond-dnnl "0.39.3"]
+                 [org.uncomplicate/deep-diamond-dnnl "0.41.0-SNAPSHOT"]
                  [org.bytedeco/onnxruntime-platform "1.22.2-1.5.13-20250919.193005-2"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
