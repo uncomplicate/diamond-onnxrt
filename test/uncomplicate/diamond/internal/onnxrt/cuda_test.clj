@@ -15,8 +15,8 @@
              :refer [null? float-pointer long-pointer pointer-vec capacity! put-entry! fill! get-entry
                      pointer-pointer pointer]]
             [uncomplicate.clojurecuda.core
-             :refer [with-context context device cuda-malloc memcpy-to-device! memcpy-to-host! init
-                     stream]]
+             :refer [with-context context device cuda-malloc mem-alloc-runtime
+                     memcpy-host! init stream memset! synchronize!]]
             [uncomplicate.neanderthal.math :refer [exp]]
             [uncomplicate.diamond.internal.onnxrt.core :refer :all]
             [uncomplicate.diamond.internal.onnxrt.core-test :refer [test-image-0 softmax]])
@@ -103,7 +103,7 @@
      (with-release [env (environment nil)
                     opt (-> (options) (append-provider! :cuda))
                     mem-info (memory-info :cuda :device 0 :default)
-                    data (cuda-malloc (* 5 Float/BYTES) :float)
+                    data (mem-alloc-runtime (* 5 Float/BYTES) :float)
                     val (onnx-tensor mem-info [2 2] data)
                     val-type-info (value-info val)
                     val-tensor-type-info (value-tensor-info val)
@@ -135,15 +135,44 @@
                          (graph-optimization! :extended))
                  sess (session env "data/mnist-12.onnx" opt)
                  mem-info (memory-info :cuda :device 0 :default)
-                 x-data (cuda-malloc (* 784 Float/BYTES) :float)
+                 x-data (mem-alloc-runtime (* 784 Float/BYTES) :float)
                  x (onnx-tensor mem-info [1 1 28 28] x-data)
-                 y-data! (cuda-malloc (* 10 Float/BYTES) :float)
+                 y-data! (mem-alloc-runtime (* 10 Float/BYTES) :float)
                  y! (onnx-tensor mem-info [1 10] y-data!)
                  classify! (runner* sess)
                  data-binding (io-binding sess [x] [y!])]
-    (memcpy-to-device! (float-pointer test-image-0) x-data) => x-data
+    (memcpy-host! (float-pointer test-image-0) x-data) => x-data
     (classify! data-binding) => data-binding
-    (let [res (pointer-vec (softmax (memcpy-to-host! y-data! (float-pointer 10))))
+    (let [res (pointer-vec (softmax (memcpy-host! y-data! (float-pointer 10))))
           seven (res 7)]
       seven => 1.0
       (apply max res) => seven)))
+
+(facts
+  "GPT inference test."
+  (with-release [env (environment :warning "test" nil)
+                 opt (-> (options)
+                         (append-provider! :cuda)
+                         (override-dimension! "batch_size" 1) ;;optional
+                         (override-dimension! "seq_len" 3) ;;optional
+                         (graph-optimization! :extended))
+                 sess (session env "data/gpt2-lm-head-bs-12.onnx" opt)
+                 cpu-mem-info (memory-info :cpu :arena 0 :default)
+                 cuda-mem-info (memory-info :cuda :device 0 :default)
+                 input-ids-data (mem-alloc-runtime (* 3 Long/BYTES) :long)
+                 input-ids (onnx-tensor cuda-mem-info [1 3] input-ids-data) ;; Grass is
+                 attention-mask-data (memset! (mem-alloc-runtime (* 3 Float/BYTES) :float) (float 1.0))
+                 attention-mask (onnx-tensor cuda-mem-info [1 3] attention-mask-data)
+                 out-token-num-data (mem-alloc-runtime Long/BYTES :long)
+                 out-token-num (onnx-tensor cuda-mem-info [1] out-token-num-data)
+                 lp-v0-2866-data (mem-alloc-runtime (* 4 36 Long/BYTES) :long)
+                 lp-v0-2866 (onnx-tensor cpu-mem-info [4 36] lp-v0-2866-data);; The ORT itself complains about the shape whatever I put. Only mem-info works
+                 data-binding (io-binding sess [input-ids attention-mask out-token-num] [cpu-mem-info])
+                 answer! (runner* sess)]
+    (memcpy-host! (long-pointer [5]) out-token-num-data)
+    (memcpy-host! (float-pointer [1 1 1]) attention-mask-data)
+    (memcpy-host! (long-pointer [8642, 562, 318]) input-ids-data)
+    (answer! data-binding) => data-binding
+    (pointer-vec (capacity! (long-pointer (mutable-data (first (bound-values data-binding)))) 14))
+    => [8642 562 318 407 262 691 835 284 8642 562 318 407 262 691]
+    )) ;; Grass is not the only way to Grass is not the only way to
