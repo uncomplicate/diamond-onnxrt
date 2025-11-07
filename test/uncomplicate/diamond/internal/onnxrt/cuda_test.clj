@@ -82,9 +82,9 @@
                  mem-info1 (memory-info :cuda :arena 0 :default)
                  mem-info2 (memory-info :cuda :device 0 :default)
                  mem-info3 (memory-info :cuda :device 0 :default)]
-    (allocator-key mem-info) => nil
-    (allocator-key mem-info1) => nil
-    (allocator-key mem-info2) => nil
+    (allocator-key mem-info) => :cuda
+    (allocator-key mem-info1) => :cuda
+    (allocator-key mem-info2) => :cuda
     (allocator-type mem-info) => :arena
     (allocator-type mem-info2) => :device
     (device-id mem-info) => 0
@@ -92,7 +92,7 @@
     (memory-type mem-info) => :default
     (equal-memory-info? mem-info nil) => false
     (equal-memory-info? mem-info mem-info) => true
-    (equal-memory-info? mem-info mem-info1) => false
+    (equal-memory-info? mem-info mem-info1) => true
     (equal-memory-info? mem-info mem-info2) => false
     (equal-memory-info? mem-info2 mem-info3) => true))
 
@@ -151,8 +151,9 @@
 (facts
   "GPT inference test."
   (with-release [env (environment :warning "test" nil)
+                 hstream (stream)
                  opt (-> (options)
-                         (append-provider! :cuda)
+                         (append-provider! :cuda {:stream hstream})
                          (override-dimension! "batch_size" 1) ;;optional
                          (override-dimension! "seq_len" 3) ;;optional
                          (graph-optimization! :extended))
@@ -172,7 +173,9 @@
     (memcpy-host! (long-pointer [5]) out-token-num-data)
     (memcpy-host! (float-pointer [1 1 1]) attention-mask-data)
     (memcpy-host! (long-pointer [8642, 562, 318]) input-ids-data)
+    (synchronize! hstream)
     (answer! data-binding) => data-binding
+    (synchronize! hstream)
     (pointer-vec (capacity! (long-pointer (mutable-data (first (bound-values data-binding)))) 14))
     => [8642 562 318 407 262 691 835 284 8642 562 318 407 262 691]
     )) ;; Grass is not the only way to Grass is not the only way to
