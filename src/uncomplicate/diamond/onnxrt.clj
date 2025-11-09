@@ -79,7 +79,7 @@
                mem-type (if (and (= :device alloc-type) (= :cpu dev))
                           :cpu
                           :default)
-               merged-args (if uses-device
+               merged-args (if (= :cuda dev)
                              (assoc-in merged-args [:cuda :stream] (flow fact))
                              merged-args)]
            (let-release [opt (-> (if-let [opt (:options merged-args)]

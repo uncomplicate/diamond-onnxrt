@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject org.uncomplicate/diamond-onnxrt "0.19.0-SNAPSHOT"
+(defproject org.uncomplicate/diamond-onnxrt "0.19.1-SNAPSHOT"
   :description "Fast Clojure Machine Learning Model Integration"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
@@ -32,10 +32,11 @@
                                     [org.uncomplicate/neanderthal-mkl "0.57.1"]
                                     [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
                                     [org.uncomplicate/deep-diamond-cuda "0.41.0"]
-                                    [org.bytedeco/cuda-redist "13.0-9.14-1.5.13-20251022.164318-20" :classifier "linux-x86_64"]
-                                    [org.bytedeco/cuda-redist-cublas "13.0-9.14-1.5.13-20251022.164348-20" :classifier "linux-x86_64"]
-                                    [org.bytedeco/cuda-redist-cudnn "13.0-9.14-1.5.13-20251022.164345-20" :classifier "linux-x86_64"]
-                                    [org.bytedeco/cuda-redist-nccl "13.0-9.14-1.5.13-20251022.164339-20" :classifier "linux-x86_64"]]}
+                                    ;; [org.bytedeco/cuda-redist "13.0-9.14-1.5.13-20251022.164318-20" :classifier "linux-x86_64"]
+                                    ;; [org.bytedeco/cuda-redist-cublas "13.0-9.14-1.5.13-20251022.164348-20" :classifier "linux-x86_64"]
+                                    ;; [org.bytedeco/cuda-redist-cudnn "13.0-9.14-1.5.13-20251022.164345-20" :classifier "linux-x86_64"]
+                                    ;; [org.bytedeco/cuda-redist-nccl "13.0-9.14-1.5.13-20251022.164339-20" :classifier "linux-x86_64"]
+                                    ]}
              :windows {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.23.1-1.5.13-SNAPSHOT"]
                                       [org.uncomplicate/neanderthal-mkl "0.57.1"]
                                       [org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]
