@@ -11,9 +11,11 @@
   (:require [midje.sweet :refer [facts =>]]
             [uncomplicate.commons [core :refer [with-release info]]]
             [uncomplicate.neanderthal
-             [core :refer [iamax transfer! asum scal!]]
+             [core :refer [iamax transfer! asum scal! native view-vctr]]
              [vect-math :refer [exp!]]]
+            [uncomplicate.neanderthal.internal.api :refer [device]]
             [uncomplicate.diamond.tensor :refer [tensor]]
+            [uncomplicate.diamond.internal.protocols :refer [neanderthal-factory]]
             [uncomplicate.diamond.internal.onnxrt
              [core :refer :all]
              [model :refer :all]
@@ -29,7 +31,7 @@
                          (append-provider! :dnnl)
                          (graph-optimization! :extended))
                  sess (session env "data/mnist-12.onnx" opt)
-                 mem-info (memory-info :cpu :arena 0 :default)
+                 mem-info (memory-info (device (neanderthal-factory fact :float)) :device 0 :default)
                  mnist-bp (onnx-single-io-model fact sess mem-info)
                  src-tz (tensor fact [1 1 28 28] :float :nchw)
                  mnist-infer! (mnist-bp src-tz)]
@@ -67,7 +69,7 @@
   (with-release [env (environment :warning "test" nil)
                  opt (options)
                  sess (session env "data/mnist-12.onnx" opt)
-                 mem-info (memory-info :cpu :arena 0 :default)
+                 mem-info (memory-info :cpu :device 0 :default)
                  mnist-bp (onnx-multi-io-model fact sess opt nil mem-info)
                  src-tz (tensor fact [1 1 28 28] :float :nchw)
                  mnist-infer! (mnist-bp [src-tz])]
@@ -96,25 +98,33 @@
 (with-release [fact (dnnl-factory)]
   (test-multi-io-onnx-model fact))
 
-;; Loads gpt2-lm-head-bs-12 model from Hugging Face.
-;; Due to its large size (651 MB) it is not included in the GitHub repository, and you need to download it
-;; from the following link first.
-;; https://huggingface.co/onnxmodelzoo/gpt2-lm-head-bs-12/resolve/main/gpt2-lm-head-bs-12.onnx?download=true
-(defn test-gpt2-model [fact]
-  (with-release [env (environment :warning "test" nil)
-                 opt (options)
-                 sess (session env "data/gpt2-lm-head-bs-12.onnx" opt)
-                 mem-info (memory-info :cpu :arena 0 :default)]
+(with-release [fact (dnnl-factory)
+               vect-fact (neanderthal-factory fact)
+               env (environment :warning "test" nil)
+               opt (-> (options)
+                       (append-provider! :dnnl)
+                       (override-dimension! "batch_size" 1)
+                       (override-dimension! "sequence_length" 1)
+                       (override-dimension! "past_sequence_length" 0)
+                       (override-dimension! "past_sequence_length + 1" 1)
+                       (graph-optimization! :extended))
+               sess (session env "data/SmolLM-135M/onnx/model.onnx" opt)
+               mem-info (memory-info (device (neanderthal-factory fact :float)) :device 0 :default)
+               smollm-bp (onnx-multi-io-model fact sess opt nil mem-info)
+               src-tz (tensor fact [1 1 28 28] :float :nchw)
+               input-ids (tensor vect-fact [1 1] :long :nc)
+               position-ids (tensor vect-fact [1 1] :long :nc)
+               attention-mask (tensor vect-fact [1 1] :long :nc)
+               past-key-values (repeatedly 60 #(tensor fact [1 3 0 64] :float :nchw))
+               smollm-next! (smollm-bp (into [input-ids attention-mask position-ids] past-key-values))]
 
-    (facts
-      "ONNX GPT2 inference test."
-
-      (info sess) => {:input {"attention_mask" {:data-type :float :shape [-1 -1]}
-                              "input_ids" {:data-type :long :shape [-1 -1]}
-                              "out_token_num" :long}
-                      :output {"lp_v0_2866" {:data-type :long :shape [4 36]}}}
-      ;;TODO :long is not supported by DNNL yet. This model will be supported later.
-      )))
-
-(with-release [fact (dnnl-factory)]
-  (test-gpt2-model fact))
+  (facts
+    "ONNX SmolLM inference test."
+    (transfer! [2] input-ids)
+    ;; (transfer! [0] position-ids)
+    ;; (transfer! [1] attention-mask)
+    ;; (doseq [pkv past-key-values]
+    ;;   (transfer! (repeat 0) pkv))
+    (take 16 (view-vctr (native (first (smollm-next!)))))
+    => (map float [13.046633 -1.2745271 -1.2023203 -2.2959335 -1.5224829 -1.2160451 1.2734042 -1.2160451
+                   -5.103885 9.137959 -1.2160451 -1.2160451 -1.2160451 -1.2160766 -1.2160451 -1.2160451])))

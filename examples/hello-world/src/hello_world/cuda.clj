@@ -16,7 +16,7 @@
             [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]
             [hello-world.native :refer [input-desc input-tz mnist-onnx]]))
 
-;; There are a few flavors of how you can run this, these are just two of many! Explore :)
+;; There are a few flavors of how you can run this in, these are just two of many! Explore :)
 ;; We can even reuse most of the general parts from the native example.
 
 (with-diamond cudnn-factory []

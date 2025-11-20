@@ -13,7 +13,7 @@
             [uncomplicate.fluokitten.core :refer [fold fmap!]]
             [uncomplicate.clojure-cpp
              :refer [null? float-pointer long-pointer pointer-vec capacity! put-entry! fill! get-entry
-                     pointer-pointer]]
+                     pointer-pointer zero!]]
             [uncomplicate.neanderthal.math :refer [exp]]
             [uncomplicate.diamond.internal.onnxrt.core :refer :all])
   (:import clojure.lang.ExceptionInfo))
@@ -326,3 +326,59 @@
     (answer! data-binding) => data-binding
     (pointer-vec (capacity! (long-pointer (mutable-data (first (bound-values data-binding)))) 14))
     => [8642 562 318 407 262 691 835 284 8642 562 318 407 262 691])) ;; Grass is not the only way to Grass is not the only way to
+
+(facts
+  "SmolLM inference test."
+  (with-release [env (environment :warning "test" nil)
+                 opt (-> (options)
+                         (append-provider! :dnnl)
+                         (override-dimension! "batch_size" 1)
+                         (override-dimension! "sequence_length" 1)
+                         (override-dimension! "past_sequence_length" 0)
+                         (override-dimension! "past_sequence_length + 1" 1)
+                         (graph-optimization! :extended))
+                 sess (session env "data/SmolLM-135M/onnx/model.onnx" opt)
+                 mem-info (memory-info :cpu :arena 0 :default)
+                 input-info (input-type-info sess)
+                 output-info (output-type-info sess)
+                 input-ids (onnx-tensor mem-info [1 1] (long-pointer [2]))
+                 position-ids (onnx-tensor mem-info [1 1] (long-pointer [0]))
+                 attention-mask (onnx-tensor mem-info [1 1] (long-pointer [1]))
+                 past-key-values (repeatedly 60 #(onnx-tensor mem-info [1 3 0 64] (zero! (float-pointer 192))))
+                 present-key-values (repeatedly 60 #(onnx-tensor mem-info [1 3 1 64] (zero! (float-pointer 192))))
+                 logits (onnx-tensor mem-info [1 1 49152] (float-pointer 49152))
+                 data-binding (io-binding sess (into [input-ids attention-mask position-ids] past-key-values)
+                                          (into [logits] present-key-values))
+                 next! (runner* sess)]
+    (next! data-binding) => data-binding
+    (pointer-vec (capacity! (float-pointer (mutable-data (first (bound-values data-binding)))) 16))
+    => (map float [13.046633 -1.2745271 -1.2023203 -2.2959335 -1.5224829 -1.2160451 1.2734042 -1.2160451
+                   -5.103885 9.137959 -1.2160451 -1.2160451 -1.2160451 -1.2160766 -1.2160451 -1.2160451])))
+
+(facts
+  "Gemma 3 inference test."
+  (with-release [env (environment :warning "test" nil)
+                 opt (-> (options)
+                         (append-provider! :dnnl)
+                         (override-dimension! "batch_size" 1)
+                         (override-dimension! "sequence_length" 1)
+                         (override-dimension! "past_sequence_length" 0)
+                         (override-dimension! "total_sequence_length" 1)
+                         (graph-optimization! :extended))
+                 sess (session env "data/gemma-3-1b-it-ONNX-GQA/onnx/model.onnx" opt)
+                 mem-info (memory-info :cpu :arena 0 :default)
+                 input-info (input-type-info sess)
+                 output-info (output-type-info sess)
+                 input-ids (onnx-tensor mem-info [1 1] (long-pointer [2]))
+                 position-ids (onnx-tensor mem-info [1 1] (long-pointer [0]))
+                 attention-mask (onnx-tensor mem-info [1 1] (long-pointer [1]))
+                 past-key-values (repeatedly 52 #(onnx-tensor mem-info [1 1 0 256] (float-pointer 0)))
+                 present-key-values (repeatedly 52 #(onnx-tensor mem-info [1 1 1 256] (float-pointer 256)))
+                 logits (onnx-tensor mem-info [1 1 262144] (float-pointer 262144))
+                 data-binding (io-binding sess (into [input-ids attention-mask position-ids] past-key-values)
+                                          (into [logits] present-key-values))
+                 next! (runner* sess)]
+    (next! data-binding) => data-binding
+    (pointer-vec (capacity! (float-pointer (mutable-data (first (bound-values data-binding)))) 16))
+    => (map float [-14.226645 -1.1276448 4.660359 -14.703875 -4.0910087 -9.300836 -7.5928197 -9.947579
+                  -11.940135 -9.666499 -10.555443 -11.343688 -10.375963 -10.141178 -10.714252 -10.99442])))

@@ -838,10 +838,10 @@
                      (safe (long-pointer (seq shape)))
                      (enc-keyword onnx-data-type data-type))))
   ([mem-info-or-alloc shape data-or-type]
-   (if (or (keyword data-or-type) (number? data-or-type))
+   (if (keyword? data-or-type)
      (allocate-tensor* *ort-api* (safe mem-info-or-alloc)
                        (safe (long-pointer (seq shape)))
-                       (enc-keyword pointer-type data-or-type))
+                       (enc-keyword onnx-data-type data-or-type))
      (onnx-tensor mem-info-or-alloc shape data-or-type
                   (enc-keyword pointer-type (type (pointer data-or-type))))))
   ([shape data-type]

@@ -23,13 +23,23 @@
                       DiamondFactoryProvider DiffParameters diff-weights Backprop forward backward
                       DiffTransfer diff-input diff-output diff-z LinearBackprop backward-diff
                       inf-desc train-desc diff-desc Initializable init batch-index create-tensor
-                      create-tensor-desc]]
+                      create-tensor-desc neanderthal-factory]]
              [utils :refer [default-strides transfer-weights-bias! concat-strides
                             concat-dst-shape direction-count]]]
             [uncomplicate.diamond.internal.onnxrt.core :as onnx
              :refer [onnx-tensor runner* cast-type input-type-info output-type-info tensor-type
                      io-binding options config]])
   (:import [clojure.lang IFn AFn]))
+
+(defn tensor-desc [fact vect-fact shape type]
+  (if (= :long type)
+    (create-tensor-desc vect-fact shape type (default-strides shape))
+    (create-tensor-desc fact shape type (default-strides shape))))
+
+(defn create-tz [fact vect-fact tz-desc]
+  (if (= :long (data-type tz-desc))
+    (create-tensor vect-fact tz-desc false)
+    (create-tensor fact tz-desc false)))
 
 ;; ================================ One input, one output ==========================================
 
@@ -183,7 +193,7 @@
     (AFn/applyToHelper this xs)))
 
 (deftype MultiIOInferenceBlueprint [fact sess opt run-opt mem-info src-descs dst-descs
-                                    onnx-in-shapes onnx-out-shapes]
+                                    onnx-in-shapes onnx-out-shapes create-tz]
   Releaseable
   (release [_]
     (release sess)
@@ -228,7 +238,7 @@
   (invoke [this prev-layer]
     (let [src-tzs (fmap (comp view output) prev-layer)]
       (let-release [src-conns (fmap connector src-tzs src-descs)
-                    dst-tzs (fmap #(create-tensor fact % false) dst-descs)
+                    dst-tzs (fmap create-tz dst-descs)
                     infer! (runner* sess run-opt)
                     in-onnx-s (fmap (fn [onnx-in-shape src-conn]
                                       (onnx-tensor mem-info onnx-in-shape (buffer (output src-conn))))
@@ -250,14 +260,13 @@
          ins-type (mapv tensor-type ins-info)
          outs-info (mapv cast-type (output-type-info sess))
          outs-shape (mapv onnx/shape outs-info)
-         outs-type (mapv tensor-type outs-info)]
-     (let-release [src-descs (mapv (fn [in-shape in-type]
-                                     (create-tensor-desc fact in-shape in-type (default-strides in-shape)))
-                                   ins-shape ins-type)
-                   dst-descs (mapv (fn [out-shape out-type]
-                                     (create-tensor-desc fact out-shape out-type (default-strides out-shape)))
-                                   outs-shape outs-type)]
-       (->MultiIOInferenceBlueprint fact sess opt run-opt mem-info src-descs dst-descs ins-shape outs-shape))))
+         outs-type (mapv tensor-type outs-info)
+         tensor-desc (partial tensor-desc fact (neanderthal-factory fact))
+         create-tz (partial create-tz fact (neanderthal-factory fact))]
+     (let-release [src-descs (mapv tensor-desc ins-shape ins-type)
+                   dst-descs (mapv tensor-desc outs-shape outs-type)]
+       (->MultiIOInferenceBlueprint fact sess opt run-opt mem-info src-descs dst-descs
+                                    ins-shape outs-shape create-tz))))
   ([fact sess mem-info]
    (let-release [opt (options)]
      (onnx-multi-io-model fact sess opt nil mem-info))))
