@@ -121,10 +121,10 @@
   (facts
     "ONNX SmolLM inference test."
     (transfer! [2] input-ids)
-    ;; (transfer! [0] position-ids)
-    ;; (transfer! [1] attention-mask)
-    ;; (doseq [pkv past-key-values]
-    ;;   (transfer! (repeat 0) pkv))
+    (transfer! [0] position-ids)
+    (transfer! [1] attention-mask)
+    (doseq [pkv past-key-values]
+      (transfer! (repeat 0) pkv))
     (take 16 (view-vctr (native (first (smollm-next!)))))
     => (map float [13.046633 -1.2745271 -1.2023203 -2.2959335 -1.5224829 -1.2160451 1.2734042 -1.2160451
                    -5.103885 9.137959 -1.2160451 -1.2160451 -1.2160451 -1.2160766 -1.2160451 -1.2160451])))
