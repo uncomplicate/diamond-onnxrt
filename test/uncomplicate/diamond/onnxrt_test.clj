@@ -86,17 +86,17 @@
                            (override-dimension! "batch_size" 1)
                            (override-dimension! "sequence_length" 1)
                            (override-dimension! "past_sequence_length" 1)
-                           (override-dimension! "past_sequence_length + 1" 2));;TODO technically, 1 works too!
+                           (override-dimension! "past_sequence_length + 1" 1))
                    src-tz (tensor fact [1 1 28 28] :float :nchw)
                    onnx-bp (onnx fact "data/SmolLM-135M/onnx/model.onnx" {:options opt})
                    input-ids (tensor neand-fact [1 1] :long :nc)
                    position-ids (tensor neand-fact [1 1] :long :nc)
-                   attention-mask (tensor neand-fact [1 2] :long :nc)
+                   attention-mask (tensor neand-fact [1 1] :long :nc)
                    past-key-values (repeatedly 60 #(tensor fact [1 3 1 64] :float :nchw))
                    smollm-next! (onnx-bp (into [input-ids attention-mask position-ids] past-key-values))]
       (transfer! [2] input-ids)
       (transfer! [0] position-ids)
-      (transfer! [1 1] attention-mask)
+      (transfer! [1] attention-mask)
       (doseq [pkv past-key-values]
         (transfer! (repeat 0) pkv))
       (facts
