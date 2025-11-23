@@ -14,8 +14,8 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.3"]
                  [uncomplicate/commons "0.19.0"]
-                 [org.uncomplicate/deep-diamond-base "0.42.0-SNAPSHOT"]
-                 [org.uncomplicate/deep-diamond-dnnl "0.42.0-SNAPSHOT"]
+                 [org.uncomplicate/deep-diamond-base "0.42.0"]
+                 [org.uncomplicate/deep-diamond-dnnl "0.42.0"]
                  [org.bytedeco/onnxruntime-platform "1.23.1-1.5.13-SNAPSHOT"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
@@ -29,23 +29,23 @@
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                             "--enable-native-access=ALL-UNNAMED"]}
              :linux {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.23.1-1.5.13-SNAPSHOT"]
-                                    [org.uncomplicate/neanderthal-mkl "0.60.0-SNAPSHOT"]
+                                    [org.uncomplicate/neanderthal-mkl "0.60.0"]
                                     [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
-                                    [org.uncomplicate/deep-diamond-cuda "0.42.0-SNAPSHOT"]
+                                    [org.uncomplicate/deep-diamond-cuda "0.42.0"]
                                     ;; [org.bytedeco/cuda-redist "13.0-9.14-1.5.13-20251022.164318-20" :classifier "linux-x86_64"]
                                     ;; [org.bytedeco/cuda-redist-cublas "13.0-9.14-1.5.13-20251022.164348-20" :classifier "linux-x86_64"]
                                     ;; [org.bytedeco/cuda-redist-cudnn "13.0-9.14-1.5.13-20251022.164345-20" :classifier "linux-x86_64"]
                                     ;; [org.bytedeco/cuda-redist-nccl "13.0-9.14-1.5.13-20251022.164339-20" :classifier "linux-x86_64"]
                                     ]}
              :windows {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.23.1-1.5.13-SNAPSHOT"]
-                                      [org.uncomplicate/neanderthal-mkl "0.60.0-SNAPSHOT"]
+                                      [org.uncomplicate/neanderthal-mkl "0.60.0"]
                                       [org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]
-                                      [org.uncomplicate/deep-diamond-cuda "0.42.0-SNAPSHOT"]
+                                      [org.uncomplicate/deep-diamond-cuda "0.42.0"]
                                       [org.bytedeco/cuda-redist "13.0-9.14-1.5.13-20251022.164318-20" :classifier "windows-x86_64"]
                                       [org.bytedeco/cuda-redist-cublas "13.0-9.14-1.5.13-20251022.164318-20" :classifier "windows-x86_64"]
                                       [org.bytedeco/cuda-redist-cudnn "13.0-9.14-1.5.13-20251022.164345-20" :classifier "windows-x86_64"]
                                       [org.bytedeco/cuda-redist-nccl "13.0-9.14-1.5.13-20251022.164339-20" :classifier "windows-x86_64"]]}
-             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.60.0-SNAPSHOT"]
+             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.60."]
                                      [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]}}
 
   :repositories [["maven-central-snapshots" "https://central.sonatype.com/repository/maven-snapshots"]]
