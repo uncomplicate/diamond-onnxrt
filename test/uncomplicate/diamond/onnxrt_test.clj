@@ -33,7 +33,6 @@
       "ONNX MNIST network inference test."
       (iamax (native (mnist-infer!))) => 7)))
 
-
 (defn test-onnx-layer-multi-io [fact]
   (with-release [src-tz (tensor fact [1 1 28 28] :float :nchw)
                  onnx-bp (onnx fact "data/mnist-12.onnx" {:multi-io true})

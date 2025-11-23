@@ -45,7 +45,7 @@
                                       [org.bytedeco/cuda-redist-cublas "13.0-9.14-1.5.13-20251022.164318-20" :classifier "windows-x86_64"]
                                       [org.bytedeco/cuda-redist-cudnn "13.0-9.14-1.5.13-20251022.164345-20" :classifier "windows-x86_64"]
                                       [org.bytedeco/cuda-redist-nccl "13.0-9.14-1.5.13-20251022.164339-20" :classifier "windows-x86_64"]]}
-             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.60."]
+             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.60.0"]
                                      [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]}}
 
   :repositories [["maven-central-snapshots" "https://central.sonatype.com/repository/maven-snapshots"]]
