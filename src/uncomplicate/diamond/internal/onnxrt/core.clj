@@ -519,14 +519,14 @@
 ;; ==================== IO Binding =================================================================
 
 (defn bind-input! [binding name value]
-  (with-release [name (byte-pointer name)]
+  (with-release [name (safe (byte-pointer name))]
     (bind-input* *ort-api* (safe binding) name (safe value))))
 
 (defn bind-output! [binding name value-or-mem-info]
-  (with-release [name (byte-pointer name)]
-    (if (instance? OrtValue value-or-mem-info)
-      (bind-output* *ort-api* (safe binding) name (safe value-or-mem-info));;TODO this can be a protocol.
-      (bind-output-to-device* *ort-api* (safe binding) name (safe value-or-mem-info)))))
+  (with-release [name (safe (byte-pointer name))]
+    (if (instance? OrtMemoryInfo value-or-mem-info)
+      (bind-output-to-device* *ort-api* (safe binding) name (safe value-or-mem-info))
+      (bind-output* *ort-api* (safe binding) name (safe value-or-mem-info)))));;TODO this can be a protocol.
 
 (defn bound-names [binding]
   (let [allo (safe *default-allocator*)]
@@ -564,49 +564,55 @@
          allo (safe *default-allocator*)
          input-cnt (input-count sess)
          output-cnt (output-count sess)]
-     (letfn [(get-value [values in-name]
-               (let [name-string (get-string* in-name)]
-                 (or (inputs name-string)
+     (letfn [(get-value [values pname]
+               (let [name-string (get-string (byte-pointer pname))]
+                 (or (values name-string)
                      (dragan-says-ex "You have to provide names that match session model's specification."
                                      {:requested (keys values) :expected name-string}))))]
        (let-release [res (safe (io-binding* ort-api (safe sess)))]
          (if (= 1 input-cnt)
-           (with-release [in-name (safe (input-name* ort-api sess allo 0))]
-             (bind-input! res in-name
-                         (safe (cond (map? inputs) (get-value inputs in-name)
-                                     (sequential? inputs) (first inputs)
-                                     :default inputs))))
+           (let [in-name (safe (input-name* ort-api sess allo 0))]
+             (try
+               (bind-input! res in-name
+                             (cond (map? inputs) (get-value inputs in-name)
+                                   (sequential? inputs) (first inputs)
+                                   :default inputs))
+               (finally (free in-name))))
            (cond (map? inputs)
                  (with-release [in-names (input-names* ort-api sess allo)]
                    (doseq [in-name (pointer-vec in-names)]
-                     (bind-input! res in-name (get-value inputs in-name))))
+                     (try
+                       (bind-input! res in-name (get-value inputs in-name))
+                       (finally (free in-name)))))
                  (sequential? inputs)
                  (let [inputs (vec inputs)]
                    (dotimes [i (count inputs)]
-                     (with-release [in-name (input-name* ort-api sess allo i)]
-                       (bind-input! res in-name (inputs i)))))
-                 :default (dragan-says-ex "Unsupported input typeu." {:inputs inputs})))
+                     (let [in-name (input-name* ort-api sess allo i)]
+                       (try
+                         (bind-input! res in-name (inputs i))
+                         (finally (free in-name))))))
+                 :default (dragan-says-ex "Unsupported input type." {:inputs inputs})))
          (if (= 1 output-cnt)
-           (with-release [out-name (safe (output-name* ort-api sess allo 0))]
-             (bind-output! res out-name
-                          (safe (cond (map? outputs) (get-value outputs out-name)
-                                      (sequential? outputs) (first outputs)
-                                      :default outputs))))
+           (let [out-name (safe (output-name* ort-api sess allo 0))]
+             (try
+               (bind-output! res out-name
+                             (cond (map? outputs) (get-value outputs out-name)
+                                   (sequential? outputs) (first outputs)
+                                   :default outputs))
+               (finally (free out-name))))
            (cond (map? outputs)
                  (with-release [out-names (output-names* ort-api sess allo)]
                    (doseq [out-name (pointer-vec out-names)]
-                     (let [output (get-value outputs out-name)]
-                       (if (instance? OrtMemoryInfo output)
-                         (bind-output-to-device* ort-api res out-name output)
-                         (bind-output* ort-api res out-name output)))))
+                     (try
+                       (bind-output! res out-name (get-value outputs out-name))
+                       (finally (free out-name)))))
                  (sequential? outputs)
                  (let [outputs (vec outputs)]
                    (dotimes [i (count outputs)]
-                     (with-release [out-name (output-name* ort-api sess allo i)]
-                       (let [output (outputs i)]
-                         (if (instance? OrtMemoryInfo output)
-                           (bind-output-to-device* ort-api res out-name output)
-                           (bind-output* ort-api res out-name output))))))
+                     (let [out-name (output-name* ort-api sess allo i)]
+                       (try
+                         (bind-output! res out-name (outputs i))
+                         (finally (free out-name))))))
                  :default (dragan-says-ex "Unsupported output type." {:outputs outputs})))
          res)))))
 
