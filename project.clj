@@ -16,7 +16,7 @@
                  [uncomplicate/commons "0.19.0"]
                  [org.uncomplicate/deep-diamond-base "0.42.0"]
                  [org.uncomplicate/deep-diamond-dnnl "0.42.0"]
-                 [org.bytedeco/onnxruntime-platform "1.23.1-1.5.13-SNAPSHOT"]]
+                 [org.bytedeco/onnxruntime-platform "1.23.2-1.5.13-20251201.110827-1"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {:plugins [[lein-midje "3.2.1"]]
@@ -28,7 +28,7 @@
                        :dependencies [[midje "1.10.10"]]
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                             "--enable-native-access=ALL-UNNAMED"]}
-             :linux {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.23.1-1.5.13-SNAPSHOT"]
+             :linux {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.23.2-1.5.13-20251201.110731-1"]
                                     [org.uncomplicate/neanderthal-mkl "0.60.0"]
                                     [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
                                     [org.uncomplicate/deep-diamond-cuda "0.42.0"]
@@ -37,7 +37,7 @@
                                     ;; [org.bytedeco/cuda-redist-cudnn "13.0-9.14-1.5.13-20251022.164345-20" :classifier "linux-x86_64"]
                                     ;; [org.bytedeco/cuda-redist-nccl "13.0-9.14-1.5.13-20251022.164339-20" :classifier "linux-x86_64"]
                                     ]}
-             :windows {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.23.1-1.5.13-SNAPSHOT"]
+             :windows {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.23.2-1.5.13-20251201.110731-1"]
                                       [org.uncomplicate/neanderthal-mkl "0.60.0"]
                                       [org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]
                                       [org.uncomplicate/deep-diamond-cuda "0.42.0"]
