@@ -13,7 +13,7 @@ Diamond ONNX Runtime is is a Clojure library for running ML and AI models that i
 ## How to use it
 
 Until I set up a dedicated website with the documentation and tutorials, please refer to my
-blog [Dragan Rocks](https://dragan.rocks), the [Hello World example project](://github.com/uncomplicate/diamond-onnxrt/tree/main/examples/hello-world), and detailed [Clojure tests](https://github.com/uncomplicate/diamond-onnxrt/tree/main/test/uncomplicate/diamond).
+blog [Dragan Rocks](https://dragan.rocks), the [Hello World example project](https://github.com/uncomplicate/diamond-onnxrt/tree/main/examples/hello-world), and detailed [Clojure tests](https://github.com/uncomplicate/diamond-onnxrt/tree/main/test/uncomplicate/diamond).
 
 There is not only enough step-by-step material there to get you started, but to deep-dive into both higher-level and lower-level features.
 
