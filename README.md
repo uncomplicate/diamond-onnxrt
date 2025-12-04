@@ -8,7 +8,7 @@
 
 [Become a patron](https://patreon.com/draganrocks).
 
-Diamond ONNX Runtime is is a Clojure library for running ML and AI models that integrates into Neanderthal and Deep Diamond.
+Diamond ONNX Runtime is is a Clojure library for running ML and AI models that integrates into [Neanderthal](https://github.com/uncomplicate/neanderthal) and [Deep Diamond](https://github.com/uncomplicate/deep-diamond).
 
 ## How to use it
 
@@ -17,7 +17,7 @@ blog [Dragan Rocks](https://dragan.rocks), the [Hello World example project](htt
 
 There is not only enough step-by-step material there to get you started, but to deep-dive into both higher-level and lower-level features.
 
-Please note that this library does not even introduce much public API, since it neatly blends into Deep Diamond,
+Please note that this library does not even introduce much public API, beyond the onnx function, since it neatly blends into [Deep Diamond](https://github.com/uncomplicate/deep-diamond) and [Neanderthal](https://github.com/uncomplicate/neanderthal).
 which is very extensively documented in the [Deep Learning for Programmers](https://aiprobook.com) book.
 
 ## License
