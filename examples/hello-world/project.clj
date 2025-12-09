@@ -14,7 +14,8 @@
 
   ;; Most of the following dependencies can be left out if you already have compatible binaries
   ;; installed globally through your operating system's package manager.
-  :profiles {:default [:default/all ~(leiningen.core.utils/get-os)]
+  :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
+             :dev/all {}
              :linux {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.23.2-1.5.13-20251201.110731-1"]
                                     [org.uncomplicate/neanderthal-mkl "0.60.0"]
                                     [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
@@ -24,7 +25,7 @@
                                     ;; [org.bytedeco/cuda-redist-cudnn "13.0-9.14-1.5.13-20251022.164345-20" :classifier "linux-x86_64"]
                                     ;; [org.bytedeco/cuda-redist-nccl "13.0-9.14-1.5.13-20251022.164339-20" :classifier "linux-x86_64"]
                                     ]}
-             :windows {:dependencies ["1.23.2-1.5.13-20251201.110731-1"
+             :windows {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.23.2-1.5.13-20251201.110731-1"]
                                       [org.uncomplicate/neanderthal-mkl "0.60.0"]
                                       [org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]
                                       [org.uncomplicate/deep-diamond-cuda "0.42.0"]
