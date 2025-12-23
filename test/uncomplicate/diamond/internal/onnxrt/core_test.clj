@@ -337,6 +337,7 @@
                          (override-dimension! "past_sequence_length" 1)
                          (override-dimension! "past_sequence_length + 1" 1)
                          (graph-optimization! :extended))
+                 ;; huggingface model HuggingFaceTB/SmolLM-135M at revision 1d461723eec654e65efdc40cf49301c89c0c92f4
                  sess (session env "data/SmolLM-135M/onnx/model.onnx" opt)
                  mem-info (memory-info :cpu :arena 0 :default)
                  input-info (input-type-info sess)
