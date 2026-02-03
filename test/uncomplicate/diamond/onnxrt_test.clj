@@ -111,3 +111,30 @@
 
 (with-release [fact (cudnn-factory)]
   (test-onnx-layer-smollm fact))
+
+(defn test-onnx-layer-gemma3 [fact]
+  (let [neand-fact (neanderthal-factory fact)]
+    (with-release [opt (-> (options)
+                           (override-dimension! "batch_size" 1)
+                           (override-dimension! "sequence_length" 1)
+                           (override-dimension! "past_sequence_length" 1)
+                           (override-dimension! "total_sequence_length" 1))
+                   src-tz (tensor fact [1 1 28 28] :float :nchw)
+                   onnx-bp (onnx fact "data/gemma-3-1b-it-ONNX-GQA/onnx/model.onnx" {:options opt})
+                   input-ids (tensor neand-fact [1 1] :long :nc)
+                   position-ids (tensor neand-fact [1 1] :long :nc)
+                   attention-mask (tensor neand-fact [1 1] :long :nc)
+                   past-key-values (repeatedly 60 #(tensor fact [1 3 1 64] :float :nchw))
+                   gemma-next! (onnx-bp (into [input-ids attention-mask position-ids] past-key-values))]
+      (transfer! [2] input-ids)
+      (transfer! [0] position-ids)
+      (transfer! [1] attention-mask)
+      (doseq [pkv past-key-values]
+        (transfer! (repeat 0) pkv))
+      (facts
+       "ONNX Gemma 3 blueprint inference test."
+        (foldmap + 0 -
+                 (take 10 (view-vctr (native (first (gemma-next!)))))
+                 [-14.226645 -1.1276448 4.660359 -14.703875 -4.0910087 -9.300836 -7.5928197 -9.947579
+                  -11.940135 -9.666499])
+        => (roughly 0.0 0.001)))))
