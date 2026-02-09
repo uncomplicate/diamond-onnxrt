@@ -1,4 +1,4 @@
-(defproject hello-world "0.22.0"
+(defproject hello-world "0.23.0"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.4"]
@@ -9,26 +9,25 @@
                  ;; which then might clash with the versions that you project includes.
                  ;; If you want to try the Hello World without AOT, just comment out the uncomplicate/deep-diamond
                  ;; dependency!
-                 [uncomplicate/deep-diamond "0.42.1"]
-                 [org.uncomplicate/diamond-onnxrt "0.22.0"]]
+                 [uncomplicate/deep-diamond "0.42.2"]
+                 [org.uncomplicate/diamond-onnxrt "0.23.0"]]
 
   ;; Most of the following dependencies can be left out if you already have compatible binaries
   ;; installed globally through your operating system's package manager.
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {}
-             :linux {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.23.2-1.5.13-20260203.070031-7"]
+             :linux {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.24.1-1.5.13-20260209.130158-1"]
                                     [org.uncomplicate/neanderthal-mkl "0.60.0"]
                                     [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
-                                    [org.uncomplicate/deep-diamond-cuda "0.42.0"]
-                                    [org.uncomplicate/deep-diamond-cuda "0.42.1"]
+                                    [org.uncomplicate/deep-diamond-cuda "0.42.2"]
                                     [org.bytedeco/cuda-redist "13.1-9.18-1.5.13-20260203.003728-10" :classifier "linux-x86_64"]
                                     [org.bytedeco/cuda-redist-cublas "13.1-9.18-1.5.13-20260203.003743-10" :classifier "linux-x86_64"]
                                     #_[org.bytedeco/cuda-redist-cudnn "13.1-9.18-1.5.13-20260203.003751-10" :classifier "linux-x86_64"]
                                     [org.bytedeco/cuda-redist-nccl "13.1-9.18-1.5.13-20260203.003722-10" :classifier "linux-x86_64"]]}
-             :windows {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.23.2-1.5.13-20260203.070031-7"]
+             :windows {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.24.1-1.5.13-20260209.130158-1"]
                                       [org.uncomplicate/neanderthal-mkl "0.60.0"]
                                       [org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]
-                                      [org.uncomplicate/deep-diamond-cuda "0.42.1"]
+                                      [org.uncomplicate/deep-diamond-cuda "0.42.2"]
                                       [org.bytedeco/cuda-redist "13.1-9.18-1.5.13-20260203.003728-10" :classifier "windows-x86_64"]
                                       [org.bytedeco/cuda-redist-cublas "13.1-9.18-1.5.13-20260203.003743-10" :classifier "windows-x86_64"]
                                       [org.bytedeco/cuda-redist-cudnn "13.1-9.18-1.5.13-20260203.003751-10" :classifier "windows-x86_64"]

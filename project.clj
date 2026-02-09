@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject org.uncomplicate/diamond-onnxrt "0.23.0-SNAPSHOT"
+(defproject org.uncomplicate/diamond-onnxrt "0.23.0"
   :description "Fast Clojure Machine Learning Model Integration"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
@@ -15,7 +15,7 @@
   :dependencies [[org.clojure/clojure "1.12.4"]
                  [uncomplicate/commons "0.19.0"]
                  [org.uncomplicate/deep-diamond-base "0.42.0"]
-                 [org.uncomplicate/deep-diamond-dnnl "0.42.1"]
+                 [org.uncomplicate/deep-diamond-dnnl "0.42.2"]
                  [org.bytedeco/onnxruntime-platform "1.24.1-1.5.13-20260209.130246-1"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
@@ -31,7 +31,7 @@
              :linux {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.24.1-1.5.13-20260209.130158-1"]
                                     [org.uncomplicate/neanderthal-mkl "0.60.0"]
                                     [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
-                                    [org.uncomplicate/deep-diamond-cuda "0.42.1"]
+                                    [org.uncomplicate/deep-diamond-cuda "0.42.2"]
                                     [org.bytedeco/cuda-redist "13.1-9.18-1.5.13-20260203.003728-10" :classifier "linux-x86_64"]
                                     [org.bytedeco/cuda-redist-cublas "13.1-9.18-1.5.13-20260203.003743-10" :classifier "linux-x86_64"]
                                     #_[org.bytedeco/cuda-redist-cudnn "13.1-9.18-1.5.13-20260203.003751-10" :classifier "linux-x86_64"]
@@ -39,7 +39,7 @@
              :windows {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.24.1-1.5.13-20260209.130158-1"]
                                       [org.uncomplicate/neanderthal-mkl "0.60.0"]
                                       [org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]
-                                      [org.uncomplicate/deep-diamond-cuda "0.42.1"]
+                                      [org.uncomplicate/deep-diamond-cuda "0.42.2"]
                                       [org.bytedeco/cuda-redist "13.1-9.18-1.5.13-20260203.003728-10" :classifier "windows-x86_64"]
                                       [org.bytedeco/cuda-redist-cublas "13.1-9.18-1.5.13-20260203.003743-10" :classifier "windows-x86_64"]
                                       [org.bytedeco/cuda-redist-cudnn "13.1-9.18-1.5.13-20260203.003751-10" :classifier "windows-x86_64"]
