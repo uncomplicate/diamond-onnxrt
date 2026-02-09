@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject org.uncomplicate/diamond-onnxrt "0.22.0"
+(defproject org.uncomplicate/diamond-onnxrt "0.23.0-SNAPSHOT"
   :description "Fast Clojure Machine Learning Model Integration"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
@@ -16,7 +16,7 @@
                  [uncomplicate/commons "0.19.0"]
                  [org.uncomplicate/deep-diamond-base "0.42.0"]
                  [org.uncomplicate/deep-diamond-dnnl "0.42.1"]
-                 [org.bytedeco/onnxruntime-platform "1.23.2-1.5.13-20260203.070125-7"]]
+                 [org.bytedeco/onnxruntime-platform "1.24.1-1.5.13-20260209.130246-1"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {:plugins [[lein-midje "3.2.1"]]
@@ -28,7 +28,7 @@
                        :dependencies [[midje "1.10.10"]]
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                             "--enable-native-access=ALL-UNNAMED"]}
-             :linux {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.23.2-1.5.13-20260203.070031-7"]
+             :linux {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.24.1-1.5.13-20260209.130158-1"]
                                     [org.uncomplicate/neanderthal-mkl "0.60.0"]
                                     [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
                                     [org.uncomplicate/deep-diamond-cuda "0.42.1"]
@@ -36,7 +36,7 @@
                                     [org.bytedeco/cuda-redist-cublas "13.1-9.18-1.5.13-20260203.003743-10" :classifier "linux-x86_64"]
                                     #_[org.bytedeco/cuda-redist-cudnn "13.1-9.18-1.5.13-20260203.003751-10" :classifier "linux-x86_64"]
                                     [org.bytedeco/cuda-redist-nccl "13.1-9.18-1.5.13-20260203.003722-10" :classifier "linux-x86_64"]]}
-             :windows {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.23.2-1.5.13-20260203.070031-7"]
+             :windows {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.24.1-1.5.13-20260209.130158-1"]
                                       [org.uncomplicate/neanderthal-mkl "0.60.0"]
                                       [org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]
                                       [org.uncomplicate/deep-diamond-cuda "0.42.1"]
