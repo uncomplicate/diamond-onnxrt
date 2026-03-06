@@ -488,6 +488,7 @@
                          (override-dimension! "past_sequence_length" 0)
                          (override-dimension! "total_sequence_length" 1)
                          (graph-optimization! :extended))
+                 ;; this model is on huggingface:  onnx-community/gemma-3-1b-it-ONNX-GQA at revision: c0afc74bb603f47885fd793c76a73442a3222eec
                  sess (session env "data/gemma-3-1b-it-ONNX-GQA/onnx/model.onnx" opt)
                  mem-info (memory-info :cpu :arena 0 :default)
                  input-info (input-type-info sess)
