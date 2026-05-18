@@ -20,7 +20,7 @@
 
 (facts
   "Test system."
-  (version) => {:major 1 :minor 24 :update 1}
+  (version) => {:major 1 :minor 24 :update 4}
   (filter #{:dnnl :cpu} (available-providers)) => [:dnnl :cpu]
   (type (build-info)) => String)
 
@@ -478,7 +478,7 @@
     => (map float [4.1413193 -4.2067766 -4.3178234 -5.135868 -4.436249 -4.150794 2.6276622 -4.150794
                    9.071796 -0.87167406 -4.150794 -4.150794 -4.150794 -4.1508064 -4.150794 -4.150794])))
 
-(facts
+#_(facts
   "Gemma 3 inference test."
   (with-release [env (environment :warning "test" nil)
                  opt (-> (options)

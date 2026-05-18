@@ -127,8 +127,8 @@
     (let-release [src-conn (connector src-tz src-desc)
                   dst-tz (create-tensor fact dst-desc (batch-index src-tz) false)
                   infer! (runner* sess run-opt)
-                  in-onnx (onnx-tensor mem-info onnx-in-shape (buffer (output src-conn)))
-                  out-onnx (onnx-tensor mem-info onnx-out-shape (buffer (output dst-tz)))
+                  in-onnx (onnx-tensor mem-info onnx-in-shape (buffer (output src-conn)) (data-type src-desc))
+                  out-onnx (onnx-tensor mem-info onnx-out-shape (buffer (output dst-tz)) (data-type dst-desc))
                   binding (io-binding sess [in-onnx] [out-onnx])]
       (->SingleIOInference fact this src-conn dst-tz infer! binding [in-onnx] [out-onnx])))
   (invoke [this _ _]
@@ -241,10 +241,10 @@
                     dst-tzs (fmap create-tz dst-descs)
                     infer! (runner* sess run-opt)
                     in-onnx-s (fmap (fn [onnx-in-shape src-conn]
-                                      (onnx-tensor mem-info onnx-in-shape (buffer (output src-conn))))
+                                      (onnx-tensor mem-info onnx-in-shape (buffer (output src-conn)) (data-type (output src-conn))))
                                     onnx-in-shapes src-conns)
                     out-onnx-s (fmap (fn [onnx-out-shape dst-tz]
-                                       (onnx-tensor mem-info onnx-out-shape (buffer (output dst-tz))))
+                                       (onnx-tensor mem-info onnx-out-shape (buffer (output dst-tz)) (data-type dst-tz)))
                                      onnx-out-shapes dst-tzs)
                     binding (io-binding sess in-onnx-s out-onnx-s)]
         (->MultiIOInference fact this src-conns dst-tzs infer! binding in-onnx-s out-onnx-s))))

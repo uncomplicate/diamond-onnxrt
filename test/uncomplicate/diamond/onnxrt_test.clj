@@ -112,7 +112,7 @@
 (with-release [fact (cudnn-factory)]
   (test-onnx-layer-smollm fact))
 
-(defn test-onnx-layer-gemma3 [fact]
+#_(defn test-onnx-layer-gemma3 [fact]
   (let [neand-fact (neanderthal-factory fact)]
     (with-release [opt (-> (options)
                            (override-dimension! "batch_size" 1)

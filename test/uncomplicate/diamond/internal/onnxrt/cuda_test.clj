@@ -26,7 +26,7 @@
 
 (facts
   "Test system."
-  (filter #{:cuda :dnnl :cpu} (available-providers)) => [:cuda :dnnl :cpu]
+  (filter #{:cuda :tensorrt :dnnl :cpu} (available-providers)) => [:tensorrt :cuda :dnnl :cpu]
   (type (build-info)) => String)
 
 (facts

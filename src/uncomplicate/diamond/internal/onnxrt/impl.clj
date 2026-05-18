@@ -15,7 +15,8 @@
              :refer [null? pointer pointer-pointer int-pointer long-pointer byte-pointer char-pointer
                      size-t-pointer get-entry put-entry! capacity! capacity get-pointer
                      limit!]])
-  (:import [org.bytedeco.javacpp Loader Pointer BytePointer PointerPointer LongPointer SizeTPointer]
+  (:import clojure.lang.IFn
+           [org.bytedeco.javacpp Loader Pointer BytePointer PointerPointer LongPointer SizeTPointer]
            [org.bytedeco.onnxruntime OrtApiBase OrtApi OrtEnv OrtSession OrtSessionOptions
             OrtAllocator OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo
             OrtOptionalTypeInfo OrtStatus OrtArenaCfg OrtCustomOpDomain OrtIoBinding OrtKernelInfo
@@ -342,11 +343,11 @@
     (.SetSessionGraphOptimizationLevel ort-api opt level)
     opt))
 
-(defn user-logging-function* [^OrtApi ort-api ^OrtSessionOptions opt
-                              ^OrtLoggingFunction user-logging-fn ^Pointer param]
-  (with-check ort-api
-    (.SetUserLoggingFunction ort-api opt user-logging-fn param)
-    opt))
+(defn user-logging-function* [^OrtApi ort-api ^OrtSessionOptions opt ^IFn f ^Pointer param]
+  (let-release [logging-fn (org.bytedeco.onnxruntime.OrtLoggingFunction. f)]
+    (with-check ort-api
+      (.SetUserLoggingFunction ort-api opt logging-fn param)
+      opt)))
 
 (defn dnnl-options* [^OrtApi ort-api]
   (call-pointer-pointer ort-api OrtDnnlProviderOptions CreateDnnlProviderOptions))
@@ -424,6 +425,16 @@
   (with-check ort-api
     (.AddInitializer ort-api opt name val)
     opt))
+
+(defn register-custom-ops-library* [^OrtApi ort-api ^OrtSessionOptions opt ^BytePointer name]
+  (with-check ort-api
+    (.RegisterCustomOpsLibrary_V2 ort-api opt name)
+    opt))
+
+;; ===================== OrtArenaCfg ======= =======================================================
+
+(defn create-arena-cfg* [^OrtApi ort-api ^PointerPointer keys ^SizeTPointer values]
+  (call-pointer-pointer ort-api OrtArenaCfg CreateArenaCfgV2 keys values (size keys)))
 
 ;; ================================== Session ==================================
 

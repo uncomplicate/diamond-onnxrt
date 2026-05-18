@@ -38,6 +38,7 @@
 (defn check-index [^long i ^long cnt object]
   (when-not (< -1 i cnt)
     (throw (IndexOutOfBoundsException. (format "The requested %s name is out of bounds of this %s pointer." object object)))))
+
 ;; ================= API ===========================================================================
 
 (defn init-ort-api!
@@ -229,6 +230,12 @@
   (disable-per-session-threads* *ort-api* (safe opt!))
   opt!)
 
+(defn register-custom-ops! [opt! library-name]
+  (let [ort-api *ort-api*]
+    (with-release [library-name (byte-pointer (str library-name))]
+      (register-custom-ops-library* ort-api (safe opt!) library-name))
+    opt!))
+
 (extend-type OrtSessionOptions
   Info
   (info
@@ -331,10 +338,18 @@
   ([opt!]
    (append-provider! opt! :dnnl nil)))
 
-;;TODO create a mechanism to wrap any clojure function into OrtLoggingFunction
-(defn user-logging-fn! [opt! logging-fn param]
-  (user-logging-function* *ort-api* (safe opt!) (safe logging-fn) (safe2 param))
+(defn user-logging-fn! [opt! f param]
+  (user-logging-function* *ort-api* (safe opt!) f (safe2 param))
   opt!)
+
+;; ===================== OrtArenaCfg ==============================================================
+
+(defn arena-cfg [cfg-map]
+  (with-release [config-keys (config-keys ort-arena-cfg-keys cfg-map)
+                 config-values (config-vals ort-arena-cfg-encoders cfg-map)
+                 ppkeys (safe (pointer-pointer config-keys))
+                 ppvalues (safe (pointer-pointer config-values))]
+    (create-arena-cfg* (safe *ort-api*) ppkeys ppvalues )))
 
 ;; ========================= Session ===============================================================
 

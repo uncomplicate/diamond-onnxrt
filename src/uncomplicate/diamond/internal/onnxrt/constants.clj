@@ -9,7 +9,7 @@
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.diamond.internal.onnxrt.constants
   (:require [uncomplicate.commons.utils :refer [dragan-says-ex]]
-            [uncomplicate.clojure-cpp :refer [pointer]])
+            [uncomplicate.clojure-cpp :refer [pointer]]);;TODO remove; probably unused.
   (:import org.bytedeco.onnxruntime.global.onnxruntime))
 
 (def ^:const onnx-data-type
@@ -150,7 +150,7 @@
 (def ^:const ort-graph-optimization
   {:disable onnxruntime/ORT_DISABLE_ALL
    :enable onnxruntime/ORT_ENABLE_ALL
-   :all onnxruntime/ORT_ENABLE_ALL
+   :all 3 #_onnxruntime/ORT_ENABLE_ALL ;; TODO check why enable all is not 3.
    :basic onnxruntime/ORT_ENABLE_BASIC
    :extended onnxruntime/ORT_ENABLE_EXTENDED})
 
@@ -701,7 +701,7 @@
 (def ^:const coreml-model-format
   {:ml-program "MLProgram"
    :ml "MLProgram"
-   :neural-network "NeuralNetwork"})
+   :neural-network "NeuralNetwork"});; TODO remove, as it is deprecated.
 
 (def ^:const coreml-specialization-strategy
   {:default "Default"
@@ -741,3 +741,21 @@
 
 (def ^:const ort-execution-provider
   {:coreml "CoreMLExecutionProvider"})
+
+(def ^:const ort-arena-cfg-keys
+  {:max-mem "max_mem"
+   :arena-extend-strategy "arena_extend_strategy"
+   :initial-chunk-size-bytes "initial_chunk_size_bytes"
+   :max-dead-bytes-per-chunk "max_dead_bytes_per_chunk"
+   :initial-growth-chunk-size-bytes "initial_growth_chunk_size_bytes"
+   :max-power-of-two-extend-bytes "max_power_of_two_extend_bytes"
+   :use-cuda-mempool "use_cuda_mempool"})
+
+(def ^:const ort-arena-cfg-encoders
+  {:max-mem identity
+   :arena-extend-strategy #(read-string (ort-arena-extend-strategy %))
+   :initial-chunk-size-bytes identity
+   :max-dead-bytes-per-chunk identity
+   :initial-growth-chunk-size-bytes identity
+   :max-power-of-two-extend-bytes identity
+   :use-cuda-mempool #(read-string (true->one %))})
