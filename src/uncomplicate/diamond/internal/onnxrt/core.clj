@@ -269,11 +269,11 @@
                    kv))
                {}
                ort-session-options-config-keys))))
-  (severity! [opt! ^long level]
-    (session-severity* *ort-api* (safe opt!) level)
+  (severity! [opt! level]
+    (session-severity* *ort-api* (safe opt!) (enc-keyword ort-logging-level level))
     opt!)
-  (verbosity! [opt! level]
-    (session-verbosity* *ort-api* (safe opt!) (enc-keyword ort-logging-level level))
+  (verbosity! [opt! ^long level]
+    (session-verbosity* *ort-api* (safe opt!) level)
     opt!))
 
 ;;TODO 1.23+ SessionGetMemoryInfoForInputs(), SessionGetEpDeviceForInputs() etc.
@@ -316,6 +316,22 @@
       (append-cuda* ort-api opt! cuda)
       opt!)))
 
+(defn append-trt! [opt! opt-map]
+  (let [ort-api (safe *ort-api*)
+        stream (:stream opt-map)
+        opt-map (dissoc opt-map :stream)]
+    (with-release [trt (safe (trt-options* ort-api))]
+      (with-release [config-keys (config-keys ort-trt-provider-options-keys opt-map)
+                     config-values (config-vals ort-trt-provider-options-encoders opt-map)
+                     ppkeys (safe (pointer-pointer config-keys))
+                     ppvalues (safe (pointer-pointer config-values))]
+        (update-trt-options* ort-api trt ppkeys ppvalues)
+        (when stream
+          (let [key (byte-pointer "user_compute_stream")]
+            (update-trt-options-with-value* ort-api trt key stream))))
+      (append-trt* ort-api opt! trt)
+      opt!)))
+
 (defn append-ep! [opt! ep-name opt-map]
   (let [ep-name (enc-keyword ort-execution-provider ep-name)]
     (with-release [config-keys (config-keys ort-coreml-provider-options-keys opt-map)
@@ -331,6 +347,7 @@
    (case provider
      :dnnl (append-dnnl! opt! opt-map)
      :cuda (append-cuda! opt! opt-map)
+     :tensorrt (append-trt! opt! opt-map)
      (append-ep! opt! provider opt-map))
    opt!)
   ([opt! provider]
@@ -996,11 +1013,11 @@
   ;;                  kv))
   ;;              {}
   ;;              ort-run-options-config-keys))))
-  (severity! [opt! ^long level]
-    (run-severity* *ort-api* (safe opt!) level)
+  (severity! [opt! level]
+    (run-severity* *ort-api* (safe opt!) (enc-keyword ort-logging-level level))
     opt!)
-  (verbosity! [opt! level]
-    (run-verbosity* *ort-api* (safe opt!) (enc-keyword ort-logging-level level))
+  (verbosity! [opt! ^long level]
+    (run-verbosity* *ort-api* (safe opt!) level)
     opt!))
 
 ;; ========================== Runner ===============================================================

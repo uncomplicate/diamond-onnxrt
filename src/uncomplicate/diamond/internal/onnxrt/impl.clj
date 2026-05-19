@@ -21,7 +21,8 @@
             OrtAllocator OrtTypeInfo OrtTensorTypeAndShapeInfo OrtSequenceTypeInfo OrtMapTypeInfo
             OrtOptionalTypeInfo OrtStatus OrtArenaCfg OrtCustomOpDomain OrtIoBinding OrtKernelInfo
             OrtMemoryInfo OrtModelMetadata OrtOp OrtOpAttr OrtPrepackedWeightsContainer OrtRunOptions
-            OrtValue OrtDnnlProviderOptions OrtCUDAProviderOptions OrtCUDAProviderOptionsV2 OrtLoggingFunction
+            OrtValue OrtDnnlProviderOptions OrtCUDAProviderOptions OrtCUDAProviderOptionsV2
+            OrtTensorRTProviderOptionsV2 OrtLoggingFunction
             OrtThreadingOptions OrtGraph OrtKeyValuePairs OrtLoraAdapter OrtModel OrtNode
             OrtCustomCreateThreadFn OrtCustomJoinThreadFn ;;TODO 1.23+ OrtSyncStream
             OrtAllocator$Free_OrtAllocator_Pointer OrtApi$MemoryInfoGetDeviceType_OrtMemoryInfo_IntPointer
@@ -121,6 +122,7 @@
 
 (extend-ort-call OrtDnnlProviderOptions ReleaseDnnlProviderOptions)
 (extend-ort-call OrtCUDAProviderOptionsV2 ReleaseCUDAProviderOptions)
+(extend-ort-call OrtTensorRTProviderOptionsV2 ReleaseTensorRTProviderOptions)
 
 (defmacro call-pointer-pointer [ort-api type method & args]
   `(let [ort-api# ~ort-api]
@@ -375,6 +377,26 @@
 (defn append-cuda* [^OrtApi ort-api ^OrtSessionOptions opt ^OrtCUDAProviderOptionsV2 cuda-opt]
   (with-check ort-api
     (.SessionOptionsAppendExecutionProvider_CUDA_V2 ort-api opt cuda-opt)
+    opt))
+
+(defn trt-options* [^OrtApi ort-api]
+  (call-pointer-pointer ort-api OrtTensorRTProviderOptionsV2 CreateTensorRTProviderOptions))
+
+(defn update-trt-options* [^OrtApi ort-api ^OrtTensorRTProviderOptionsV2 opt
+                                ^PointerPointer keys ^PointerPointer values]
+  (with-check ort-api
+    (.UpdateTensorRTProviderOptions ort-api opt keys values (size keys))
+    opt))
+
+(defn update-trt-options-with-value* [^OrtApi ort-api ^OrtTensorRTProviderOptionsV2 opt
+                                           ^BytePointer key ^Pointer value]
+  (with-check ort-api
+    (.UpdateTensorRTProviderOptionsWithValue ort-api opt key value)
+    opt))
+
+(defn append-trt* [^OrtApi ort-api ^OrtSessionOptions opt ^OrtTensorRTProviderOptionsV2 cuda-opt]
+  (with-check ort-api
+    (.SessionOptionsAppendExecutionProvider_TensorRT_V2 ort-api opt cuda-opt)
     opt))
 
 (defn append-ep* [^OrtApi ort-api ^OrtSessionOptions opt ^BytePointer provider-name

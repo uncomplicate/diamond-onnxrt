@@ -8,8 +8,7 @@
 
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.diamond.internal.onnxrt.constants
-  (:require [uncomplicate.commons.utils :refer [dragan-says-ex]]
-            [uncomplicate.clojure-cpp :refer [pointer]]);;TODO remove; probably unused.
+  (:require [uncomplicate.commons.utils :refer [dragan-says-ex]])
   (:import org.bytedeco.onnxruntime.global.onnxruntime))
 
 (def ^:const onnx-data-type
@@ -624,6 +623,84 @@
    :tf32 true->one
    :fuse-conv-bias true->one
    :sdpa-kernel true->one})
+
+(def ^:const ort-trt-provider-options-keys
+  {:device-id "device_id"
+   :has-user-compute-stream "has_user_compute_stream"
+   :user-compute-stream "user_compute_stream"
+   :engine-cache-enable "trt_engine_cache_enable"
+   :engine-cache-path "trt_engine_cache_path"
+   :engine-cache-prefix "trt_engine_cache_prefix"
+   :engine-hw-compatible "trt_engine_hw_compatible"
+   :max-workspace-size "trt_max_workspace_size"
+   :fp16-enable "trt_fp16_enable"
+   :fp16 "trt_fp16_enable"
+   :int8-enable "trt_int8_enable"
+   :int8 "trt_int8_enable"
+   :trt-int8-calibration-table-name "trt_int8_calibration_table_name"
+   :int8-use-native-calibration-table "trt_int8_use_native_calibration_table"
+   :build-heuristics-enable "trt_build_heuristics_enable"
+   :sparsity-enable "trt_sparsity_enable"
+   :dla-enable "trt_dla_enable"
+   :dla-core "trt_dla_core"
+   :max-partition-iterations "trt_max_partition_iterations"
+   :min-subgraph-size "trt_min_subgraph_size"
+   :dumpsubgraphs "trt_dump_subgraphs"
+   :force-sequential-engine-build "trt_force_sequential_engine_build"
+   :op-types-to-exclude "trt_op_types_to_exclude"
+   :context-memory-sharing-enable "trt_context_memory_sharing_enable"
+   :layer-norm-fp32-fallback "trt_layer_norm_fp32_fallback"
+   :cuda-graph-enable "trt_cuda_graph_enable"
+   :builder-optimization-level "trt_builder_optimization_level"
+   :auxiliary-streams "trt_auxiliary_streams"
+   :tactic-sources "trt_tactic_sources"
+   :extra-plugin-lib-paths "trt_extra_plugin_lib_paths"
+   :detailed-build-log "trt_detailed_build_log"
+   :timing-cache-enable "trt_timing_cache_enable"
+   :timing-cache-path "trt_timing_cache_path"
+   :force-timing-cache "trt_force_timing_cache"
+   :profile-min-shapes "trt_profile_min_shapes"
+   :profile-max-shapes "trt_profile_max_shapes"
+   :profile-opt-shapes "trt_profile_opt_shapes"})
+
+(def ^:const ort-trt-provider-options-encoders
+  {:device-id long->str
+   :has-user-compute-stream true->one
+   :user-compute-stream identity
+   :engine-cache-enable true->one
+   :engine-cache-path identity
+   :engine-cache-prefix identity
+   :engine-hw-compatible true->one
+   :max-workspace-size long->str
+   :fp16-enable true->one
+   :fp16 true->one
+   :int8-enable true->one
+   :int8 true->one
+   :trt-int8-calibration-table-name identity
+   :int8-use-native-calibration-table true->one
+   :build-heuristics-enable true->one
+   :sparsity-enable true->one
+   :dla-enable true->one
+   :dla-core long->str
+   :max-partition-iterations long->str
+   :min-subgraph-size long->str
+   :dump-subgraphs true->one
+   :force-sequential-engine-build true->one
+   :op-types-to-exclude identity
+   :context-memory-sharing-enable true->one
+   :layer-norm-fp32-fallback true->one
+   :cuda-graph-enable true->one
+   :builder-optimization-level long->str
+   :auxiliary-streams long->str
+   :tactic-sources identity
+   :extra-plugin-lib-paths identity
+   :detailed-build-log true->one
+   :timing-cache-enable true->one
+   :timing-cache-path identity
+   :force-timing-cache true->one
+   :profile-min-shapes identity
+   :profile-max-shapes identity
+   :profile-opt-shapes identity})
 
 (def ^:const ort-run-options-config-keys
   {;; Key for enabling shrinkages of user listed device memory arenas.
