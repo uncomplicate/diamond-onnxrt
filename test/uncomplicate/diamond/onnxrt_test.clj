@@ -87,6 +87,7 @@
                            (override-dimension! "past_sequence_length" 1)
                            (override-dimension! "past_sequence_length + 1" 1))
                    src-tz (tensor fact [1 1 28 28] :float :nchw)
+                   ;; huggingface model HuggingFaceTB/SmolLM-135M at revision 1d461723eec654e65efdc40cf49301c89c0c92f4
                    onnx-bp (onnx fact "data/SmolLM-135M/onnx/model.onnx" {:options opt})
                    input-ids (tensor neand-fact [1 1] :long :nc)
                    position-ids (tensor neand-fact [1 1] :long :nc)
