@@ -345,8 +345,9 @@
 (defn append-provider!
   ([opt! provider opt-map]
    (case provider
-     :dnnl (append-dnnl! opt! opt-map)
+     :openvino (append-openvino! opt! opt-map)
      :cuda (append-cuda! opt! opt-map)
+     :dnnl (append-dnnl! opt! opt-map)
      :tensorrt (append-trt! opt! opt-map)
      (append-ep! opt! provider opt-map))
    opt!)

@@ -8,7 +8,10 @@
 
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.diamond.internal.onnxrt.constants
-  (:require [uncomplicate.commons.utils :refer [dragan-says-ex]])
+  (:require [uncomplicate.commons.utils :refer [dragan-says-ex]]
+            [uncomplicate.clojure-cpp :refer [type-pointer byte-pointer short-pointer
+                                              int-pointer float-pointer double-pointer
+                                              long-pointer]])
   (:import org.bytedeco.onnxruntime.global.onnxruntime))
 
 (def ^:const onnx-data-type
@@ -58,6 +61,15 @@
    :u4 onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT4
    :uint4 onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT4
    :int4 onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_INT4})
+
+(def onnx-data-type-pointer
+  (merge type-pointer
+         {:uint8 byte-pointer
+          :uint16 short-pointer
+          :uint32 int-pointer
+          :uint64 long-pointer
+          :float16 short-pointer
+          :float64 double-pointer}))
 
 (def ^:const dec-onnx-data-type
   {onnxruntime/ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED :undef

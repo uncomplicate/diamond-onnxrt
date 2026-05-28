@@ -20,7 +20,7 @@
 
 (facts
   "Test system."
-  (version) => {:major 1 :minor 24 :update 4}
+  (version) => {:major 1 :minor 26 :update 0}
   (filter #{:dnnl :cpu} (available-providers)) => [:dnnl :cpu]
   (type (build-info)) => String)
 
@@ -210,8 +210,8 @@
       (symbolic-shape x-info) => ["" ""]
       (symbolic-shape! x-info [:batch nil])
       (symbolic-shape x-info) => [:batch ""]
-      (shape! x-info [2 4]) => x-info
-      (tensor-count x-info) => 8)
+      (shape! x-info [2 2]) => x-info
+      (tensor-count x-info) => 4)
 
     (with-release [outputs (infer! binding)]
       (map #(vector (pointer-vec (capacity! (long-pointer (mutable-data (value-value % 0))) 3))

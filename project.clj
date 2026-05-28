@@ -16,7 +16,7 @@
                  [uncomplicate/commons "0.20.0"]
                  [org.uncomplicate/deep-diamond-base "0.44.0"]
                  [org.uncomplicate/deep-diamond-dnnl "0.44.0"]
-                 [org.bytedeco/onnxruntime-platform "1.24.4-1.5.14-SNAPSHOT"]]
+                 [org.bytedeco/onnxruntime-platform "1.26.0-1.5.14-SNAPSHOT"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {:plugins [[lein-midje "3.2.1"]]
@@ -28,7 +28,7 @@
                        :dependencies [[midje "1.10.10"]]
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                             "--enable-native-access=ALL-UNNAMED"]}
-             :linux {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.24.4-1.5.14-SNAPSHOT"]
+             :linux {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.26.0-1.5.14-SNAPSHOT"]
                                     [org.uncomplicate/neanderthal-mkl "0.62.0"]
                                     [org.bytedeco/mkl "2025.3-1.5.13" :classifier "linux-x86_64-redist"]
                                     [org.uncomplicate/deep-diamond-cuda "0.44.0"]
@@ -36,7 +36,7 @@
                                     [org.bytedeco/cuda-redist-cublas "13.1-9.19-1.5.13" :classifier "linux-x86_64"]
                                     #_[org.bytedeco/cuda-redist-cudnn "13.1-9.19-1.5.13" :classifier "linux-x86_64"]
                                     [org.bytedeco/cuda-redist-nccl "13.1-9.19-1.5.13" :classifier "linux-x86_64"]]}
-             :windows {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.24.4-1.5.14-SNAPSHOT"]
+             :windows {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "o1.26.0-1.5.14-SNAPSHOT"]
                                       [org.uncomplicate/neanderthal-mkl "0.62.0"]
                                       [org.bytedeco/mkl "2025.3-1.5.13" :classifier "windows-x86_64-redist"]
                                       [org.uncomplicate/deep-diamond-cuda "0.44.0"]
@@ -47,6 +47,6 @@
              :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.62.0"]
                                      [org.bytedeco/openblas "0.3.31-1.5.13" :classifier "macosx-arm64"]]}}
 
-  ;;:repositories [["maven-central-snapshots" "https://central.sonatype.com/repository/maven-snapshots"]]
+  :repositories [["maven-central-snapshots" "https://central.sonatype.com/repository/maven-snapshots"]]
 
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"])
