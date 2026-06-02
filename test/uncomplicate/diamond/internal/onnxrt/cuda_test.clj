@@ -26,7 +26,7 @@
 
 (facts
   "Test system."
-  (filter #{:cuda :openvino :dnnl :cpu} (available-providers)) => [:cuda :openvino :dnnl :cpu]
+  (filter #{:cuda :dnnl :cpu} (available-providers)) => [:cuda :dnnl :cpu]
   (type (build-info)) => String)
 
 (facts

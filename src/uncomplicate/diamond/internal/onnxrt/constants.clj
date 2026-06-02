@@ -8,7 +8,8 @@
 
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.diamond.internal.onnxrt.constants
-  (:require [uncomplicate.commons.utils :refer [dragan-says-ex]]
+  (:require [charred.api :refer [write-json]]
+            [uncomplicate.commons.utils :refer [dragan-says-ex]]
             [uncomplicate.clojure-cpp :refer [type-pointer byte-pointer short-pointer
                                               int-pointer float-pointer double-pointer
                                               long-pointer]])
@@ -848,3 +849,54 @@
    :initial-growth-chunk-size-bytes identity
    :max-power-of-two-extend-bytes identity
    :use-cuda-mempool #(read-string (true->one %))})
+
+(def ^:const ort-vino-provider-options-keys
+  {:device-type "device_type"
+   :precision "precision"
+   :num-of-threads "num_of_threads"
+   :num-threads "num_of_threads"
+   :num-streams "num_streams"
+   :num-of-streams "num_streams"
+   :cache-dir "cache_dir"
+   :load-config "load_config"
+   :enable-qdq-optimizer "enable_qdq-optimizer"
+   :enable-dynamic-shapes "disable_dynamic_shapes"
+   :dynamic-shapes "disable_dynamic_shapes"
+   :disable-dynamic-shapes "disable_dynamic_shapes"
+   :reshape-input "reshape_input"
+   :layout "layout"})
+
+(def ^:const vino-device-type
+  {:cpu "CPU"
+   :npu "NPU"
+   :gpu "GPU"
+   :gpu0 "GPU.0"
+   :gpu.0 "GPU.0"
+   :gpu-0 "GPU.0"
+   :gpu1 "GPU.1"
+   :gpu.1 "GPU.1"
+   :gpu-1 "GPU.1"
+   :hetero "HETERO"
+   :multi "MULTI"
+   :auto "AUTO:GPU,NPU,CPU"})
+
+(def ^:const vino-precision
+  {:fp32 "FP32"
+   :fp16 "FP16"
+   :accuracy "ACCURACY"})
+
+(def ^:const ort-vino-provider-options-encoders
+  {:device-type vino-device-type
+   :precision vino-precision
+   :num-of-threads str
+   :num-threads str
+   :num-streams str
+   :num-of-streams str
+   :cache-dir str
+   :load-config write-json
+   :enable-qdq-optimizer one->true
+   :enable-dynamic-shapes zero->true
+   :dynamic-shapes zero->true
+   :disable-dynamic-shapes one->true
+   :reshape-input str
+   :layout str})

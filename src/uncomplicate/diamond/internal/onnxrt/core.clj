@@ -332,6 +332,14 @@
       (append-trt* ort-api opt! trt)
       opt!)))
 
+(defn append-vino! [opt! opt-map]
+  (with-release [config-keys (config-keys ort-vino-provider-options-keys opt-map)
+                 config-values (config-vals ort-vino-provider-options-encoders opt-map)
+                 ppkeys (pointer-pointer config-keys)
+                 ppvals (pointer-pointer config-values)]
+    (append-vino* (safe *ort-api*) (safe opt!) ppkeys ppvals))
+  opt!)
+
 (defn append-ep! [opt! ep-name opt-map]
   (let [ep-name (enc-keyword ort-execution-provider ep-name)]
     (with-release [config-keys (config-keys ort-coreml-provider-options-keys opt-map)
@@ -345,7 +353,7 @@
 (defn append-provider!
   ([opt! provider opt-map]
    (case provider
-     :openvino (append-openvino! opt! opt-map)
+     :openvino (append-vino! opt! opt-map)
      :cuda (append-cuda! opt! opt-map)
      :dnnl (append-dnnl! opt! opt-map)
      :tensorrt (append-trt! opt! opt-map)

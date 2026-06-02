@@ -399,6 +399,12 @@
     (.SessionOptionsAppendExecutionProvider_TensorRT_V2 ort-api opt cuda-opt)
     opt))
 
+(defn append-vino* [^OrtApi ort-api ^OrtSessionOptions opt
+                    ^PointerPointer keys ^PointerPointer values]
+  (with-check ort-api
+    (.SessionOptionsAppendExecutionProvider_OpenVINO_V2 ort-api opt keys values (size keys))
+    opt))
+
 (defn append-ep* [^OrtApi ort-api ^OrtSessionOptions opt ^BytePointer provider-name
                   ^PointerPointer keys ^PointerPointer values]
   (with-check ort-api

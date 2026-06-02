@@ -52,12 +52,14 @@
             :specialization-strategy :fast-prediction
             :profile-compute-plan false
             :low-precision-accumulation false}
+   :openvino {:device-type :cpu
+              :precision :fp32}
    :run-options nil})
 
 ;; TODO use spec for detailed args validation.
 (defn onnx
   ([fact model-path args]
-   (doseq [s [args (:run-options args) (:dnnl args) (:cuda args) (:coreml args)]]
+   (doseq [s [args (:run-options args) (:openvino args) (:dnnl args) (:cuda args) (:coreml args)]]
      (when-not (or (nil? s) (map? s))
        (dragan-says-ex "This configuration must be either nil or a map."
                        :config s)))
@@ -71,8 +73,8 @@
                                           env-options))]
          (let [available-ep (set (available-providers))
                eproviders (or (:ep merged-args)
-                              (filter available-ep (if (= :cuda dev) [:cuda] [:coreml :dnnl])))
-               uses-device (some #{:cuda} eproviders)
+                              (filter available-ep (if (= :cuda dev) [:cuda :tensorrt] [:coreml :openvino :dnnl])))
+               uses-device (some #{:cuda :tensorrt} eproviders)
                alloc-type (if (or uses-device (= :cuda dev));;TODO I have to check what's the case on MacOS.
                             :device
                             :arena)
