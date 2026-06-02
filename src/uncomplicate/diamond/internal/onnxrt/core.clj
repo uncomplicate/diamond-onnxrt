@@ -14,7 +14,8 @@
              [utils :refer [enc-keyword dragan-says-ex mask]]]
             [uncomplicate.clojure-cpp
              :refer [get-string get-entry byte-pointer long-pointer null? pointer pointer-pointer
-                     pointer-type pointer-vec safe safe2 get-pointer capacity! limit size-t-pointer]]
+                     pointer-type pointer-vec safe safe2 get-pointer capacity! limit size-t-pointer
+                     limit!]]
             [uncomplicate.diamond.internal.onnxrt
              [constants :refer :all]
              [impl :refer :all]])
@@ -921,13 +922,9 @@
 (defn none? [value]
   (= 0 (has-value* *ort-api* (safe value))))
 
-;;TODO new in 1.23
-#_(defn mutable-data [value]
-    (limit! (tensor-mutable-data* *ort-api* value)
-            (tensor-size-in-bytes* *ort-api* value)))
-
 (defn mutable-data [value]
-  (tensor-mutable-data* *ort-api* (safe value)))
+  (capacity! (tensor-mutable-data* *ort-api* value)
+             (tensor-size-in-bytes* *ort-api* value)))
 
 (defn value-value
   ([value ^long i]

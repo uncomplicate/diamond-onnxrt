@@ -171,18 +171,18 @@
 
     (with-release [outputs (infer! (pointer-pointer [x]) nil)]
       (tensor? (value outputs 0)) => true
-      (pointer-vec (capacity! (long-pointer (mutable-data (value outputs 0))) 3)) => [0 0 0]
+      (pointer-vec (long-pointer (mutable-data (value outputs 0))) ) => [0 0 0]
       (value-count (value outputs 1)) => 3
 
-      (map #(vector (pointer-vec (capacity! (long-pointer (mutable-data (value-value % 0))) 3))
-                    (pointer-vec (capacity! (float-pointer (mutable-data (value-value % 1))) 3)))
+      (map #(vector (pointer-vec (long-pointer (mutable-data (value-value % 0))))
+                    (pointer-vec (float-pointer (mutable-data (value-value % 1)))))
            (value-value (value outputs 1)))
       => [[[0 1 2] (mapv float [0.64399236 0.3070779 0.04892978])]
           [[0 1 2] (mapv float [0.99137473 0.0012765623 0.0073487093])]
           [[0 1 2] (mapv float [0.9991861 2.4719932E-6 8.1140944E-4])]]
 
-      (map #(vector (pointer-vec (capacity! (long-pointer (mutable-data (value-value % 0))) 3))
-                    (pointer-vec (capacity! (float-pointer (mutable-data (value-value % 1))) 3)))
+      (map #(vector (pointer-vec (long-pointer (mutable-data (value-value % 0))))
+                    (pointer-vec (float-pointer (mutable-data (value-value % 1)))))
            (value-value (value (infer! (pointer-pointer [x]) (pointer-pointer [labels outputs!])) 1)))
       => [[[0 1 2] (mapv float [0.64399236 0.3070779 0.04892978])]
           [[0 1 2] (mapv float [0.99137473 0.0012765623 0.0073487093])]
@@ -214,8 +214,8 @@
       (tensor-count x-info) => 4)
 
     (with-release [outputs (infer! binding)]
-      (map #(vector (pointer-vec (capacity! (long-pointer (mutable-data (value-value % 0))) 3))
-                    (pointer-vec (capacity! (float-pointer (mutable-data (value-value % 1))) 3)))
+      (map #(vector (pointer-vec (long-pointer (mutable-data (value-value % 0))))
+                    (pointer-vec (float-pointer (mutable-data (value-value % 1)))))
            (value-value ((bound-values outputs) 1)))
       => [[[0 1 2] (mapv float [0.9794105 0.020589434 4.5429704E-8])]
           [[0 1 2] (mapv float [0.9692533 0.030746665 6.886014E-8])]])))

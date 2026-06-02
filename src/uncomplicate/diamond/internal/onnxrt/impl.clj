@@ -816,9 +816,8 @@
 (defn has-value* ^long [^OrtApi ort-api ^OrtValue value]
   (call-int ort-api HasValue value))
 
-;; TODO new in 1.23.
-#_(defn tensor-size-in-bytes* [^OrtApi ort-api ^OrtValue value]
-  (call-size-t ort-api GetTensoriSizeInBytes value))
+(defn tensor-size-in-bytes* [^OrtApi ort-api ^OrtValue value]
+  (call-size-t ort-api GetTensorSizeInBytes value))
 
 (defn tensor-mutable-data* [^OrtApi ort-api ^OrtValue value]
   (call-pointer-pointer ort-api Pointer GetTensorMutableData value))
