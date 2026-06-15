@@ -38,7 +38,7 @@
                                     [org.bytedeco/cuda-redist-cublas "13.1-9.19-1.5.13" :classifier "linux-x86_64"]
                                     #_[org.bytedeco/cuda-redist-cudnn "13.1-9.19-1.5.13" :classifier "linux-x86_64"]
                                     [org.bytedeco/cuda-redist-nccl "13.1-9.19-1.5.13" :classifier "linux-x86_64"]]}
-             :windows {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "o1.26.0-1.5.14-SNAPSHOT"]
+             :windows {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.26.0-1.5.14-SNAPSHOT"]
                                       [org.bytedeco/openvino-platform "2026.1.0-1.5.14-SNAPSHOT"]
                                       [org.uncomplicate/neanderthal-mkl "0.62.0"]
                                       [org.bytedeco/mkl "2025.3-1.5.13" :classifier "windows-x86_64-redist"]

@@ -31,10 +31,13 @@
                      io-binding options config]])
   (:import [clojure.lang IFn AFn]))
 
-(defn tensor-desc [fact vect-fact shape type]
-  (if (= :long type)
-    (create-tensor-desc vect-fact shape type (default-strides shape))
-    (create-tensor-desc fact shape type (default-strides shape))))
+(defn tensor-desc
+  ([fact vect-fact shape type strides]
+   (if (= :long type)
+     (create-tensor-desc vect-fact shape type strides)
+     (create-tensor-desc fact shape type strides)))
+  ([fact vect-fact shape type]
+   (tensor-desc fact vect-fact shape type (default-strides shape))))
 
 (defn create-tz [fact vect-fact tz-desc]
   (if (= :long (data-type tz-desc))
