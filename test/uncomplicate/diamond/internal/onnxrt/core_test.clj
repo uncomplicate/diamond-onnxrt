@@ -126,6 +126,7 @@
     (release val-type-info) => true
     (info val-type-info) => (throws RuntimeException)
     (onnx-tensor mem-info [0 -1] data) => (throws RuntimeException)
+    (onnx-tensor mem-info [0 0] data) =not=> (throws RuntimeException)
     (onnx-tensor mem-info [0 0] nil) => (throws RuntimeException)
     (onnx-tensor mem-info 3 data) => (throws RuntimeException)))
 
@@ -195,7 +196,8 @@
                  opt (doto (options)
                        (append-provider! :dnnl)
                        (graph-optimization! :extended)
-                       (override-dimension! :batch 2))
+                       (override-dimension! :batch 2)
+                       (override-dimension! "non_existing" 2))
                  sess (session env "data/logreg_iris_correct.onnx" opt)
                  input-info (input-type-info sess 0)
                  output-info (output-type-info sess)
