@@ -604,12 +604,10 @@
    :sdpa-kernel "sdpa_kernel"})
 
 (def ^:const ort-arena-extend-strategy
-  {:default "-1"
-   :next-pow2 "0"
-   :requested "1"
-   "-1" "-1"
-   "0" "0"
-   "1" "1"})
+  {:next-pow2 "kNextPowerOfTwo"
+   :requested "kSameAsRequested"
+   "kNextPowerOfTwo" "kNextPowerOfTwo"
+   "kSameAsRequested" "kSameAsRequested"})
 
 (def ^:const ort-cuda-provider-options-encoders
   {:device-id long->str

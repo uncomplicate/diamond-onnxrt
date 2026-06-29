@@ -923,8 +923,8 @@
   (= 0 (has-value* *ort-api* (safe value))))
 
 (defn mutable-data [value]
-  (capacity! (tensor-mutable-data* *ort-api* value)
-             (tensor-size-in-bytes* *ort-api* value)))
+  (when-let [res (tensor-mutable-data* *ort-api* value)]
+    (capacity! res (tensor-size-in-bytes* *ort-api* value))))
 
 (defn value-value
   ([value ^long i]
