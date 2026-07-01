@@ -11,21 +11,22 @@
   (:require [midje.sweet :refer [facts => roughly]]
             [uncomplicate.commons [core :refer [with-release]]]
             [uncomplicate.fluokitten.core :refer [foldmap]]
+            [uncomplicate.clojurecuda.core :refer [current-context default-stream]]
             [uncomplicate.neanderthal.core :refer [iamax transfer! native view-vctr entry!]]
             [uncomplicate.diamond
-             [tensor :refer [tensor output]]
+             [tensor :refer [tensor output with-diamond *diamond-factory*]]
              [dnn :refer [network activation]]
-             [onnxrt :refer [onnx]]]
+             [native :refer []]
+             [onnxrt :refer [onnx ort-cuda-context]]]
             [uncomplicate.diamond.internal.protocols :refer [neanderthal-factory]]
             [uncomplicate.diamond.internal.onnxrt
              [core :refer [options override-dimension!]]
              [core-test :refer [test-image-0]]]
-            [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
-            [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
+            [uncomplicate.diamond.cuda :refer [cuda-factory]]))
 
-(defn test-onnx-layer-single-io [fact]
-  (with-release [src-tz (tensor fact [1 1 28 28] :float :nchw)
-                 onnx-bp (onnx fact "data/mnist-12.onnx" nil)
+(defn test-onnx-layer-single-io []
+  (with-release [src-tz (tensor [1 1 28 28] :float :nchw)
+                 onnx-bp ((onnx "data/mnist-12.onnx" nil))
                  mnist-infer! (onnx-bp src-tz)]
 
     (transfer! test-image-0 src-tz)
@@ -33,9 +34,9 @@
       "ONNX MNIST network inference test."
       (iamax (native (mnist-infer!))) => 7)))
 
-(defn test-onnx-layer-multi-io [fact]
-  (with-release [src-tz (tensor fact [1 1 28 28] :float :nchw)
-                 onnx-bp (onnx fact "data/mnist-12.onnx" {:multi-io true})
+(defn test-onnx-layer-multi-io []
+  (with-release [src-tz (tensor [1 1 28 28] :float :nchw)
+                 onnx-bp ((onnx "data/mnist-12.onnx" {:multi-io true}))
                  mnist-infer! (onnx-bp [src-tz])]
 
     (transfer! test-image-0 src-tz)
@@ -43,13 +44,12 @@
       "ONNX MNIST network inference test."
       (iamax (native (first (mnist-infer!)))) => 7)))
 
-(with-release [fact (dnnl-factory)]
-  (test-onnx-layer-single-io fact)
-  (test-onnx-layer-multi-io fact))
+(test-onnx-layer-single-io)
+(test-onnx-layer-multi-io)
 
-(defn test-onnx-network-single-io [fact]
-  (with-release [src-tz (tensor fact [1 1 28 28] :float :nchw)
-                 mnist-bp (network fact src-tz
+(defn test-onnx-network-single-io []
+  (with-release [src-tz (tensor [1 1 28 28] :float :nchw)
+                 mnist-bp (network src-tz
                                    [(onnx "data/mnist-12.onnx")
                                     (activation :relu)])
                  mnist-infer! (mnist-bp src-tz)]
@@ -59,9 +59,9 @@
       "ONNX MNIST network inference test."
       (iamax (native (mnist-infer!))) => 7)))
 
-(defn test-onnx-network-multi-io [fact]
-  (with-release [src-tz (tensor fact [1 1 28 28] :float :nchw)
-                 mnist-bp (network fact [src-tz]
+(defn test-onnx-network-multi-io []
+  (with-release [src-tz (tensor [1 1 28 28] :float :nchw)
+                 mnist-bp (network [src-tz]
                                    [(onnx "data/mnist-12.onnx")])
                  mnist-infer! (mnist-bp [src-tz])]
 
@@ -71,13 +71,12 @@
       ;;TODO it seems cuda tensor engine can also support this.
       (iamax (native (first (mnist-infer!)))) => 7)))
 
-(with-release [fact (dnnl-factory)]
-  (test-onnx-network-single-io fact)
-  (test-onnx-network-multi-io fact))
+(test-onnx-network-single-io)
+(test-onnx-network-multi-io)
 
-(with-release [fact (cudnn-factory)]
-  (test-onnx-network-single-io fact)
-  (test-onnx-network-multi-io fact))
+(with-diamond cuda-factory [(ort-cuda-context) default-stream]
+  (test-onnx-network-single-io)
+  (test-onnx-network-multi-io))
 
 (defn test-onnx-layer-smollm [fact]
   (let [neand-fact (neanderthal-factory fact)]
@@ -106,35 +105,34 @@
                   -4.15079402923584 2.627662181854248 -4.15079402923584 9.071796417236328 -0.8716740608215332])
         => (roughly 0.0 0.001)))))
 
-(with-release [fact (dnnl-factory)]
-  (test-onnx-layer-smollm fact))
+(test-onnx-layer-smollm *diamond-factory*)
 
-(with-release [fact (cudnn-factory)]
+(with-release [fact (cuda-factory (current-context) default-stream)]
   (test-onnx-layer-smollm fact))
 
 #_(defn test-onnx-layer-gemma3 [fact]
-  (let [neand-fact (neanderthal-factory fact)]
-    (with-release [opt (-> (options)
-                           (override-dimension! "batch_size" 1)
-                           (override-dimension! "sequence_length" 1)
-                           (override-dimension! "past_sequence_length" 1)
-                           (override-dimension! "total_sequence_length" 1))
-                   src-tz (tensor fact [1 1 28 28] :float :nchw)
-                   onnx-bp (onnx fact "data/gemma-3-1b-it-ONNX-GQA/onnx/model.onnx" {:options opt})
-                   input-ids (tensor neand-fact [1 1] :long :nc)
-                   position-ids (tensor neand-fact [1 1] :long :nc)
-                   attention-mask (tensor neand-fact [1 1] :long :nc)
-                   past-key-values (repeatedly 60 #(tensor fact [1 3 1 64] :float :nchw))
-                   gemma-next! (onnx-bp (into [input-ids attention-mask position-ids] past-key-values))]
-      (transfer! [2] input-ids)
-      (transfer! [0] position-ids)
-      (transfer! [1] attention-mask)
-      (doseq [pkv past-key-values]
-        (transfer! (repeat 0) pkv))
-      (facts
-       "ONNX Gemma 3 blueprint inference test."
-        (foldmap + 0 -
-                 (take 10 (view-vctr (native (first (gemma-next!)))))
-                 [-14.226645 -1.1276448 4.660359 -14.703875 -4.0910087 -9.300836 -7.5928197 -9.947579
-                  -11.940135 -9.666499])
-        => (roughly 0.0 0.001)))))
+    (let [neand-fact (neanderthal-factory fact)]
+      (with-release [opt (-> (options)
+                             (override-dimension! "batch_size" 1)
+                             (override-dimension! "sequence_length" 1)
+                             (override-dimension! "past_sequence_length" 1)
+                             (override-dimension! "total_sequence_length" 1))
+                     src-tz (tensor fact [1 1 28 28] :float :nchw)
+                     onnx-bp (onnx fact "data/gemma-3-1b-it-ONNX-GQA/onnx/model.onnx" {:options opt})
+                     input-ids (tensor neand-fact [1 1] :long :nc)
+                     position-ids (tensor neand-fact [1 1] :long :nc)
+                     attention-mask (tensor neand-fact [1 1] :long :nc)
+                     past-key-values (repeatedly 60 #(tensor fact [1 3 1 64] :float :nchw))
+                     gemma-next! (onnx-bp (into [input-ids attention-mask position-ids] past-key-values))]
+        (transfer! [2] input-ids)
+        (transfer! [0] position-ids)
+        (transfer! [1] attention-mask)
+        (doseq [pkv past-key-values]
+          (transfer! (repeat 0) pkv))
+        (facts
+          "ONNX Gemma 3 blueprint inference test."
+          (foldmap + 0 -
+                   (take 10 (view-vctr (native (first (gemma-next!)))))
+                   [-14.226645 -1.1276448 4.660359 -14.703875 -4.0910087 -9.300836 -7.5928197 -9.947579
+                    -11.940135 -9.666499])
+          => (roughly 0.0 0.001)))))

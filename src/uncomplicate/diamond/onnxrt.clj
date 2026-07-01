@@ -107,9 +107,11 @@
   ([model-path args]
    (fn onnx-fn
      ([fact src-desc]
-      (onnx fact model-path (if (sequential? src-desc) (assoc args :multi-io true))))
+      (onnx fact model-path (if (sequential? src-desc) (assoc args :multi-io true) args)))
      ([src-desc]
-      (onnx-fn *diamond-factory* src-desc))))
+      (onnx-fn *diamond-factory* src-desc))
+     ([]
+      (onnx *diamond-factory* model-path args))))
   ([model-path]
    (onnx model-path nil)))
 
