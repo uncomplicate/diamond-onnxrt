@@ -11,7 +11,8 @@
   (:require [clojure.string :as st :refer [lower-case split]]
             [uncomplicate.commons
              [core :refer [let-release with-release Releaseable release Info info bytesize size]]
-             [utils :refer [enc-keyword dragan-says-ex mask]]]
+             [utils :refer [enc-keyword dragan-says-ex mask load-class]]]
+            [uncomplicate.fluokitten.protocols :refer [extract]]
             [uncomplicate.clojure-cpp
              :refer [get-string get-entry byte-pointer long-pointer null? pointer pointer-pointer
                      pointer-type pointer-vec safe safe2 get-pointer capacity! limit size-t-pointer
@@ -1065,3 +1066,17 @@
                (output-names* ort-api sess allo))))
   ([sess]
    (runner* sess nil)))
+
+;; ================= CUDA Context shenanigans workaround ===========================================
+
+(defmacro make-ort-cuda-context [dev]
+  (if (load-class "org.bytedeco.cuda.global.cudart")
+    `(do (require 'uncomplicate.clojurecuda.core)
+         (let [ort-api# (safe *ort-api*)]
+           (with-release [key# (byte-pointer "device_id")
+                          val# (byte-pointer (str (extract ~dev)))
+                          cuda-opt# (update-cuda-options-with-value*
+                                     ort-api# (cuda-options* ort-api#) key# val#)
+                          opt# (append-cuda* ort-api# (options) cuda-opt#)]
+             (uncomplicate.clojurecuda.core/current-context))))
+    nil))
