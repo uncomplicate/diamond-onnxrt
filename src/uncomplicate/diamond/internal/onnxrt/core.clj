@@ -619,9 +619,9 @@
            (let [in-name (safe (input-name* ort-api sess allo 0))]
              (try
                (bind-input! res in-name
-                             (cond (map? inputs) (get-value inputs in-name)
-                                   (sequential? inputs) (first inputs)
-                                   :default inputs))
+                            (cond (map? inputs) (get-value inputs in-name)
+                                  (sequential? inputs) (first inputs)
+                                  :default inputs))
                (finally (free in-name))))
            (cond (map? inputs)
                  (with-release [in-names (input-names* ort-api sess allo)]
@@ -1069,14 +1069,18 @@
 
 ;; ================= CUDA Context shenanigans workaround ===========================================
 
+(def ^:private cuda-present? (if (load-class "org.bytedeco.cuda.global.cudart")
+                               (do (require '[uncomplicate.clojurecuda.core :refer [current-context]])
+                                   true)
+                               false))
+
 (defmacro make-ort-cuda-context [dev]
-  (if (load-class "org.bytedeco.cuda.global.cudart")
-    `(do (require 'uncomplicate.clojurecuda.core)
-         (let [ort-api# (safe *ort-api*)]
-           (with-release [key# (byte-pointer "device_id")
-                          val# (byte-pointer (str (extract ~dev)))
-                          cuda-opt# (update-cuda-options-with-value*
-                                     ort-api# (cuda-options* ort-api#) key# val#)
-                          opt# (append-cuda* ort-api# (options) cuda-opt#)]
-             (uncomplicate.clojurecuda.core/current-context))))
+  (if cuda-present?
+    `(let [ort-api# (safe *ort-api*)]
+       (with-release [key# (byte-pointer "device_id")
+                      val# (byte-pointer (str (extract ~dev)))
+                      cuda-opt# (update-cuda-options-with-value*
+                                 ort-api# (cuda-options* ort-api#) key# val#)
+                      opt# (append-cuda* ort-api# (options) cuda-opt#)]
+         (uncomplicate.clojurecuda.core/current-context)))
     nil))
