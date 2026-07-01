@@ -17,7 +17,8 @@
                  [uncomplicate/commons "0.21.0"]
                  [org.uncomplicate/deep-diamond-base "0.45.0-SNAPSHOT"]
                  [org.uncomplicate/deep-diamond-dnnl "0.45.0-SNAPSHOT"]
-                 [org.bytedeco/onnxruntime-platform "1.26.0-1.5.14-SNAPSHOT"]]
+                 [org.bytedeco/onnxruntime-platform "1.26.0-1.5.14-SNAPSHOT"]
+                 [org.bytedeco/cuda-platform "13.2-9.21-1.5.14-SNAPSHOT"]];;TODO remove
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {:plugins [[lein-midje "3.2.1"]]
@@ -34,10 +35,10 @@
                                     [org.uncomplicate/neanderthal-mkl "0.63.0-SNAPSHOT"]
                                     [org.bytedeco/mkl "2025.3-1.5.13" :classifier "linux-x86_64-redist"]
                                     [org.uncomplicate/deep-diamond-cuda "0.45.0-SNAPSHOT"]
-                                    [org.bytedeco/cuda-redist "13.1-9.19-1.5.13" :classifier "linux-x86_64"]
-                                    [org.bytedeco/cuda-redist-cublas "13.1-9.19-1.5.13" :classifier "linux-x86_64"]
-                                    #_[org.bytedeco/cuda-redist-cudnn "13.1-9.19-1.5.13" :classifier "linux-x86_64"]
-                                    [org.bytedeco/cuda-redist-nccl "13.1-9.19-1.5.13" :classifier "linux-x86_64"]]}
+                                    [org.bytedeco/cuda-redist "13.2-9.21-1.5.14-SNAPSHOT" :classifier "linux-x86_64"]
+                                    [org.bytedeco/cuda-redist-cublas "13.2-9.21-1.5.14-SNAPSHOT" :classifier "linux-x86_64"]
+                                    #_[org.bytedeco/cuda-redist-cudnn "13.2-9.21-1.5.14-SNAPSHOT" :classifier "linux-x86_64"]
+                                    [org.bytedeco/cuda-redist-nccl "13.2-9.21-1.5.14-SNAPSHOT" :classifier "linux-x86_64"]]}
              :windows {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.26.0-1.5.14-SNAPSHOT"]
                                       [org.bytedeco/openvino-platform "2026.1.0-1.5.14-SNAPSHOT"]
                                       [org.uncomplicate/neanderthal-mkl "0.63.0-SNAPSHOT"]

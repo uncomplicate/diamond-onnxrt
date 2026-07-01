@@ -312,7 +312,9 @@
                      ppvalues (safe (pointer-pointer config-values))]
         (update-cuda-options* ort-api cuda ppkeys ppvalues)
         (when stream
-          (let [key (byte-pointer "user_compute_stream")]
+          (with-release [key (byte-pointer "user_compute_stream")
+                         key1 (byte-pointer "has_user_compute_stream")
+                         val1 (byte-pointer "1")]
             (update-cuda-options-with-value* ort-api cuda key stream))))
       (append-cuda* ort-api opt! cuda)
       opt!)))
@@ -328,7 +330,7 @@
                      ppvalues (safe (pointer-pointer config-values))]
         (update-trt-options* ort-api trt ppkeys ppvalues)
         (when stream
-          (let [key (byte-pointer "user_compute_stream")]
+          (with-release [key (byte-pointer "user_compute_stream")]
             (update-trt-options-with-value* ort-api trt key stream))))
       (append-trt* ort-api opt! trt)
       opt!)))
