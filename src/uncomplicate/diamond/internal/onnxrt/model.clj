@@ -16,7 +16,7 @@
             [uncomplicate.neanderthal.block :refer [buffer]]
             [uncomplicate.diamond.tensor
              :refer [default-desc Transfer input output connector revert shape
-                     data-type layout TensorDescriptor view-tz]]
+                     data-type layout TensorDescriptor view-tz *diamond-factory*]]
             [uncomplicate.diamond.internal
              [protocols
               :refer [Parameters bias weights ParametersSeq parameters DescriptorProvider
@@ -150,9 +150,13 @@
      (let-release [src-desc (create-tensor-desc fact in-shape in-type (default-strides in-shape))
                    dst-desc (create-tensor-desc fact out-shape out-type (default-strides out-shape))]
        (->SingleIOInferenceBlueprint fact sess opt run-opt mem-info src-desc dst-desc in-shape out-shape))))
+  ([sess opt run-opt mem-info]
+   (onnx-single-io-model *diamond-factory* sess opt run-opt mem-info))
   ([fact sess mem-info]
    (let-release [opt (options)]
-     (onnx-single-io-model fact sess opt nil mem-info))))
+     (onnx-single-io-model fact sess opt nil mem-info)))
+  ([sess mem-info]
+   (onnx-single-io-model *diamond-factory* sess mem-info)))
 
 ;; ================================ Multiple inputs, Multiple outputs ==========================================
 
@@ -270,6 +274,10 @@
                    dst-descs (mapv tensor-desc outs-shape outs-type)]
        (->MultiIOInferenceBlueprint fact sess opt run-opt mem-info src-descs dst-descs
                                     ins-shape outs-shape create-tz))))
+  ([sess opt run-opt mem-info]
+   (onnx-multi-io-model *diamond-factory* sess opt run-opt mem-info))
   ([fact sess mem-info]
    (let-release [opt (options)]
-     (onnx-multi-io-model fact sess opt nil mem-info))))
+     (onnx-multi-io-model fact sess opt nil mem-info)))
+  ([sess mem-info]
+   (onnx-multi-io-model *diamond-factory* sess mem-info)))

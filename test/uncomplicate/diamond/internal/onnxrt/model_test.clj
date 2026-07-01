@@ -14,26 +14,27 @@
              [core :refer [iamax transfer! asum scal! native view-vctr]]
              [vect-math :refer [exp!]]]
             [uncomplicate.neanderthal.internal.api :refer [device]]
-            [uncomplicate.diamond.tensor :refer [tensor]]
+            [uncomplicate.diamond
+             [tensor :refer [tensor *diamond-factory*]]
+             [native :refer []]]
             [uncomplicate.diamond.internal.protocols :refer [neanderthal-factory]]
             [uncomplicate.diamond.internal.onnxrt
              [core :refer :all]
              [model :refer :all]
-             [core-test :refer [test-image-0]]]
-            [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]))
+             [core-test :refer [test-image-0]]]))
 
 (defn softmax! [xs]
   (scal! (/ 1.0 (asum (exp! xs))) xs))
 
-(defn test-single-io-onnx-model [fact]
+(defn test-single-io-onnx-model []
   (with-release [env (environment :warning "test" nil)
                  opt (-> (options)
                          (append-provider! :dnnl)
                          (graph-optimization! :extended))
                  sess (session env "data/mnist-12.onnx" opt)
-                 mem-info (memory-info (device (neanderthal-factory fact :float)) :device 0 :default)
-                 mnist-bp (onnx-single-io-model fact sess mem-info)
-                 src-tz (tensor fact [1 1 28 28] :float :nchw)
+                 mem-info (memory-info (device (neanderthal-factory *diamond-factory* :float)) :device 0 :default)
+                 mnist-bp (onnx-single-io-model sess mem-info)
+                 src-tz (tensor [1 1 28 28] :float :nchw)
                  mnist-infer! (mnist-bp src-tz)]
 
     (transfer! test-image-0 src-tz)
@@ -57,21 +58,20 @@
                                 :strides [784 784 28 1]}}
       (iamax (softmax! (mnist-infer!))) => 7)))
 
-(with-release [fact (dnnl-factory)]
-  (test-single-io-onnx-model fact))
+(test-single-io-onnx-model)
 
 ;; TODO timings: env: 30 microseconds
 ;; TODO timings: opts with settings: 30 microseconds
 ;; TODO timings: session loading: 2 milliseconds
 ;; TODO timings: mem-info: 25 microseconds
 
-(defn test-multi-io-onnx-model [fact]
+(defn test-multi-io-onnx-model []
   (with-release [env (environment :warning "test" nil)
                  opt (options)
                  sess (session env "data/mnist-12.onnx" opt)
                  mem-info (memory-info :cpu :device 0 :default)
-                 mnist-bp (onnx-multi-io-model fact sess opt nil mem-info)
-                 src-tz (tensor fact [1 1 28 28] :float :nchw)
+                 mnist-bp (onnx-multi-io-model sess opt nil mem-info)
+                 src-tz (tensor [1 1 28 28] :float :nchw)
                  mnist-infer! (mnist-bp [src-tz])]
 
     (transfer! test-image-0 src-tz)
@@ -95,11 +95,9 @@
                                  :strides [784 784 28 1]}]}
       (iamax (softmax! (first (mnist-infer!)))) => 7)))
 
-(with-release [fact (dnnl-factory)]
-  (test-multi-io-onnx-model fact))
+(test-multi-io-onnx-model)
 
-(with-release [fact (dnnl-factory)
-               vect-fact (neanderthal-factory fact)
+(with-release [vect-fact (neanderthal-factory *diamond-factory*)
                env (environment :warning "test" nil)
                opt (-> (options)
                        (append-provider! :dnnl)
@@ -109,13 +107,13 @@
                        (override-dimension! "past_sequence_length + 1" 1)
                        (graph-optimization! :extended))
                sess (session env "data/SmolLM-135M/onnx/model.onnx" opt)
-               mem-info (memory-info (device (neanderthal-factory fact :float)) :device 0 :default)
-               smollm-bp (onnx-multi-io-model fact sess opt nil mem-info)
-               src-tz (tensor fact [1 1 28 28] :float :nchw)
+               mem-info (memory-info (device (neanderthal-factory *diamond-factory* :float)) :device 0 :default)
+               smollm-bp (onnx-multi-io-model sess opt nil mem-info)
+               src-tz (tensor [1 1 28 28] :float :nchw)
                input-ids (tensor vect-fact [1 1] :long :nc)
                position-ids (tensor vect-fact [1 1] :long :nc)
                attention-mask (tensor vect-fact [1 1] :long :nc)
-               past-key-values (repeatedly 60 #(tensor fact [1 3 0 64] :float :nchw))
+               past-key-values (repeatedly 60 #(tensor [1 3 0 64] :float :nchw))
                smollm-next! (smollm-bp (into [input-ids attention-mask position-ids] past-key-values))]
 
   (facts
