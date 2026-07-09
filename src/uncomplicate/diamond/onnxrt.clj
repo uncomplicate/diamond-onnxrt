@@ -17,8 +17,7 @@
             [uncomplicate.diamond.internal.onnxrt
              [core :refer [environment options session  memory-info threading-options
                            graph-optimization! available-providers append-provider!
-                           disable-per-session-threads! run-options config! input-count output-count
-                           make-ort-cuda-context]]
+                           disable-per-session-threads! run-options config! input-count output-count]]
              [model :refer [onnx-single-io-model onnx-multi-io-model]]]))
 
 (def ^:dynamic *onnx-options*
@@ -114,9 +113,3 @@
       (onnx *diamond-factory* model-path args))))
   ([model-path]
    (onnx model-path nil)))
-
-(defn ort-cuda-context
-  ([dev]
-   (make-ort-cuda-context dev))
-  ([]
-   (ort-cuda-context 0)))

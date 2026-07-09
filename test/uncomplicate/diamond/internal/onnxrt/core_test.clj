@@ -327,8 +327,10 @@
                             "out_token_num" :long}
                     :output {"lp_v0_2866" {:data-type :long :shape [4 36]}}}
     (answer! data-binding) => data-binding
-    (pointer-vec (capacity! (long-pointer (mutable-data (first (bound-values data-binding)))) 14))
-    => [8642 562 318 407 262 691 835 284 8642 562 318 407 262 691])) ;; Grass is not the only way to Grass is not the only way to
+    (pointer-vec (long-pointer (mutable-data (first (bound-values data-binding)))))
+    => [8642 562 318 407 262 691 835 284 8642 562 318 407 262 691 1517 326 8642 562 318
+        257 1049 835 284 651 8642 562 318 257 1049 835 284 923]))
+;; Grass is not the only way to Grass is not the only way to
 
 (facts
   "SmolLM inference test."

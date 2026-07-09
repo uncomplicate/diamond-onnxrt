@@ -22,11 +22,13 @@
             OrtOptionalTypeInfo OrtStatus OrtArenaCfg OrtCustomOpDomain OrtIoBinding OrtKernelInfo
             OrtMemoryInfo OrtModelMetadata OrtOp OrtOpAttr OrtPrepackedWeightsContainer OrtRunOptions
             OrtValue OrtDnnlProviderOptions OrtCUDAProviderOptions OrtCUDAProviderOptionsV2
-            OrtTensorRTProviderOptionsV2 OrtLoggingFunction
-            OrtThreadingOptions OrtGraph OrtKeyValuePairs OrtLoraAdapter OrtModel OrtNode
-            OrtCustomCreateThreadFn OrtCustomJoinThreadFn ;;TODO 1.23+ OrtSyncStream
-            OrtAllocator$Free_OrtAllocator_Pointer OrtApi$MemoryInfoGetDeviceType_OrtMemoryInfo_IntPointer
-            OrtApi$ClearBoundInputs_OrtIoBinding OrtApi$ClearBoundOutputs_OrtIoBinding]))
+            OrtTensorRTProviderOptionsV2 OrtLoggingFunction OrtThreadingOptions OrtGraph
+            OrtKeyValuePairs OrtLoraAdapter OrtModel OrtNode OrtCustomCreateThreadFn OrtSyncStream
+            OrtCustomJoinThreadFn OrtAllocator$Free_OrtAllocator_Pointer
+            OrtApi$MemoryInfoGetDeviceType_OrtMemoryInfo_IntPointer
+            OrtApi$ClearBoundInputs_OrtIoBinding OrtApi$ClearBoundOutputs_OrtIoBinding
+            OrtApi$RunOptionsSetSyncStream_OrtRunOptions_OrtSyncStream
+            OrtApi$SyncStream_GetHandle_OrtSyncStream]))
 
 (def ^{:dynamic true :tag OrtApi} *ort-api*)
 (def ^{:dynamic true :tag OrtAllocator} *default-allocator*)
@@ -37,6 +39,14 @@
 (def ^{:dynamic true
        :tag OrtApi$ClearBoundOutputs_OrtIoBinding}
   *clear-bound-outputs*)
+
+(def ^{:dynamic true
+       :tag OrtApi$RunOptionsSetSyncStream_OrtRunOptions_OrtSyncStream}
+  *set-sync-stream*)
+
+(def ^{:dynamic true
+       :tag OrtApi$RunOptionsSetSyncStream_OrtRunOptions_OrtSyncStream}
+  *get-sync-stream*)
 
 (defn api* [^OrtApiBase ort-api-base ^long version]
   (.call (.GetApi ort-api-base) version))
@@ -97,6 +107,7 @@
 (extend-ort OrtThreadingOptions ReleaseThreadingOptions)
 (extend-ort OrtTypeInfo ReleaseTypeInfo)
 (extend-ort OrtValue ReleaseValue)
+(extend-ort OrtSyncStream ReleaseSyncStream)
 
 (extend-type OrtTypeInfo
   Releaseable
@@ -635,6 +646,16 @@
    (.call clear ^OrtIoBinding binding)
    binding))
 
+(defn synchronize-bound-inputs* [^OrtApi ort-api ^OrtIoBinding binding]
+  (with-check ort-api
+    (.SynchronizeBoundInputs ort-api binding)
+    binding))
+
+(defn synchronize-bound-outputs* [^OrtApi ort-api ^OrtIoBinding binding]
+  (with-check ort-api
+    (.SynchronizeBoundOutputs ort-api binding)
+    binding))
+
 ;; =================== Run Options =================================================================
 
 (defn run-options* [^OrtApi ort-api]
@@ -671,6 +692,13 @@
 (defn unset-terminate* [^OrtApi ort-api ^OrtRunOptions run-opt]
   (with-check ort-api
     (.RunOptionsUnsetTerminate ort-api run-opt)))
+
+(defn set-sync-stream*
+  ([^OrtApi ort-api]
+   (.RunOptionsSetSyncStream ort-api))
+  ([^OrtApi$RunOptionsSetSyncStream_OrtRunOptions_OrtSyncStream setter ^OrtRunOptions run-opt ^OrtSyncStream sync-stream]
+   (.call setter run-opt sync-stream)
+   run-opt))
 
 (defn add-run-config-entry* [^OrtApi ort-api ^OrtRunOptions run-opt ^BytePointer key ^BytePointer value]
   (with-check ort-api

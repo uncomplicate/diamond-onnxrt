@@ -39,10 +39,13 @@
   ([fact vect-fact shape type]
    (tensor-desc fact vect-fact shape type (default-strides shape))))
 
-(defn create-tz [fact vect-fact tz-desc]
-  (if (= :long (data-type tz-desc))
-    (create-tensor vect-fact tz-desc false)
-    (create-tensor fact tz-desc false)))
+(defn create-tz
+  ([fact vect-fact tz-desc init]
+   (if (= :long (data-type tz-desc))
+     (create-tensor vect-fact tz-desc init)
+     (create-tensor fact tz-desc init)))
+  ([fact vect-fact tz-desc]
+   (create-tz fact vect-fact tz-desc false)))
 
 ;; ================================ One input, one output ==========================================
 
@@ -141,7 +144,7 @@
 
 (defn onnx-single-io-model
   ([fact sess opt run-opt mem-info]
-   (let [in-info (cast-type (input-type-info sess 0))
+   (let [in-info (cast-type (input-type-info sess 0));;TODO this shoult probably be released!
          in-shape (onnx/shape in-info)
          in-type (tensor-type in-info)
          out-info (cast-type (output-type-info sess 0))
@@ -262,7 +265,7 @@
 
 (defn onnx-multi-io-model
   ([fact sess opt run-opt mem-info]
-   (let [ins-info (mapv cast-type (input-type-info sess))
+   (let [ins-info (mapv cast-type (input-type-info sess));;TODO this shoult probably be released!
          ins-shape (mapv onnx/shape ins-info)
          ins-type (mapv tensor-type ins-info)
          outs-info (mapv cast-type (output-type-info sess))

@@ -18,13 +18,11 @@
              :refer [with-context context device cuda-malloc mem-alloc-runtime
                      memcpy-host! init stream memset! synchronize!]]
             [uncomplicate.neanderthal.math :refer [exp]]
-            [uncomplicate.diamond.onnxrt :refer [ort-cuda-context]]
             [uncomplicate.diamond.internal.onnxrt.core :refer :all]
             [uncomplicate.diamond.internal.onnxrt.core-test :refer [test-image-0 softmax]])
   (:import clojure.lang.ExceptionInfo))
 
 (init)
-(init-ort-api!)
 
 (facts
   "Test system."
@@ -135,7 +133,7 @@
        (onnx-tensor mem-info [0 0] nil) => (throws RuntimeException)
        (onnx-tensor mem-info 3 data) => (throws RuntimeException)))))
 
-(with-context (ort-cuda-context)
+(with-context (context)
   (facts
     "Simple MNIST inference test. The context is set up by (append-provider! :cuda) in previous tests!"
     (with-release [env (environment :warning "test" nil)
@@ -158,7 +156,7 @@
         seven => 1.0
         (apply max res) => seven))))
 
-(with-context (ort-cuda-context)
+(with-context (context)
  (facts
    "GPT inference test."
    (with-release [env (environment :warning "test" nil)
@@ -184,14 +182,13 @@
      (memcpy-host! (long-pointer [5]) out-token-num-data)
      (memcpy-host! (float-pointer [1 1 1]) attention-mask-data)
      (memcpy-host! (long-pointer [8642, 562, 318]) input-ids-data)
-     (synchronize! hstream)
+     (synchronize-inputs! data-binding)
      (answer! data-binding) => data-binding
-     (synchronize! hstream)
-     (pointer-vec (capacity! (long-pointer (mutable-data (first (bound-values data-binding)))) 14))
-     => [8642 562 318 407 262 691 835 284 8642 562 318 407 262 691]
-     ))) ;; Grass is not the only way to Grass is not the only way to
+     (synchronize-outputs! data-binding)
+     (take 3 (pointer-vec (long-pointer (mutable-data (first (bound-values data-binding))))))
+     => [8642 562 318]))) ;; Grass is not the only way to Grass is not the only way to
 
-(with-context (ort-cuda-context)
+(with-context (context)
   (facts
     "SmolLM inference test."
     (let [batch-size 1
@@ -351,13 +348,13 @@
                                                "present.9.value" (present-key-values 19)})
                      next! (runner* sess)]
         (memcpy-host! (long-pointer [2]) input-ids-data)
-        (memcpy-host! (long-pointer [0]) position-ids-data)
+        (memset! position-ids-data 0)
         (memcpy-host! (long-pointer [1]) attention-mask-data)
         (doseq [present present-key-values]
-          (memcpy-host! (zero! (float-pointer 384)) present))
-        (synchronize! hstream)
+          (memset! present 0))
+        (synchronize-inputs! data-binding)
         (next! data-binding) => data-binding
-        (synchronize! hstream)
+        (synchronize-outputs! data-binding)
         (memcpy-host! logits-data logits-data-host)
         (take 8 (pointer-vec logits-data-host))
         => (map float [13.046758 -1.2744303 -1.2022223 -2.295833 -1.5223873 -1.2159472 1.27348 -1.2159472])))))

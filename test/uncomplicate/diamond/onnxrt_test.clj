@@ -17,7 +17,7 @@
              [tensor :refer [tensor output with-diamond *diamond-factory*]]
              [dnn :refer [network activation]]
              [native :refer []]
-             [onnxrt :refer [onnx ort-cuda-context]]]
+             [onnxrt :refer [onnx]]]
             [uncomplicate.diamond.internal.protocols :refer [neanderthal-factory]]
             [uncomplicate.diamond.internal.onnxrt
              [core :refer [options override-dimension!]]
@@ -74,7 +74,7 @@
 (test-onnx-network-single-io)
 (test-onnx-network-multi-io)
 
-(with-diamond cuda-factory [(ort-cuda-context) default-stream]
+(with-diamond cuda-factory []
   (test-onnx-network-single-io)
   (test-onnx-network-multi-io))
 

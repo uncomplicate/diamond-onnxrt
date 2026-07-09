@@ -12,7 +12,6 @@
             [uncomplicate.commons
              [core :refer [let-release with-release Releaseable release Info info bytesize size]]
              [utils :refer [enc-keyword dragan-says-ex mask load-class]]]
-            [uncomplicate.fluokitten.protocols :refer [extract]]
             [uncomplicate.clojure-cpp
              :refer [get-string get-entry byte-pointer long-pointer null? pointer pointer-pointer
                      pointer-type pointer-vec safe safe2 get-pointer capacity! limit size-t-pointer
@@ -52,7 +51,9 @@
    (alter-var-root (var *clear-bound-inputs*)
                    (constantly (clear-bound-inputs* (safe *ort-api*))))
    (alter-var-root (var *clear-bound-outputs*)
-                   (constantly (clear-bound-outputs* (safe *ort-api*)))))
+                   (constantly (clear-bound-outputs* (safe *ort-api*))))
+   (alter-var-root (var *set-sync-stream*)
+                   (constantly (set-sync-stream* (safe *ort-api*)))))
   ([]
    (init-ort-api! onnxruntime/ORT_API_VERSION)))
 
@@ -599,6 +600,12 @@
   ([binding]
    (clear-bound-outputs* (safe *clear-bound-outputs*) (safe binding))))
 
+(defn synchronize-inputs! [binding]
+  (synchronize-bound-inputs* (safe *ort-api*) (safe binding)))
+
+(defn synchronize-outputs! [binding]
+  (synchronize-bound-outputs* (safe *ort-api*) (safe binding)))
+
 (defn io-binding
   ([sess]
    (io-binding* (safe *ort-api*) (safe sess)))
@@ -982,12 +989,18 @@
   (get-string (run-tag* *ort-api* (safe run-opt))))
 
 (defn terminate!
-  ([run-opt]
-   (set-terminate* *ort-api* (safe run-opt)))
-  ([run-opt terminate?]
+  ([run-opt!]
+   (set-terminate* *ort-api* (safe run-opt!)))
+  ([run-opt! terminate?]
    (if terminate?
-     (set-terminate* *ort-api* (safe run-opt))
-     (unset-terminate* *ort-api* (safe run-opt)))))
+     (set-terminate* *ort-api* (safe run-opt!))
+     (unset-terminate* *ort-api* (safe run-opt!)))))
+
+(defn sync-stream!
+  ([]
+   (set-sync-stream* (safe *ort-api*)))
+  ([run-opt!]
+   (set-sync-stream* (safe *set-sync-stream*) (safe run-opt!))))
 
 (extend-type OrtRunOptions
   Info
@@ -1066,21 +1079,3 @@
                (output-names* ort-api sess allo))))
   ([sess]
    (runner* sess nil)))
-
-;; ================= CUDA Context shenanigans workaround ===========================================
-
-(def ^:private cuda-present? (if (load-class "org.bytedeco.cuda.global.cudart")
-                               (do (require '[uncomplicate.clojurecuda.core :refer [current-context]])
-                                   true)
-                               false))
-
-(defmacro make-ort-cuda-context [dev]
-  (if cuda-present?
-    `(let [ort-api# (safe *ort-api*)]
-       (with-release [key# (byte-pointer "device_id")
-                      val# (byte-pointer (str (extract ~dev)))
-                      cuda-opt# (update-cuda-options-with-value*
-                                 ort-api# (cuda-options* ort-api#) key# val#)
-                      opt# (append-cuda* ort-api# (options) cuda-opt#)]
-         (uncomplicate.clojurecuda.core/current-context)))
-    nil))
