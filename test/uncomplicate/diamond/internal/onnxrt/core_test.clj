@@ -84,9 +84,9 @@
   "Test memory-info."
   (with-release [env (environment nil)
                  opt (options)
-                 mem-info (memory-info :cpu :arena 0 :default)
-                 mem-info1 (memory-info :cpu :arena 0 :default)
-                 mem-info2 (memory-info :cpu :device 0 :default)]
+                 mem-info (memory-info :cpu :arena :default)
+                 mem-info1 (memory-info :cpu :arena :default)
+                 mem-info2 (memory-info :cpu :device :default)]
     (allocator-key mem-info) => :cpu
     (allocator-type mem-info) => :arena
     (device-id mem-info) => 0
@@ -106,7 +106,7 @@
   "Test tensor values."
   (with-release [env (environment nil)
                  opt (options)
-                 mem-info (memory-info :cpu :arena 0 :default)
+                 mem-info (memory-info :cpu :arena :default)
                  data (float-array 5)
                  val (onnx-tensor mem-info [2 2] data)
                  val-type-info (value-info val)
@@ -148,7 +148,7 @@
                  outputs-info (output-type-info sess)
                  output-1-element (sequence-type (cast-type output-info-1))
                  output-1-val (val-type (cast-type output-1-element))
-                 mem-info (memory-info :cpu :arena 0 :default)
+                 mem-info (memory-info :cpu :arena :default)
                  x-data (float-pointer (range (info input-info :count)))
                  x (onnx-tensor mem-info (:shape x-info) x-data)
                  infer! (runner* sess)
@@ -202,7 +202,40 @@
                  sess (session env "data/logreg_iris_correct.onnx" opt)
                  input-info (input-type-info sess 0)
                  output-info (output-type-info sess)
-                 mem-info (memory-info :cpu :arena 0 :default)
+                 mem-info (memory-info :cpu :arena :default)
+                 x-data (float-pointer [5.1 3.5 1.4 0.2
+                                        4.9 3.0	1.4 0.2])
+                 x (onnx-tensor mem-info [2 4] x-data)
+                 infer! (runner* sess)
+                 binding (io-binding sess [x] [mem-info mem-info])]
+    (let [x-info (cast-type input-info)]
+      (shape x-info) => [-1 4]
+      (symbolic-shape x-info) => ["" ""]
+      (symbolic-shape! x-info [:batch nil])
+      (symbolic-shape x-info) => [:batch ""]
+      (shape! x-info [2 2]) => x-info
+      (tensor-count x-info) => 4)
+
+    (with-release [outputs (infer! binding)]
+      (map #(vector (pointer-vec (long-pointer (mutable-data (value-value % 0))))
+                    (pointer-vec (float-pointer (mutable-data (value-value % 1)))))
+           (value-value ((bound-values outputs) 1)))
+      => [[[0 1 2] (mapv float [0.9794105 0.020589434 4.5429704E-8])]
+          [[0 1 2] (mapv float [0.9692533 0.030746665 6.886014E-8])]])))
+
+(facts
+  "The correct logreg iris test with OpenVINO."
+  ;; This uses a logreg_iris.onnx model that matches the iris data as described in literature
+  (with-release [env (environment nil)
+                 opt (doto (options)
+                       (append-provider! :openvino)
+                       (graph-optimization! :extended)
+                       (override-dimension! :batch 2)
+                       (override-dimension! "non_existing" 2))
+                 sess (session env "data/logreg_iris_correct.onnx" opt)
+                 input-info (input-type-info sess 0)
+                 output-info (output-type-info sess)
+                 mem-info (memory-info :cpu :arena :default)
                  x-data (float-pointer [5.1 3.5 1.4 0.2
                                         4.9 3.0	1.4 0.2])
                  x (onnx-tensor mem-info [2 4] x-data)
@@ -233,7 +266,7 @@
                  sess (session env "data/logreg_iris_correct.onnx" opt)
                  input-info (input-type-info sess 0)
                  output-info (output-type-info sess)
-                 mem-info (memory-info :cpu :arena 0 :default)
+                 mem-info (memory-info :cpu :arena :default)
                  x-data (float-pointer [5.1 3.5 1.4 0.2
                                         4.9 3.0	1.4 0.2])
                  x (onnx-tensor mem-info [2 4] x-data)
@@ -266,10 +299,11 @@
   "Simple MNIST inference test."
   (with-release [env (environment :warning "test" nil)
                  opt (-> (options)
-                         (append-provider! :dnnl)
+                         (append-provider! :openvino {:device-type :cpu
+                                                      :dynamic-shapes true})
                          (graph-optimization! :extended))
                  sess (session env "data/mnist-12.onnx" opt)
-                 mem-info (memory-info :cpu :arena 0 :default)
+                 mem-info (memory-info :openvino :arena :cpu :default)
                  input-info (input-type-info sess 0)
                  output-info (output-type-info sess 0)
                  x-data (float-pointer test-image-0)
@@ -306,10 +340,9 @@
                  opt (-> (options)
                          (append-provider! :dnnl)
                          (override-dimension! "batch_size" 1) ;;optional
-                         ;; (override-dimension! "seq_len" 3) ;;optional
                          (graph-optimization! :extended))
                  sess (session env "data/gpt2-lm-head-bs-12.onnx" opt)
-                 mem-info (memory-info :cpu :arena 0 :default)
+                 mem-info (memory-info :cpu :arena :default)
                  input-info (input-type-info sess)
                  output-info (output-type-info sess)
                  input-ids (onnx-tensor mem-info [1 3] (long-pointer [8642, 562, 318])) ;; Grass is
@@ -340,14 +373,15 @@
         total-seq-len 1]
       (with-release [env (environment :warning "test" nil)
                      opt (-> (options)
-                             (append-provider! :dnnl)
+                             (append-provider! :openvino {:device-type :cpu
+                                                          :dynamic-shapes false})
                              (override-dimension! "batch_size" batch-size)
                              (override-dimension! "sequence_length" seq-len)
                              (override-dimension! "past_sequence_length" past-seq-len)
                              (override-dimension! "past_sequence_length + 1" total-seq-len)
                              (graph-optimization! :extended))
                      sess (session env "data/SmolLM-135M/onnx/model.onnx" opt)
-                     mem-info (memory-info :cpu :arena 0 :default)
+                     mem-info (memory-info :cpu :arena :default)
                      input-info (input-type-info sess)
                      output-info (output-type-info sess)
                      input-ids (onnx-tensor mem-info [batch-size seq-len] (long-pointer [2]))
@@ -482,34 +516,6 @@
                                                "present.9.key" (present-key-values 18)
                                                "present.9.value" (present-key-values 19)})
                      next! (runner* sess)]
-        (next! data-binding) => data-binding
+        (time (next! data-binding)) => data-binding
         (pointer-vec (capacity! (float-pointer (mutable-data (first (bound-values data-binding)))) 8))
-        => (map float [13.046633 -1.2745271 -1.2023203 -2.2959335 -1.5224829 -1.2160451 1.2734042 -1.2160451]))))
-
-#_(facts
-  "Gemma 3 inference test."
-  (with-release [env (environment :warning "test" nil)
-                 opt (-> (options)
-                         (append-provider! :dnnl)
-                         (override-dimension! "batch_size" 1)
-                         (override-dimension! "sequence_length" 1)
-                         (override-dimension! "past_sequence_length" 0)
-                         (override-dimension! "total_sequence_length" 1)
-                         (graph-optimization! :extended))
-                 sess (session env "data/gemma-3-1b-it-ONNX-GQA/onnx/model.onnx" opt)
-                 mem-info (memory-info :cpu :arena 0 :default)
-                 input-info (input-type-info sess)
-                 output-info (output-type-info sess)
-                 input-ids (onnx-tensor mem-info [1 1] (long-pointer [2]))
-                 position-ids (onnx-tensor mem-info [1 1] (long-pointer [0]))
-                 attention-mask (onnx-tensor mem-info [1 1] (long-pointer [1]))
-                 past-key-values (repeatedly 52 #(onnx-tensor mem-info [1 1 0 256] (float-pointer 0)))
-                 present-key-values (repeatedly 52 #(onnx-tensor mem-info [1 1 1 256] (float-pointer 256)))
-                 logits (onnx-tensor mem-info [1 1 262144] (float-pointer 262144))
-                 data-binding (io-binding sess (into [input-ids attention-mask position-ids] past-key-values)
-                                          (into [logits] present-key-values))
-                 next! (runner* sess)]
-    (next! data-binding) => data-binding
-    (pointer-vec (capacity! (float-pointer (mutable-data (first (bound-values data-binding)))) 16))
-    => (map float [-14.226645 -1.1276448 4.660359 -14.703875 -4.0910087 -9.300836 -7.5928197 -9.947579
-                   -11.940135 -9.666499 -10.555443 -11.343688 -10.375963 -10.141178 -10.714252 -10.99442])))
+        => (map float [13.046626 -1.2745016 -1.2022891 -2.2958977 -1.5224508 -1.2160146 1.273448 -1.2160146]))))

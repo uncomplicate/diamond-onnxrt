@@ -78,10 +78,10 @@
                  opt (-> (options)
                          (append-provider! :cuda)
                          (config! {:log-severity-level 1}))
-                 mem-info (memory-info :cuda :arena 0 :default)
-                 mem-info1 (memory-info :cuda :arena 0 :default)
-                 mem-info2 (memory-info :cuda :device 0 :default)
-                 mem-info3 (memory-info :cuda :device 0 :default)]
+                 mem-info (memory-info :cuda :arena :default)
+                 mem-info1 (memory-info :cuda :arena :default)
+                 mem-info2 (memory-info :cuda :device :default)
+                 mem-info3 (memory-info :cuda :device :default)]
     (allocator-key mem-info) => :cuda
     (allocator-key mem-info1) => :cuda
     (allocator-key mem-info2) => :cuda
@@ -102,7 +102,7 @@
      "Test CUDA tensor values."
      (with-release [env (environment nil)
                     opt (-> (options) (append-provider! :cuda))
-                    mem-info (memory-info :cuda :device 0 :default)
+                    mem-info (memory-info :cuda :device :default)
                     data (mem-alloc-runtime (* 5 Float/BYTES) :float)
                     val (onnx-tensor mem-info [2 2] data)
                     empty-val (onnx-tensor mem-info [0 1] data)
@@ -142,7 +142,7 @@
                            (append-provider! :cuda {:stream hstream})
                            (graph-optimization! :extended))
                    sess (session env "data/mnist-12.onnx" opt)
-                   mem-info (memory-info :cuda :device 0 :default)
+                   mem-info (memory-info :cuda :device)
                    x-data (mem-alloc-runtime (* 784 Float/BYTES) :float)
                    x (onnx-tensor mem-info [1 1 28 28] x-data)
                    y-data! (mem-alloc-runtime (* 10 Float/BYTES) :float)
@@ -167,8 +167,8 @@
                           (override-dimension! "seq_len" 3) ;;optional
                           (graph-optimization! :extended))
                   sess (session env "data/gpt2-lm-head-bs-12.onnx" opt)
-                  cpu-mem-info (memory-info :cpu :arena 0 :default)
-                  cuda-mem-info (memory-info :cuda :device 0 :default)
+                  cpu-mem-info (memory-info :cpu :arena :default)
+                  cuda-mem-info (memory-info :cuda :device :default)
                   input-ids-data (mem-alloc-runtime (* 3 Long/BYTES) :long)
                   input-ids (onnx-tensor cuda-mem-info [1 3] input-ids-data) ;; Grass is
                   attention-mask-data (memset! (mem-alloc-runtime (* 3 Float/BYTES) :float) (float 1.0))
@@ -205,7 +205,7 @@
                              (override-dimension! "past_sequence_length + 1" total-seq-len)
                              (graph-optimization! :extended))
                      sess (session env "data/SmolLM-135M/onnx/model.onnx" opt)
-                     mem-info (memory-info :cuda :device 0 :default)
+                     mem-info (memory-info :cuda :device :default)
                      input-info (input-type-info sess)
                      output-info (output-type-info sess)
                      input-ids-data (mem-alloc-runtime (* batch-size seq-len Long/BYTES) :long)

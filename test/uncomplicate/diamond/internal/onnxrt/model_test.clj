@@ -32,7 +32,7 @@
                          (append-provider! :dnnl)
                          (graph-optimization! :extended))
                  sess (session env "data/mnist-12.onnx" opt)
-                 mem-info (memory-info (device (neanderthal-factory *diamond-factory* :float)) :device 0 :default)
+                 mem-info (memory-info (device (neanderthal-factory *diamond-factory* :float)) :device :default)
                  mnist-bp (onnx-single-io-model sess mem-info)
                  src-tz (tensor [1 1 28 28] :float :nchw)
                  mnist-infer! (mnist-bp src-tz)]
@@ -69,7 +69,7 @@
   (with-release [env (environment :warning "test" nil)
                  opt (options)
                  sess (session env "data/mnist-12.onnx" opt)
-                 mem-info (memory-info :cpu :device 0 :default)
+                 mem-info (memory-info :cpu :device :default)
                  mnist-bp (onnx-multi-io-model sess opt nil mem-info)
                  src-tz (tensor [1 1 28 28] :float :nchw)
                  mnist-infer! (mnist-bp [src-tz])]
@@ -107,7 +107,7 @@
                        (override-dimension! "past_sequence_length + 1" 1)
                        (graph-optimization! :extended))
                sess (session env "data/SmolLM-135M/onnx/model.onnx" opt)
-               mem-info (memory-info (device (neanderthal-factory *diamond-factory* :float)) :device 0 :default)
+               mem-info (memory-info (device (neanderthal-factory *diamond-factory* :float)) :device :default)
                smollm-bp (onnx-multi-io-model sess opt nil mem-info)
                src-tz (tensor [1 1 28 28] :float :nchw)
                input-ids (tensor vect-fact [1 1] :long :nc)

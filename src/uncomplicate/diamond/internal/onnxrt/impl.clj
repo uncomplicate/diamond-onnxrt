@@ -44,10 +44,6 @@
        :tag OrtApi$RunOptionsSetSyncStream_OrtRunOptions_OrtSyncStream}
   *set-sync-stream*)
 
-(def ^{:dynamic true
-       :tag OrtApi$RunOptionsSetSyncStream_OrtRunOptions_OrtSyncStream}
-  *get-sync-stream*)
-
 (defn api* [^OrtApiBase ort-api-base ^long version]
   (.call (.GetApi ort-api-base) version))
 
@@ -483,9 +479,9 @@
    (call-pointer-pointer ort-api OrtSession CreateSession env model-path opt))
   ([^OrtApi ort-api ^OrtEnv env
     ^Pointer model-path ^OrtSessionOptions opt
-    ^OrtPrepackedWeightsContainer prepacked-weihgts-container]
+    ^OrtPrepackedWeightsContainer prepacked-weights-container]
    (call-pointer-pointer ort-api OrtSession CreateSessionWithPrepackedWeightsContainer env
-                         model-path opt prepacked-weihgts-container)))
+                         model-path opt prepacked-weights-container)))
 
 (defn session-from-array*
   ([^OrtApi ort-api ^OrtEnv env
@@ -494,9 +490,9 @@
                          model-data (size model-data) opt))
   ([^OrtApi ort-api ^OrtEnv env
     ^Pointer model-data ^OrtSessionOptions opt
-    ^OrtPrepackedWeightsContainer prepacked-weihgts-container]
+    ^OrtPrepackedWeightsContainer prepacked-weights-container]
    (call-pointer-pointer ort-api OrtSession CreateSessionFromArrayWithPrepackedWeightsContainer env
-                         model-data (size model-data) opt prepacked-weihgts-container)))
+                         model-data (size model-data) opt prepacked-weights-container)))
 
 (defn run*
   ([^OrtApi ort-api ^OrtSession sess ^OrtRunOptions run-opt
@@ -787,9 +783,15 @@
 ;; =================== Memory Info =================================================================
 
 ;;TODO use v2 from 1.23+
-(defn memory-info* [^OrtApi ort-api ^BytePointer name type id mem-type]
+#_(defn memory-info* [^OrtApi ort-api ^BytePointer name type id mem-type]
   (call-pointer-pointer ort-api
       OrtMemoryInfo CreateMemoryInfo name (int type) (int id) (int mem-type)))
+
+(defn memory-info* [^OrtApi ort-api ^BytePointer allocator-name allocator-type
+                    device-type vendor-id device-id mem-type alignment]
+  (call-pointer-pointer ort-api OrtMemoryInfo CreateMemoryInfo_V2 allocator-name
+                        (int device-type) (int vendor-id) (int device-id) (int mem-type)
+                        (long alignment) (int allocator-type)))
 
 (defn compare-memory-info* [^OrtApi ort-api ^OrtMemoryInfo info1 ^OrtMemoryInfo info2]
   (= 0 (call-int ort-api CompareMemoryInfo info1 info2)))

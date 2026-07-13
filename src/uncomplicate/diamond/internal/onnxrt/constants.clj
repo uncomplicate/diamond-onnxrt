@@ -192,7 +192,7 @@
     1 :arena
     (dragan-says-ex "Unknown allocator type." {:type type})))
 
-(def ^:const ort-mem-type
+(def ^:const ort-memory-type
   {:cpu onnxruntime/OrtMemTypeCPU
    :input onnxruntime/OrtMemTypeCPUInput
    :output onnxruntime/OrtMemTypeCPUOutput
@@ -209,7 +209,10 @@
 
 (def ^:const ort-memory-info-device-type
   {:cpu onnxruntime/OrtMemoryInfoDeviceType_CPU
+   :openvino onnxruntime/OrtMemoryInfoDeviceType_CPU
+   :dnnl onnxruntime/OrtMemoryInfoDeviceType_CPU
    :gpu onnxruntime/OrtMemoryInfoDeviceType_GPU
+   :cuda onnxruntime/OrtMemoryInfoDeviceType_GPU
    :fpga onnxruntime/OrtMemoryInfoDeviceType_FPGA})
 
 (defn dec-ort-memory-info-device-type [^long type]
@@ -218,6 +221,23 @@
     1 :gpu
     2 :fpga
     (dragan-says-ex "Unknown device type." {:type type})))
+
+
+(def ^:const ort-memory-info-vendor-id
+  {:cpu 0
+   :any -1
+   :gpu -1
+   :openvino 0
+   :dnnl 0
+   :nvidia 4318
+   :cuda 4318
+   :intel 32902
+   :amd 4098
+   :arm 5045
+   :qualcomm 20803
+   :huawei 6629
+   :apple 1414
+   :coreml 1414})
 
 (def ^:const ort-cudnn-conv
   {:exhaustive onnxruntime/OrtCudnnConvAlgoSearchExhaustive
@@ -238,7 +258,6 @@
    :dnm "DML"
    :hip "Hip"
    :hip-pinned "HipPinned"
-   :vino-cpu "OpenVINO_CPU"
    :openvino-cpu "OpenVINO_CPU"
    :openvino "OpenVINO_CPU"
    :openvino-gpu "OpenVINO_GPU"
@@ -392,6 +411,34 @@
   (case entry
     "1" false
     "0" true
+    (not entry)))
+
+(defn true->True [entry]
+  (case entry
+    "True" "True"
+    "False" "False"
+    (if entry
+      "True"
+      "False")))
+
+(defn true->False [entry]
+  (case entry
+    "True" "False"
+    "False" "True"
+    (if entry
+      "False"
+      "True")))
+
+(defn True->true [entry]
+  (case entry
+    "True" true
+    "False" false
+    entry))
+
+(defn False->true [entry]
+  (case entry
+    "True" false
+    "False" true
     (not entry)))
 
 (defn capitalized-name [obj]
@@ -892,9 +939,9 @@
    :num-of-streams str
    :cache-dir str
    :load-config write-json
-   :enable-qdq-optimizer one->true
-   :enable-dynamic-shapes zero->true
-   :dynamic-shapes zero->true
-   :disable-dynamic-shapes one->true
+   :enable-qdq-optimizer true->True
+   :enable-dynamic-shapes true->False
+   :dynamic-shapes true->False
+   :disable-dynamic-shapes true->True
    :reshape-input str
    :layout str})

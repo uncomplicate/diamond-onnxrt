@@ -828,18 +828,25 @@
 ;; ======================= OrtMemoryInfo ===========================================================
 
 (defn memory-info
-  ([alloc-key alloc-type device-id mem-type]
+  ([alloc-key alloc-type device-type vendor-id device-id mem-type alignment]
    (with-release [name (safe (byte-pointer (get ort-allocator-name alloc-key alloc-key)))]
-     (memory-info* *ort-api* name
-                   (enc-keyword ort-allocator-type alloc-type)
-                   device-id
-                   (enc-keyword ort-mem-type mem-type))))
+     (memory-info* *ort-api* name (enc-keyword ort-allocator-type alloc-type)
+                   (enc-keyword ort-memory-info-device-type device-type)
+                   (enc-keyword ort-memory-info-vendor-id vendor-id) device-id
+                   (enc-keyword ort-memory-type mem-type)
+                   alignment)))
+  ([alloc-key alloc-type device-type device-id mem-type alignment]
+   (memory-info alloc-key alloc-type device-type device-type device-id mem-type alignment))
+  ([alloc-key alloc-type device-type device-id mem-type]
+   (memory-info alloc-key alloc-type device-type device-id mem-type 0))
+  ([alloc-key alloc-type device-type mem-type]
+   (memory-info alloc-key alloc-type device-type 0 mem-type))
   ([alloc-key alloc-type mem-type]
-   (memory-info alloc-key alloc-type 0 mem-type))
+   (memory-info alloc-key alloc-type alloc-key mem-type))
   ([alloc-key alloc-type]
-   (memory-info alloc-key alloc-type 0 :default))
+   (memory-info alloc-key alloc-type :default))
   ([alloc-key]
-   (memory-info alloc-key :arena 0 :default))
+   (memory-info alloc-key :arena))
   ([]
    (memory-info :cpu)))
 
