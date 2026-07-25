@@ -15,17 +15,17 @@
             [uncomplicate.clojure-cpp
              :refer [get-string get-entry byte-pointer long-pointer null? pointer pointer-pointer
                      pointer-type pointer-vec safe safe2 get-pointer capacity! limit size-t-pointer
-                     limit!]]
+                     limit! put-entry!]]
             [uncomplicate.diamond.internal.onnxrt
              [constants :refer :all]
              [impl :refer :all]])
-  (:import [clojure.lang Seqable IFn AFn]
+  (:import [clojure.lang Seqable IFn AFn Keyword]
            [org.bytedeco.javacpp Pointer PointerPointer]
            org.bytedeco.onnxruntime.global.onnxruntime
            [org.bytedeco.onnxruntime OrtDnnlProviderOptions OrtTypeInfo OrtTensorTypeAndShapeInfo
             OrtSequenceTypeInfo OrtMapTypeInfo OrtOptionalTypeInfo OrtMemoryInfo OrtValue
-            OrtThreadingOptions OrtModelMetadata OrtIoBinding OrtSessionOptions OrtRunOptions
-            OrtSession OrtCUDAProviderOptionsV2]))
+            OrtAllocator OrtSession OrtCUDAProviderOptionsV2 OrtThreadingOptions OrtSessionOptions
+            OrtRunOptions OrtModelMetadata OrtIoBinding]))
 
 (defprotocol OnnxType
   (onnx-type [this]))
@@ -903,14 +903,47 @@
                      (safe (long-pointer (seq shape)))
                      (enc-keyword onnx-data-type data-type))))
   ([mem-info-or-alloc shape data-or-type]
-   (if (keyword? data-or-type)
-     (allocate-tensor* *ort-api* (safe mem-info-or-alloc)
+   (construct-tensor* mem-info-or-alloc shape data-or-type))
+  ([arg data-or-type]
+   (construct-tensor* arg data-or-type))
+  ([data]
+   (onnx-tensor *default-allocator* data)))
+
+(defn mutable-data [value]
+  (when-let [res (tensor-mutable-data* *ort-api* value)]
+    (capacity! res (tensor-size-in-bytes* *ort-api* value))))
+
+(extend-type OrtMemoryInfo
+  TensorConstructor
+  (construct-tensor*
+    ([mem-info shape data]
+     (onnx-tensor mem-info shape data (enc-keyword pointer-type (type (pointer data)))))
+    ([mem-info data]
+     (let-release [data (pointer data)
+                   len (long (size data))]
+       (create-tensor* *ort-api* (safe mem-info) (safe data)
+                       (long-pointer [(if (= 1 len) 0 len)])
+                       (enc-keyword onnx-data-type
+                                    (enc-keyword pointer-type (type data))))))))
+
+(extend-type OrtAllocator
+  TensorConstructor
+  (construct-tensor*
+    ([alloc shape data-type]
+     (allocate-tensor* *ort-api* (safe alloc)
                        (safe (long-pointer (seq shape)))
-                       (enc-keyword onnx-data-type data-or-type))
-     (onnx-tensor mem-info-or-alloc shape data-or-type
-                  (enc-keyword pointer-type (type (pointer data-or-type))))))
-  ([shape data-type]
-   (onnx-tensor *default-allocator* shape data-type)))
+                       (enc-keyword onnx-data-type data-type)))
+    ([alloc data-type]
+     (allocate-tensor* *ort-api* (safe alloc)
+                       (safe (long-pointer [0]))
+                       (enc-keyword onnx-data-type data-type)))))
+
+(extend-type clojure.lang.Sequential
+  TensorConstructor
+  (construct-tensor* [shape data-type]
+    (allocate-tensor* *ort-api* *default-allocator*
+                      (safe (long-pointer (seq shape)))
+                      (enc-keyword onnx-data-type data-type))))
 
 (defn value
   ([ptr]
@@ -938,10 +971,6 @@
 
 (defn none? [value]
   (= 0 (has-value* *ort-api* (safe value))))
-
-(defn mutable-data [value]
-  (when-let [res (tensor-mutable-data* *ort-api* value)]
-    (capacity! res (tensor-size-in-bytes* *ort-api* value))))
 
 (defn value-value
   ([value ^long i]

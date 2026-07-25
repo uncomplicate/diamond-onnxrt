@@ -13,7 +13,7 @@
             [uncomplicate.fluokitten.core :refer [fold fmap!]]
             [uncomplicate.clojure-cpp
              :refer [null? float-pointer long-pointer pointer-vec capacity! put-entry! fill! get-entry
-                     pointer-pointer zero! get-pointer]]
+                     pointer-pointer zero! get-pointer pointer]]
             [uncomplicate.neanderthal.math :refer [exp]]
             [uncomplicate.diamond.internal.onnxrt.core :refer :all])
   (:import clojure.lang.ExceptionInfo))
@@ -111,7 +111,11 @@
                  val (onnx-tensor mem-info [2 2] data)
                  val-type-info (value-info val)
                  val-tensor-type-info (value-tensor-info val)
-                 tz-info (tensor-info [1 2] :double)]
+                 tz-info (tensor-info [1 2] :double)
+                 scalar (onnx-tensor mem-info (pointer 1))
+                 scalar-tensor-type-info (value-tensor-info scalar)]
+    (tensor? scalar) => true
+    (scalar? scalar-tensor-type-info) => false
     (info val) => {:value {:data-type :float :shape [2 2]}}
     (info tz-info) => {:data-type :double :shape [1 2]}
     (tensor-type! tz-info :float) => tz-info

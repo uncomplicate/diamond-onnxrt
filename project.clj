@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject org.uncomplicate/diamond-onnxrt "0.27.0-SNAPSHOT"
+(defproject org.uncomplicate/diamond-onnxrt "0.28.0-SNAPSHOT"
   :description "Fast Clojure Machine Learning Model Integration"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
@@ -17,7 +17,7 @@
                  [org.uncomplicate/deep-diamond-base "0.46.0"]
                  [org.uncomplicate/deep-diamond-dnnl "0.46.0"]
                  [org.bytedeco/onnxruntime-platform "1.26.0-1.5.14-SNAPSHOT"]
-                 [org.bytedeco/openvino-platform "2026.1.0-1.5.14-SNAPSHOT"]]
+                 [org.bytedeco/openvino-platform "2026.2.1-1.5.14-SNAPSHOT"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {:plugins [[lein-midje "3.2.1"]]

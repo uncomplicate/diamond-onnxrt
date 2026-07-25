@@ -30,6 +30,9 @@
             OrtApi$RunOptionsSetSyncStream_OrtRunOptions_OrtSyncStream
             OrtApi$SyncStream_GetHandle_OrtSyncStream]))
 
+(defprotocol TensorConstructor
+  (construct-tensor* [this shape data-or-type] [this data-or-type]))
+
 (def ^{:dynamic true :tag OrtApi} *ort-api*)
 (def ^{:dynamic true :tag OrtAllocator} *default-allocator*)
 (def ^{:dynamic true
@@ -781,11 +784,6 @@
      info)))
 
 ;; =================== Memory Info =================================================================
-
-;;TODO use v2 from 1.23+
-#_(defn memory-info* [^OrtApi ort-api ^BytePointer name type id mem-type]
-  (call-pointer-pointer ort-api
-      OrtMemoryInfo CreateMemoryInfo name (int type) (int id) (int mem-type)))
 
 (defn memory-info* [^OrtApi ort-api ^BytePointer allocator-name allocator-type
                     device-type vendor-id device-id mem-type alignment]

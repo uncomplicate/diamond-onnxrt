@@ -25,14 +25,16 @@
    :env-options nil
    :logging-level :warning
    :log-name (name (gensym "diamond_onnxrt_"))
-   :graph-optimization :extended
+   :graph-optimization :all
+   :execution-mode :sequential
+   :cpu-mem-arena false
    :options nil
    :ep nil
    :dnnl {:arena true}
    :cuda {:device-id 0
-          :copy-in-default-stream true
+          :copy-in-default-stream false
           ;;:conv-algo-search :exhaustive ;;TODO
-          :conv-use-max-workspace true
+          :conv-use-max-workspace false
           :enable-cuda-graph false
           :conv1d-pad-to-nc1d false
           :tunable-op-enable false
@@ -44,7 +46,8 @@
           :ep-level-unified-stream false
           :tf32 true
           :fuse-conv-bias false
-          :sdpa-kernel false}
+          :sdpa-kernel false
+          :arena-extend-strategy :requested}
    :coreml {:compute-units :all
             :model-format :ml-program
             :static-input true
