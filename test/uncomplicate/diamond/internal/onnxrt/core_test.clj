@@ -115,7 +115,7 @@
                  scalar (onnx-tensor mem-info (pointer 1))
                  scalar-tensor-type-info (value-tensor-info scalar)]
     (tensor? scalar) => true
-    (scalar? scalar-tensor-type-info) => false
+    (scalar? scalar-tensor-type-info) => true
     (info val) => {:value {:data-type :float :shape [2 2]}}
     (info tz-info) => {:data-type :double :shape [1 2]}
     (tensor-type! tz-info :float) => tz-info

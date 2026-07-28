@@ -900,7 +900,9 @@
   ([mem-info shape data data-type]
    (let [data (pointer data)]
      (create-tensor* *ort-api* (safe mem-info) (safe data)
-                     (safe (long-pointer (seq shape)))
+                     (if-let [shape (seq shape)]
+                       (safe (long-pointer shape))
+                       (long-pointer 0))
                      (enc-keyword onnx-data-type data-type))))
   ([mem-info-or-alloc shape data-or-type]
    (construct-tensor* mem-info-or-alloc shape data-or-type))
@@ -922,7 +924,7 @@
      (let-release [data (pointer data)
                    len (long (size data))]
        (create-tensor* *ort-api* (safe mem-info) (safe data)
-                       (long-pointer [(if (= 1 len) 0 len)])
+                       (long-pointer (if (= 1 len) 0 [len]))
                        (enc-keyword onnx-data-type
                                     (enc-keyword pointer-type (type data))))))))
 
