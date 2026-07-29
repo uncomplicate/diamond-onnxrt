@@ -14,10 +14,11 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.5"]
                  [com.cnuernber/charred "1.038"]
+                 [org.uncomplicate/neanderthal-base "0.65.0-SNAPSHOT"]
                  [org.uncomplicate/deep-diamond-base "0.46.0"]
                  [org.uncomplicate/deep-diamond-dnnl "0.46.0"]
                  [org.bytedeco/onnxruntime-platform "1.28.0-1.5.14-SNAPSHOT"]
-                 #_[org.bytedeco/openvino-platform "2026.2.1-1.5.14-SNAPSHOT"]]
+                 [org.bytedeco/openvino-platform "2026.2.1-1.5.14-SNAPSHOT"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {:plugins [[lein-midje "3.2.1"]]
@@ -30,7 +31,7 @@
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                             "--enable-native-access=ALL-UNNAMED"]}
              :linux {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.28.0-1.5.14-SNAPSHOT"]
-                                    [org.uncomplicate/neanderthal-mkl "0.64.0"]
+                                    [org.uncomplicate/neanderthal-mkl "0.65.0-SNAPSHOT"]
                                     [org.bytedeco/mkl "2025.3-1.5.13" :classifier "linux-x86_64-redist"]
                                     [org.uncomplicate/deep-diamond-cuda "0.46.0"]
                                     [org.bytedeco/cuda-platform "13.3-9.24-1.5.14-SNAPSHOT"]
@@ -39,7 +40,7 @@
                                     [org.bytedeco/cuda-redist-cudnn "13.3-9.24-1.5.14-SNAPSHOT" :classifier "linux-x86_64"]
                                     [org.bytedeco/cuda-redist-nccl "13.3-9.24-1.5.14-SNAPSHOT" :classifier "linux-x86_64"]]}
              :windows {:dependencies [[org.bytedeco/onnxruntime-platform-gpu "1.28.0-1.5.14-SNAPSHOT"]
-                                      [org.uncomplicate/neanderthal-mkl "0.64.0"]
+                                      [org.uncomplicate/neanderthal-mkl "0.65.0-SNAPSHOT"]
                                       [org.bytedeco/mkl "2025.3-1.5.13" :classifier "windows-x86_64-redist"]
                                       [org.uncomplicate/deep-diamond-cuda "0.46.0"]
                                       [org.bytedeco/cuda-redist "13.3-9.24-1.5.14-SNAPSHOT" :classifier "windows-x86_64"]

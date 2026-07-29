@@ -923,7 +923,7 @@
    :gpu-1 "GPU.1"
    :hetero "HETERO"
    :multi "MULTI"
-   :auto "AUTO:GPU,NPU,CPU"})
+   :auto "AUTO"})
 
 (def ^:const vino-precision
   {:fp32 "FP32"

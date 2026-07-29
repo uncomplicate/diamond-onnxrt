@@ -20,7 +20,7 @@
 
 (facts
   "Test system."
-  (version) => {:major 1 :minor 26 :update 0}
+  (version) => {:major 1 :minor 28 :update 0}
   (filter #{:dnnl :cpu} (available-providers)) => [:dnnl :cpu]
   (type (build-info)) => String)
 
@@ -232,7 +232,7 @@
   ;; This uses a logreg_iris.onnx model that matches the iris data as described in literature
   (with-release [env (environment nil)
                  opt (doto (options)
-                       (append-provider! :openvino)
+                       (append-provider! :openvino {:device-type :auto})
                        (graph-optimization! :extended)
                        (override-dimension! :batch 2)
                        (override-dimension! "non_existing" 2))
@@ -303,7 +303,7 @@
   "Simple MNIST inference test."
   (with-release [env (environment :warning "test" nil)
                  opt (-> (options)
-                         (append-provider! :openvino {:device-type :cpu
+                         (append-provider! :openvino {:device-type :auto
                                                       :dynamic-shapes true})
                          (graph-optimization! :extended))
                  sess (session env "data/mnist-12.onnx" opt)
@@ -377,7 +377,7 @@
         total-seq-len 1]
       (with-release [env (environment :warning "test" nil)
                      opt (-> (options)
-                             (append-provider! :openvino {:device-type :cpu
+                             (append-provider! :openvino {:device-type :auto
                                                           :dynamic-shapes false})
                              (override-dimension! "batch_size" batch-size)
                              (override-dimension! "sequence_length" seq-len)
@@ -522,4 +522,4 @@
                      next! (runner* sess)]
         (time (next! data-binding)) => data-binding
         (pointer-vec (capacity! (float-pointer (mutable-data (first (bound-values data-binding)))) 8))
-        => (map float [13.046626 -1.2745016 -1.2022891 -2.2958977 -1.5224508 -1.2160146 1.273448 -1.2160146]))))
+        => (map float [13.04678 -1.2744722 -1.202264 -2.295876 -1.522425 -1.2159872 1.2733095 -1.2159872]))))

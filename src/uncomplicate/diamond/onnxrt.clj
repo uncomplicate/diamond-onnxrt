@@ -55,7 +55,7 @@
             :specialization-strategy :fast-prediction
             :profile-compute-plan false
             :low-precision-accumulation false}
-   :openvino {:device-type :cpu
+   :openvino {:device-type :auto
               :precision :fp32}
    :run-options nil})
 
