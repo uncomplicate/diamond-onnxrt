@@ -13,14 +13,14 @@
             [uncomplicate.diamond
              [tensor :refer [tensor with-diamond]]
              [dnn :refer [network]]
-             [onnxrt :refer [onnx ort-cuda-context]]]
+             [onnxrt :refer [onnx]]]
             [uncomplicate.diamond.cuda :refer [cuda-factory]]
             [hello-world.native :refer [input-desc input-tz mnist-onnx]]))
 
 ;; There are a few flavors of how you can run this in, these are just two of many! Explore :)
 ;; We can even reuse most of the general parts from the native example.
 
-(with-diamond cuda-factory [(ort-cuda-context) default-stream]
+(with-diamond cuda-factory []
   (with-release [cuda-input-tz (tensor input-desc)
                  mnist (network cuda-input-tz [mnist-onnx])
                  classify! (mnist cuda-input-tz)]
