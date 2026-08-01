@@ -142,7 +142,7 @@
                            (append-provider! :cuda {:stream hstream})
                            (graph-optimization! :extended))
                    sess (session env "data/mnist-12.onnx" opt)
-                   mem-info (memory-info :cuda :device)
+                   mem-info (memory-info :cuda :device :default)
                    x-data (mem-alloc-runtime (* 784 Float/BYTES) :float)
                    x (onnx-tensor mem-info [1 1 28 28] x-data)
                    y-data! (mem-alloc-runtime (* 10 Float/BYTES) :float)
@@ -189,6 +189,7 @@
      => [8642 562 318]))) ;; Grass is not the only way to Grass is not the only way to
 
 (with-context (context)
+
   (facts
     "SmolLM inference test."
     (let [batch-size 1
